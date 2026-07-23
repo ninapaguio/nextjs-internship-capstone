@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+@config "../tailwind.config.js";
+
+@custom-variant dark (&:is(.dark *));
 
 @layer base {
   :root {
@@ -11,10 +13,6 @@
     --paynes-gray: #4c5c68;
     --blue-munsell: #1985a1;
   }
-
-  .dark {
-    /* Dark theme color adjustments */
-  }
 }
 
 @layer utilities {
@@ -22,14 +20,14 @@
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .line-clamp-3 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 }
 
