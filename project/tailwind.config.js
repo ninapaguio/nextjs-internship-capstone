@@ -83,7 +83,7 @@ module.exports = {
           800: "#0e0f0f",
           900: "#d9dbdc",
         },
-        "payne's_gray": {
+        "paynes_gray": {
           DEFAULT: "#4c5c68",
           50: "#d9dfe3",
           100: "#b2bec7",
