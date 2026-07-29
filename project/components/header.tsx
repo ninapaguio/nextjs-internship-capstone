@@ -1,5 +1,6 @@
 "use client";
 
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -38,12 +39,33 @@ export function Header() {
 					<div className="flex items-center space-x-4">
 						<ThemeToggle />
 
-						<Link
-							href="/dashboard"
-							className="px-4 py-2 bg-blue_munsell-500 text-white rounded-lg hover:bg-blue_munsell-600 transition-colors"
-						>
-							Get Started
-						</Link>
+						<Show when="signed-out">
+							<SignInButton mode="redirect">
+								<button
+									type="button"
+									className="text-outer_space-500 transition-colors hover:text-blue_munsell-500 dark:text-platinum-500"
+								>
+									Sign in
+								</button>
+							</SignInButton>
+							<SignUpButton mode="redirect">
+								<button
+									type="button"
+									className="rounded-lg bg-blue_munsell-500 px-4 py-2 text-white transition-colors hover:bg-blue_munsell-600"
+								>
+									Get started
+								</button>
+							</SignUpButton>
+						</Show>
+						<Show when="signed-in">
+							<Link
+								href="/dashboard"
+								className="text-outer_space-500 transition-colors hover:text-blue_munsell-500 dark:text-platinum-500"
+							>
+								Dashboard
+							</Link>
+							<UserButton />
+						</Show>
 					</div>
 				</div>
 			</div>

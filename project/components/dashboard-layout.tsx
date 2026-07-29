@@ -14,6 +14,7 @@ import Link from "next/link";
 import type React from "react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UserAuthControls } from "@/components/user-auth-controls";
 
 const navigation = [
 	{ name: "Dashboard", href: "/dashboard", icon: Home },
@@ -31,7 +32,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 		<div className="min-h-screen bg-platinum-900 dark:bg-outer_space-600">
 			{/* Mobile sidebar overlay */}
 			{sidebarOpen && (
-				<div
+				<button
+					type="button"
+					aria-label="Close sidebar"
 					className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
 					onClick={() => setSidebarOpen(false)}
 				/>
@@ -46,6 +49,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 						TaskFlow
 					</Link>
 					<button
+						type="button"
 						onClick={() => setSidebarOpen(false)}
 						className="lg:hidden p-2 rounded-lg hover:bg-platinum-500 dark:hover:bg-paynes_gray-400"
 					>
@@ -75,6 +79,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 				{/* Top bar */}
 				<div className="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b border-french_gray-300 dark:border-paynes_gray-400 bg-white dark:bg-outer_space-500 px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
 					<button
+						type="button"
 						onClick={() => setSidebarOpen(true)}
 						className="lg:hidden p-2 rounded-lg hover:bg-platinum-500 dark:hover:bg-paynes_gray-400"
 					>
@@ -86,9 +91,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 						<div className="flex items-center gap-x-4 lg:gap-x-6">
 							<ThemeToggle />
 
-							<div className="w-8 h-8 bg-blue_munsell-500 rounded-full flex items-center justify-center text-white font-semibold">
-								U
-							</div>
+							<UserAuthControls />
 						</div>
 					</div>
 				</div>
