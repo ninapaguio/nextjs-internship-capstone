@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import type React from "react";
+import { DashboardShell } from "@/components/dashboard-shell";
 
 export default async function ProtectedDashboardLayout({
 	children,
@@ -8,5 +9,5 @@ export default async function ProtectedDashboardLayout({
 }) {
 	await auth.protect();
 
-	return children;
+	return <DashboardShell>{children}</DashboardShell>;
 }

@@ -37,8 +37,21 @@ export const queries = {
 }
 */
 
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import * as schema from "@/lib/db/schema";
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+	throw new Error("DATABASE_URL is not configured");
+}
+
+const client = neon(databaseUrl);
+
+export const db = drizzle(client, { schema });
 // Placeholder exports to prevent import errors
-export const db = "TODO: Implement database connection";
+// export const db = "TODO: Implement database connection";
 
 export const queries = {
 	projects: {

@@ -54,5 +54,21 @@ export interface Comment {
 	updatedAt: Date;
 }
 
+export interface UIState {
+	// store/ui-store
+	sidebarOpen: boolean;
+	createProjectModalOpen: boolean;
+	createTaskModalOpen: boolean;
+	selectedTaskId: string | null;
+
+	openSidebar: () => void;
+	closeSidebar: () => void;
+	openCreateProjectModal: () => void;
+	closeCreateProjectModal: () => void;
+	openCreateTaskModal: () => void;
+	closeCreateTaskModal: () => void;
+	openTaskDetails: (taskId: string) => void;
+	closeTaskDetails: () => void;
+}
 // Note for interns: These types should match your database schema
 // Update as needed when implementing the actual database schema
