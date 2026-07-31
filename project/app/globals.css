@@ -1,53 +1,51 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+@config "../tailwind.config.js";
+
+@custom-variant dark (&:is(.dark *));
 
 @layer base {
-  :root {
-    /* Custom color palette variables */
-    --platinum: #dcdcdd;
-    --french-gray: #c5c3c6;
-    --outer-space: #46494c;
-    --paynes-gray: #4c5c68;
-    --blue-munsell: #1985a1;
-  }
-
-  .dark {
-    /* Dark theme color adjustments */
-  }
+	:root {
+		/* Custom color palette variables */
+		--platinum: #dcdcdd;
+		--french-gray: #c5c3c6;
+		--outer-space: #46494c;
+		--paynes-gray: #4c5c68;
+		--blue-munsell: #1985a1;
+	}
 }
 
 @layer utilities {
-  .line-clamp-2 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
+	.line-clamp-2 {
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		line-clamp: 2;
+	}
 
-  .line-clamp-3 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-  }
+	.line-clamp-3 {
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		line-clamp: 3;
+	}
 }
 
 /* Custom scrollbar styles */
 .scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--french-gray) transparent;
+	scrollbar-width: thin;
+	scrollbar-color: var(--french-gray) transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
+	width: 6px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+	background: transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: var(--french-gray);
-  border-radius: 3px;
+	background-color: var(--french-gray);
+	border-radius: 3px;
 }
