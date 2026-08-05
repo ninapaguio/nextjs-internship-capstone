@@ -34,8 +34,474 @@ export const taskSchema = z.object({
 */
 
 // Placeholder exports to prevent import errors
-export const projectSchema = "TODO: Implement project validation schema";
+/* export const projectSchema = "TODO: Implement project validation schema";
 export const taskSchema = "TODO: Implement task validation schema";
 export const userSchema = "TODO: Implement user validation schema";
 export const listSchema = "TODO: Implement list validation schema";
-export const commentSchema = "TODO: Implement comment validation schema";
+export const commentSchema = "TODO: Implement comment validation schema"; */
+
+import { z } from "zod";
+
+const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const ROLE_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+function emptyStringToUndefined(value: unknown) {
+	if (typeof value !== "string") return value;
+
+	const trimmedValue = value.trim();
+	return trimmedValue === "" ? undefined : trimmedValue;
+}
+
+function optionalText(maxLength: number, message: string) {
+	return z.preprocess(
+		emptyStringToUndefined,
+		z.string().trim().max(maxLength, message).optional(),
+	);
+}
+
+function nullableText(maxLength: number, message: string) {
+	return z.preprocess(
+		(value) =>
+			typeof value === "string" && value.trim() === "" ? null : value,
+		z.string().trim().max(maxLength, message).nullable().optional(),
+	);
+}
+
+function uniqueIds(message: string) {
+	return z
+		.array(z.uuid("Each ID must be a valid UUID"))
+		.max(100, "Too many values were selected")
+		.refine((ids) => new Set(ids).size === ids.length, message)
+		.default([]);
+}
+
+export const uuidSchema = z.uuid("Invalid ID");
+
+export const dateSchema = z.iso.date({
+	error: "Date must be a valid date using YYYY-MM-DD",
+});
+
+export const optionalDateSchema = z.preprocess(
+	emptyStringToUndefined,
+	dateSchema.optional(),
+);
+
+export const nullableDateSchema = z.preprocess(
+	(value) => (typeof value === "string" && value.trim() === "" ? null : value),
+	dateSchema.nullable().optional(),
+);
+
+export const normalizedEmailSchema = z
+	.string()
+	.trim()
+	.min(1, "Email address is required")
+	.max(320, "Email address is too long")
+	.pipe(z.email("Enter a valid email address"))
+	.transform((email) => email.toLowerCase());
+
+export const projectStatusSchema = z.enum([
+	"planned",
+	"active",
+	"completed",
+	"archived",
+]);
+
+export const membershipStatusSchema = z.enum(["active", "not active"]);
+
+export const activityActionSchema = z.enum([
+	"created",
+	"updated",
+	"moved",
+	"assigned",
+	"unassigned",
+	"commented",
+	"completed",
+	"reopened",
+	"deleted",
+]);
+
+const imageUrlSchema = z
+	.url("Image URL is invalid")
+	.max(2048, "Image URL is too long")
+	.refine((value) => /^https:\/\//i.test(value), "Image is invalid");
+
+// Clerk controls this cosmetic profile image. If its URL is malformed, omit
+// only the image instead of blocking synchronization of the required user data
+const clerkImageUrlSchema = z
+	.preprocess(emptyStringToUndefined, imageUrlSchema.optional())
+	.catch(undefined);
+
+const userFields = {
+	clerkId: z.string().trim().min(1, "Clerk user ID is required").max(255),
+	email: normalizedEmailSchema,
+	username: z
+		.string()
+		.trim()
+		.min(1, "Username is required")
+		.max(100, "Username must be 100 characters or fewer"),
+	firstName: optionalText(100, "First name is too long"),
+	lastName: optionalText(100, "Last name is too long"),
+	imageUrl: clerkImageUrlSchema,
+};
+
+// Validates user data received from a Clerk webhook
+export const userSchema = z.object(userFields).strict();
+
+export const userUpdateSchema = z
+	.object({
+		email: normalizedEmailSchema.optional(),
+		username: userFields.username.optional(),
+		firstName: optionalText(100, "First name is too long"),
+		lastName: optionalText(100, "Last name is too long"),
+		imageUrl: z.preprocess(emptyStringToUndefined, imageUrlSchema.optional()),
+	})
+	.strict();
+
+const teamFields = {
+	name: z
+		.string()
+		.trim()
+		.min(1, "Team name is required")
+		.max(120, "Team name must be 120 characters or fewer"),
+	description: optionalText(
+		2000,
+		"Team description must be 2,000 characters or fewer",
+	),
+};
+
+export const createTeamSchema = z.object(teamFields).strict();
+export const updateTeamSchema = z
+	.object({
+		name: teamFields.name.optional(),
+		description: nullableText(
+			2000,
+			"Team description must be 2,000 characters or fewer",
+		),
+	})
+	.strict()
+	.refine(
+		(input) => Object.values(input).some((value) => value !== undefined),
+		{
+			message: "Provide at least one team field to update",
+		},
+	);
+
+export const teamRoleSchema = z
+	.object({
+		teamId: uuidSchema,
+		key: z
+			.string()
+			.trim()
+			.min(1, "Role key is required")
+			.max(50, "Role key must be 50 characters or fewer")
+			.regex(
+				ROLE_KEY_PATTERN,
+				"Role key must use lowercase letters, numbers, and underscores",
+			),
+		name: z
+			.string()
+			.trim()
+			.min(1, "Role name is required")
+			.max(50, "Role name must be 50 characters or fewer"),
+		description: optionalText(
+			500,
+			"Role description must be 500 characters or fewer",
+		),
+		permissionIds: uniqueIds("A permission cannot be assigned twice"),
+	})
+	.strict();
+
+export const teamInvitationSchema = z
+	.object({
+		teamId: uuidSchema,
+		roleId: uuidSchema,
+		memberName: z
+			.string()
+			.trim()
+			.min(1, "Member name is required")
+			.max(120, "Member name must be 120 characters or fewer"),
+		email: normalizedEmailSchema,
+	})
+	.strict();
+
+export const updateTeamMemberSchema = z
+	.object({
+		teamId: uuidSchema,
+		userId: uuidSchema,
+		roleId: uuidSchema.optional(),
+		status: membershipStatusSchema.optional(),
+	})
+	.strict()
+	.refine((input) => input.roleId !== undefined || input.status !== undefined, {
+		message: "Provide a new role or membership status",
+		path: ["roleId"],
+	});
+
+export const removeTeamMemberSchema = z
+	.object({
+		teamId: uuidSchema,
+		userId: uuidSchema,
+	})
+	.strict();
+
+const projectFields = {
+	teamId: uuidSchema,
+	name: z
+		.string()
+		.trim()
+		.min(1, "Project name is required")
+		.max(160, "Project name must be 160 characters or fewer"),
+	description: optionalText(
+		5000,
+		"Project description must be 5,000 characters or fewer",
+	),
+	startDate: optionalDateSchema,
+	endDate: optionalDateSchema,
+};
+
+type ProjectDateInput = {
+	startDate?: string | null;
+	endDate?: string | null;
+};
+
+function validateProjectDateRange(
+	input: ProjectDateInput,
+	ctx: z.RefinementCtx,
+) {
+	if (input.startDate && input.endDate && input.endDate < input.startDate) {
+		ctx.addIssue({
+			code: "custom",
+			message: "End date cannot be earlier than start date",
+			path: ["endDate"],
+		});
+	}
+}
+
+export const createProjectSchema = z
+	.object(projectFields)
+	.strict()
+	.superRefine(validateProjectDateRange);
+
+export const updateProjectSchema = z
+	.object({
+		teamId: projectFields.teamId.optional(),
+		name: projectFields.name.optional(),
+		description: nullableText(
+			5000,
+			"Project description must be 5,000 characters or fewer",
+		),
+		startDate: nullableDateSchema,
+		endDate: nullableDateSchema,
+	})
+	.strict()
+	.superRefine((input, ctx) => {
+		if (!Object.values(input).some((value) => value !== undefined)) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Provide at least one project field to update",
+			});
+		}
+
+		validateProjectDateRange(input, ctx);
+	});
+
+const listFields = {
+	projectId: uuidSchema,
+	name: z
+		.string()
+		.trim()
+		.min(1, "Column name is required")
+		.max(100, "Column name must be 100 characters or fewer"),
+	position: z.coerce
+		.number()
+		.int("Position must be a whole number")
+		.min(0, "Position cannot be negative")
+		.optional(),
+};
+
+export const createListSchema = z.object(listFields).strict();
+export const updateListSchema = z
+	.object({
+		name: listFields.name.optional(),
+		position: listFields.position.optional(),
+	})
+	.strict()
+	.refine(
+		(input) => Object.values(input).some((value) => value !== undefined),
+		{
+			message: "Provide at least one column field to update",
+		},
+	);
+
+export const listLifecycleSchema = z
+	.object({
+		projectId: uuidSchema,
+		listId: uuidSchema,
+		action: z.enum(["archive", "restore", "delete"]),
+	})
+	.strict();
+
+const taskFields = {
+	projectId: uuidSchema,
+	listId: uuidSchema,
+	title: z
+		.string()
+		.trim()
+		.min(1, "Task title is required")
+		.max(200, "Task title must be 200 characters or fewer"),
+	description: optionalText(
+		10_000,
+		"Task description must be 10,000 characters or fewer",
+	),
+	complexityId: uuidSchema,
+	dueDate: optionalDateSchema,
+	position: z.coerce
+		.number()
+		.int("Position must be a whole number")
+		.min(0, "Position cannot be negative")
+		.optional(),
+	assigneeIds: uniqueIds("An assignee cannot be selected twice"),
+	labelIds: uniqueIds("A label cannot be selected twice"),
+};
+
+export const createTaskSchema = z.object(taskFields).strict();
+
+export const updateTaskSchema = z
+	.object({
+		title: taskFields.title.optional(),
+		description: nullableText(
+			10_000,
+			"Task description must be 10,000 characters or fewer",
+		),
+		complexityId: taskFields.complexityId.optional(),
+		dueDate: nullableDateSchema,
+		assigneeIds: taskFields.assigneeIds.optional(),
+		labelIds: taskFields.labelIds.optional(),
+	})
+	.strict()
+	.refine(
+		(input) => Object.values(input).some((value) => value !== undefined),
+		{
+			message: "Provide at least one task field to update",
+		},
+	);
+
+export const moveTaskSchema = z
+	.object({
+		projectId: uuidSchema,
+		taskId: uuidSchema,
+		targetListId: uuidSchema,
+		position: z.coerce
+			.number()
+			.int("Position must be a whole number")
+			.min(0, "Position cannot be negative"),
+	})
+	.strict();
+
+export const taskCompletionSchema = z
+	.object({
+		projectId: uuidSchema,
+		taskId: uuidSchema,
+		completed: z.boolean(),
+	})
+	.strict();
+
+export const taskAssignmentSchema = z
+	.object({
+		projectId: uuidSchema,
+		taskId: uuidSchema,
+		userIds: uniqueIds("An assignee cannot be selected twice"),
+	})
+	.strict();
+
+export const labelSchema = z
+	.object({
+		projectId: uuidSchema,
+		name: z
+			.string()
+			.trim()
+			.min(1, "Label name is required")
+			.max(50, "Label name must be 50 characters or fewer"),
+		color: z
+			.string()
+			.trim()
+			.regex(HEX_COLOR_PATTERN, "Color must be a six-digit hex value"),
+	})
+	.strict();
+
+export const commentSchema = z
+	.object({
+		taskId: uuidSchema,
+		content: z
+			.string()
+			.trim()
+			.min(1, "Comment cannot be empty")
+			.max(5000, "Comment must be 5,000 characters or fewer"),
+	})
+	.strict();
+
+export const updateCommentSchema = z
+	.object({
+		commentId: uuidSchema,
+		content: commentSchema.shape.content,
+	})
+	.strict();
+
+export const entityIdSchema = z.object({ id: uuidSchema }).strict();
+
+export const projectLifecycleSchema = z
+	.object({
+		projectId: uuidSchema,
+		action: z.enum(["archive", "restore", "delete"]),
+	})
+	.strict();
+
+export const teamLifecycleSchema = z
+	.object({
+		teamId: uuidSchema,
+		action: z.enum(["archive", "restore", "delete"]),
+	})
+	.strict();
+
+const booleanQuerySchema = z.union([
+	z.boolean(),
+	z.stringbool({
+		truthy: ["true"],
+		falsy: ["false"],
+		case: "sensitive",
+	}),
+]);
+
+export const paginationSchema = z
+	.object({
+		page: z.coerce.number().int().min(1).default(1),
+		pageSize: z.coerce.number().int().min(1).max(100).default(20),
+	})
+	.strict();
+
+export const projectFilterSchema = z
+	.object({
+		query: optionalText(100, "Search query is too long"),
+		teamId: uuidSchema.optional(),
+		status: projectStatusSchema.exclude(["archived"]).optional(),
+		includeArchived: booleanQuerySchema.default(false),
+		page: z.coerce.number().int().min(1).default(1),
+		pageSize: z.coerce.number().int().min(1).max(100).default(20),
+	})
+	.strict();
+
+export const taskFilterSchema = z
+	.object({
+		projectId: uuidSchema,
+		query: optionalText(100, "Search query is too long"),
+		listId: uuidSchema.optional(),
+		complexityId: uuidSchema.optional(),
+		assigneeId: uuidSchema.optional(),
+		labelId: uuidSchema.optional(),
+		completed: booleanQuerySchema.optional(),
+		dueBefore: optionalDateSchema,
+		includeArchived: booleanQuerySchema.default(false),
+		page: z.coerce.number().int().min(1).default(1),
+		pageSize: z.coerce.number().int().min(1).max(100).default(50),
+	})
+	.strict();
