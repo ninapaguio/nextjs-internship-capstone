@@ -109,7 +109,7 @@ export default function ProjectsPage() {
 						<p>Custom hook for project data fetching and mutations</p>
 					</div>
 					<div>
-						<strong>lib/db/schema.ts</strong>
+						<strong>lib/db/schema/</strong>
 						<p>Database schema for projects, lists, and tasks</p>
 					</div>
 				</div>

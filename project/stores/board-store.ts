@@ -1,4 +1,48 @@
-// TODO: Task 5.3 - Set up client-side state management with Zustand
+"use client";
+
+import { create } from "zustand";
+
+export interface BoardTask {
+	id: string;
+	listId: string;
+	title: string;
+	position: number;
+}
+
+export interface BoardList {
+	id: string;
+	title: string;
+	position: number;
+}
+
+interface BoardState {
+	lists: BoardList[];
+	tasks: BoardTask[];
+	draggedTaskId: string | null;
+	hydrate: (lists: BoardList[], tasks: BoardTask[]) => void;
+	moveTaskOptimistically: (
+		taskId: string,
+		listId: string,
+		position: number,
+	) => void;
+	setDraggedTaskId: (taskId: string | null) => void;
+}
+
+export const useBoardStore = create<BoardState>((set) => ({
+	lists: [],
+	tasks: [],
+	draggedTaskId: null,
+	hydrate: (lists, tasks) => set({ lists, tasks }),
+	moveTaskOptimistically: (taskId, listId, position) =>
+		set((state) => ({
+			tasks: state.tasks.map((task) =>
+				task.id === taskId ? { ...task, listId, position } : task,
+			),
+		})),
+	setDraggedTaskId: (draggedTaskId) => set({ draggedTaskId }),
+}));
+
+/* // TODO: Task 5.3 - Set up client-side state management with Zustand
 // TODO: Task 5.4 - Implement optimistic UI updates for smooth interactions
 
 /*
@@ -28,22 +72,22 @@ interface BoardState {
   currentProject: Project | null
   lists: List[]
   tasks: Task[]
-  
+
   // UI state
   draggedTask: Task | null
   draggedOverList: string | null
-  
+
   // Loading states
   isLoading: boolean
   isSaving: boolean
-  
+
   // Actions
   loadProject: (projectId: string) => Promise<void>
   createTask: (listId: string, task: Partial<Task>) => Promise<void>
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>
   moveTask: (taskId: string, newListId: string, newPosition: number) => Promise<void>
   deleteTask: (taskId: string) => Promise<void>
-  
+
   // Drag and drop
   setDraggedTask: (task: Task | null) => void
   setDraggedOverList: (listId: string | null) => void
@@ -51,22 +95,23 @@ interface BoardState {
 
 export const useBoardStore = create<BoardState>()(
   subscribeWithSelector((set, get) => ({
-    // ... implementation
+	// ... implementation
   }))
 )
 */
 
 // Placeholder to prevent import errors
-export const useBoardStore = () => {
-  console.log("TODO: Implement board store with Zustand");
-  return {
-    currentProject: null,
-    lists: [],
-    tasks: [],
-    isLoading: false,
-    loadProject: (projectId: string) =>
-      console.log(`TODO: Load project ${projectId}`),
-    createTask: (listId: string, task: any) =>
-      console.log(`TODO: Create task in list ${listId}`, task),
-  };
-};
+/*export const useBoardStore = () => {
+	console.log("TODO: Implement board store with Zustand");
+	return {
+		currentProject: null,
+		lists: [],
+		tasks: [],
+		isLoading: false,
+		loadProject: (projectId: string) =>
+			console.log(`TODO: Load project ${projectId}`),
+		createTask: (listId: string, task: any) =>
+			console.log(`TODO: Create task in list ${listId}`, task),
+	};
+}; 
+*/

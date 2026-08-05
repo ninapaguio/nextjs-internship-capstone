@@ -43,8 +43,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 			)}
 
 			<aside
-				className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-black/10 bg-white transition-transform duration-200 lg:w-20 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"
-					}`}
+				className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-black/10 bg-white transition-transform duration-200 lg:w-20 lg:translate-x-0 ${
+					open ? "translate-x-0" : "-translate-x-full"
+				}`}
 			>
 				<div className="flex h-18 items-center justify-between border-b border-black/10 px-5 lg:hidden">
 					<span className="text-xl font-bold tracking-tight text-black">
@@ -75,10 +76,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 										href={item.href}
 										aria-current={active ? "page" : undefined}
 										onClick={onClose}
-										className={`flex min-h-14 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors lg:flex-col lg:justify-center lg:gap-0.5 lg:px-1 lg:text-[10px] ${active
-											? "bg-white text-black shadow-sm"
-											: "text-black/75 hover:bg-white/70 hover:text-black"
-											}`}
+										className={`flex min-h-14 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors lg:flex-col lg:justify-center lg:gap-0.5 lg:px-1 lg:text-[10px] ${
+											active
+												? "bg-white text-black shadow-sm"
+												: "text-black/75 hover:bg-white/70 hover:text-black"
+										}`}
 									>
 										<Icon size={20} strokeWidth={1.8} />
 										<span>{item.label}</span>

@@ -53,7 +53,7 @@ import { create } from "zustand";
 import type { UIState } from "@/types";
 
 export const useUIStore = create<UIState>((set) => ({
-sidebarOpen: false,
+	sidebarOpen: false,
 	createProjectModalOpen: false,
 	createTaskModalOpen: false,
 	selectedTaskId: null,
