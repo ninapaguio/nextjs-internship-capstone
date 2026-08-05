@@ -7,7 +7,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export default function ProjectPage({ params }: { params: { id: string } }) {
+interface ProjectPageProps {
+	params: Promise<{ id: string }>;
+}
+
+export default async function ProjectPage({ params }: ProjectPageProps) {
+	const { id } = await params;
+
 	return (
 		<div className="space-y-6">
 			{/* Project Header */}
@@ -21,7 +27,7 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
 					</Link>
 					<div>
 						<h1 className="text-3xl font-bold text-outer_space-500 dark:text-platinum-500">
-							Project #{params.id}
+							Project #{id}
 						</h1>
 						<p className="text-paynes_gray-500 dark:text-french_gray-500 mt-1">
 							Kanban board view for project management
@@ -74,7 +80,7 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
 											<h3 className="font-semibold text-outer_space-500 dark:text-platinum-500">
 												{columnTitle}
 												<span className="ml-2 px-2 py-1 text-xs bg-french_gray-300 dark:bg-paynes_gray-400 rounded-full">
-													{Math.floor(Math.random() * 5) + 1}
+													{columnIndex + 2}
 												</span>
 											</h3>
 											<button className="p-1 hover:bg-platinum-500 dark:hover:bg-paynes_gray-400 rounded">
