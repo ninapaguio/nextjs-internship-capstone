@@ -23,7 +23,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 			<main
 				className={`min-h-screen pt-20 transition-[padding] duration-200 ease-out ${openNavigation ? "lg:pl-18" : "lg:pl-0"}`}
 			>
-				{children}
+				<div className="min-h-[calc(100dvh-5rem)] px-4 pb-4 sm:px-8 lg:px-10">
+					{children}
+				</div>
 			</main>
 		</div>
 	);

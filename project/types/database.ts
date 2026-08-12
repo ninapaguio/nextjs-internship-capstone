@@ -29,7 +29,7 @@ export type TaskLabel = typeof taskLabels.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type TaskActivity = typeof taskActivities.$inferSelect;
 
-// Insert types describe the values accepted by Drizzle. 
+// Insert types describe the values accepted by Drizzle.
 export type NewUser = typeof users.$inferInsert;
 export type NewTeam = typeof teams.$inferInsert;
 export type NewProject = typeof projects.$inferInsert;
