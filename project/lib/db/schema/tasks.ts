@@ -22,7 +22,7 @@ import { users } from "./users";
 export const tasks = pgTable(
 	"tasks",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => projects.id, { onDelete: "cascade" }),
@@ -121,7 +121,7 @@ export const taskLabels = pgTable(
 export const comments = pgTable(
 	"comments",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		taskId: uuid("task_id")
 			.notNull()
 			.references(() => tasks.id, { onDelete: "cascade" }),
@@ -147,7 +147,7 @@ export const comments = pgTable(
 export const taskActivities = pgTable(
 	"task_activities",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		taskId: uuid("task_id")
 			.notNull()
 			.references(() => tasks.id, { onDelete: "cascade" }),

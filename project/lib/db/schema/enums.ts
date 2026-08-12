@@ -4,7 +4,7 @@ export const teamStatus = pgEnum("team_status", ["active", "archived"]);
 export const listStatus = pgEnum("list_status", ["active", "archived"]);
 export const membershipStatus = pgEnum("membership_status", [
 	"active",
-	"not active",
+	"disabled",
 ]);
 export const invitationStatus = pgEnum("invitation_status", [
 	"pending",
@@ -13,7 +13,7 @@ export const invitationStatus = pgEnum("invitation_status", [
 	"revoked",
 ]);
 export const projectStatus = pgEnum("project_status", [
-	"planned",
+	"inactive",
 	"active",
 	"completed",
 	"archived",
@@ -26,6 +26,8 @@ export const activityAction = pgEnum("activity_action", [
 	"unassigned",
 	"commented",
 	"completed",
-	"reopened",
 	"deleted",
+	"restored",
+	"archived",
+	"unarchived",
 ]);

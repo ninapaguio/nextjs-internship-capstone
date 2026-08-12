@@ -5,14 +5,12 @@ export interface ListWithTasks extends List {
 	tasks: Task[];
 }
 
-// Scenario: the project board Server Component receives a project together
-// with the Kanban columns and tasks requested by its relational query.
+// the project board server component receives a project together with the Kanban columns and tasks requested by its relational query.
 export interface ProjectBoard extends Project {
 	lists: ListWithTasks[];
 }
 
-// Scenario: dashboard totals and progress are calculated query results, not
-// stored project columns, so the project-card UI gets a dedicated view type.
+// dashboard totals and progress are calculated query results, not stored project columns, so the project-card UI gets a dedicated view type.
 export interface ProjectCardView {
 	id: Project["id"];
 	name: Project["name"];

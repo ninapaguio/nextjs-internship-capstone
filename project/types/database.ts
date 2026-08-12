@@ -14,7 +14,7 @@ import type {
 	users,
 } from "@/lib/db/schema";
 
-// Keeping database row types inferred from Drizzle so they stay aligned with the columns returned by Neon
+// Keeping database row types inferred from Drizzle so they stay aligned with the columns returned by neon
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type TeamRole = typeof teamRoles.$inferSelect;

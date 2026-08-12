@@ -53,13 +53,14 @@ import { create } from "zustand";
 import type { UIState } from "@/types";
 
 export const useUIStore = create<UIState>((set) => ({
-	sidebarOpen: false,
+	sidebarOpen: true,
 	createProjectModalOpen: false,
 	createTaskModalOpen: false,
 	selectedTaskId: null,
 
 	openSidebar: () => set({ sidebarOpen: true }),
 	closeSidebar: () => set({ sidebarOpen: false }),
+	toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 	openCreateProjectModal: () => set({ createProjectModalOpen: true }),
 	closeCreateProjectModal: () => set({ createProjectModalOpen: false }),
 	openCreateTaskModal: () => set({ createTaskModalOpen: true }),

@@ -1,5 +1,5 @@
 // Public type API. Explicit exports make the available application types easy
-// to discover and prevent accidental exports when a new local type is added.
+// to discover and prevent accidental exports when a new local type is added
 export type {
 	Comment,
 	ComplexityOption,
@@ -52,3 +52,10 @@ export type {
 	TaskDetails,
 } from "./tasks";
 export type { UIState } from "./ui";
+
+export type MembershipStatus = "active" | "disabled";
+
+export type MemberWorkStatus =
+	| "has_updates"
+	| "no_recent_updates"
+	| "no_assigned_tasks";

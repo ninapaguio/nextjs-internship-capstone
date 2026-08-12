@@ -21,8 +21,7 @@ import type {
 	userUpdateSchema,
 } from "@/lib/validations";
 
-// Input types come from the same Zod schemas used at runtime. This prevents a
-// Server Action's TypeScript type from disagreeing with its validation rules.
+// Input types come from the same Zod schemas used at runtime, to prevents Server Action's TypeScript type from disagreeing with its validation rules.
 export type UserInput = z.infer<typeof userSchema>;
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;

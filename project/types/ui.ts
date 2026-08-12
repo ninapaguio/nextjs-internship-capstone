@@ -7,6 +7,7 @@ export interface UIState {
 
 	openSidebar: () => void;
 	closeSidebar: () => void;
+	toggleSidebar: () => void;
 	openCreateProjectModal: () => void;
 	closeCreateProjectModal: () => void;
 	openCreateTaskModal: () => void;

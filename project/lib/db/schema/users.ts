@@ -13,7 +13,7 @@ import {
 export const users = pgTable(
 	"users",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		clerkId: text("clerk_id").notNull(),
 		email: text("email").notNull(),
 		username: varchar("username", { length: 100 }).notNull(),
@@ -39,7 +39,7 @@ export const users = pgTable(
 	],
 );
 
-// Clerk retries are made idempotent by recording the delivery ID
+// Clerk retries are made duplicate safe by recording the delivery ID
 export const webhookEvents = pgTable("webhook_events", {
 	id: text("id").primaryKey(),
 	eventType: text("event_type").notNull(),
