@@ -1,15 +1,13 @@
 "use client";
 
-import { SignOutButton, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import {
 	BarChart3,
 	CalendarDays,
 	FolderClosed,
 	Gauge,
-	LogOut,
 	Settings,
 	Users,
-	X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,38 +29,30 @@ type SidebarProps = {
 export function Sidebar({ open, onClose }: SidebarProps) {
 	const pathname = usePathname();
 
+	// Close the overlay drawer after navigation on small screen
+	function handleNavigation() {
+		if (window.matchMedia("(max-width: 1023px)").matches) onClose();
+	}
+
 	return (
 		<>
 			{open && (
 				<button
 					type="button"
 					aria-label="Close navigation"
-					className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+					className="fixed inset-0 z-40 bg-black/35 backdrop-blur-xs lg:hidden"
 					onClick={onClose}
 				/>
 			)}
 
 			<aside
-				className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-black/10 bg-white transition-transform duration-200 lg:w-20 lg:translate-x-0 ${
-					open ? "translate-x-0" : "-translate-x-full"
-				}`}
+				className={`fixed inset-y-0 left-0 z-50 flex w-18 flex-col border-r bg-sidebar text-sidebar-foreground shadow-sm transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"
+					}`}
 			>
-				<div className="flex h-18 items-center justify-between border-b border-black/10 px-5 lg:hidden">
-					<span className="text-xl font-bold tracking-tight text-black">
-						EverFlow
-					</span>
-					<button
-						type="button"
-						aria-label="Close navigation"
-						className="rounded-md p-2 text-black hover:bg-black/10"
-						onClick={onClose}
-					>
-						<X size={20} />
-					</button>
-				</div>
+				<div className="h-16 shrink-0" aria-hidden="true" />
 
-				<nav aria-label="Dashboard navigation" className="px-3 pt-3 lg:px-2">
-					<ul className="space-y-1">
+				<nav aria-label="Dashboard navigation" className="px-1.5 py-2">
+					<ul className="space-y-0.5">
 						{navigation.map((item) => {
 							const active =
 								pathname === item.href ||
@@ -75,14 +65,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 									<Link
 										href={item.href}
 										aria-current={active ? "page" : undefined}
-										onClick={onClose}
-										className={`flex min-h-14 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors lg:flex-col lg:justify-center lg:gap-0.5 lg:px-1 lg:text-[10px] ${
-											active
-												? "bg-white text-black shadow-sm"
-												: "text-black/75 hover:bg-white/70 hover:text-black"
-										}`}
+										onClick={handleNavigation}
+										className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium leading-none transition-colors ${active
+												? "bg-sidebar-accent text-sidebar-accent-foreground"
+												: "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+											}`}
 									>
-										<Icon size={20} strokeWidth={1.8} />
+										<Icon className="size-5" strokeWidth={1.8} />
 										<span>{item.label}</span>
 									</Link>
 								</li>
@@ -91,34 +80,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 					</ul>
 				</nav>
 
-				<div className="mt-auto space-y-1 px-3 pb-5 lg:px-2">
-					<div className="flex min-h-14 items-center gap-3 px-3 lg:flex-col lg:justify-center lg:gap-0.5 lg:px-1">
-						<ThemeToggle />
-						<span className="text-sm font-medium text-black/75 lg:text-[10px]">
-							Theme
-						</span>
+				<div className="mt-auto space-y-0.5 px-1.5 pb-4">
+					<div className="flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium leading-none text-sidebar-foreground/70">
+						<ThemeToggle className="size-7 rounded-lg bg-transparent shadow-none hover:bg-sidebar-accent" />
+						<span>Theme</span>
 					</div>
 
 					<Link
 						href="/settings"
-						onClick={onClose}
-						className="flex min-h-14 items-center gap-3 rounded-xl px-3 text-sm font-medium text-black/75 transition-colors hover:bg-white/70 hover:text-black lg:flex-col lg:justify-center lg:gap-0.5 lg:px-1 lg:text-[10px]"
+						onClick={handleNavigation}
+						className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium leading-none text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
 					>
-						<Settings size={20} strokeWidth={1.8} />
+						<Settings className="size-5" strokeWidth={1.8} />
 						<span>Settings</span>
 					</Link>
 
-					<SignOutButton redirectUrl="/">
-						<button
-							type="button"
-							className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-black/75 transition-colors hover:bg-white/70 hover:text-black lg:flex-col lg:justify-center lg:gap-0.5 lg:px-1 lg:text-[10px]"
-						>
-							<LogOut size={20} strokeWidth={1.8} />
-							<span>Sign Out</span>
-						</button>
-					</SignOutButton>
-
-					<div className="flex justify-start px-3 pt-2 lg:justify-center lg:px-0">
+					<div className="flex justify-center pt-2">
 						<UserButton
 							appearance={{
 								elements: {

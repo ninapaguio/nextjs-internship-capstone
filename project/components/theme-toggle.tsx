@@ -3,8 +3,15 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+	className?: string;
+}
+
+// Toggles application themes
+export function ThemeToggle({ className }: ThemeToggleProps) {
 	const { theme, setTheme } = useTheme();
 	// Avoid hydration mismatch: next-themes only knows the real theme client-side
 	const [mounted, setMounted] = useState(false);
@@ -13,9 +20,11 @@ export function ThemeToggle() {
 	const current = mounted ? theme : "light";
 
 	return (
-		<button
-			onClick={() => setTheme(current === "light" ? "dark" : "light")}
-			className="p-2 rounded-lg bg-platinum-500 dark:bg-paynes_gray-500 text-outer_space-500 dark:text-platinum-500 hover:bg-french_gray-500 dark:hover:bg-paynes_gray-400 transition-colors border border-french_gray-300 dark:border-paynes_gray-400"
+		<Button
+			variant="secondary"
+			size="icon-sm"
+			onPress={() => setTheme(current === "light" ? "dark" : "light")}
+			className={cn("rounded-xl", className)}
 			aria-label="Toggle theme"
 		>
 			{mounted ? (
@@ -27,6 +36,6 @@ export function ThemeToggle() {
 			) : (
 				<div className="w-5 h-5" />
 			)}
-		</button>
+		</Button>
 	);
 }

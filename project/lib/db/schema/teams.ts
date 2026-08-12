@@ -19,7 +19,7 @@ import { users } from "./users";
 export const teams = pgTable(
 	"teams",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		name: varchar("name", { length: 120 }).notNull(),
 		description: text("description"),
 		createdById: uuid("created_by_id")
@@ -57,7 +57,7 @@ export const teams = pgTable(
 export const teamRoles = pgTable(
 	"team_roles",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		teamId: uuid("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "cascade" }),
@@ -77,7 +77,7 @@ export const teamRoles = pgTable(
 );
 
 export const permissions = pgTable("permissions", {
-	id: uuid("id").defaultRandom().primaryKey(),
+	id: uuid("id").primaryKey().defaultRandom(),
 	key: varchar("key", { length: 80 }).notNull().unique(),
 	description: text("description"),
 });
@@ -107,7 +107,7 @@ export const teamMembers = pgTable(
 		roleId: uuid("role_id")
 			.notNull()
 			.references(() => teamRoles.id, { onDelete: "restrict" }),
-		status: membershipStatus("status").default("active").notNull(),
+		membershipStatus: membershipStatus("status").default("active").notNull(),
 		joinedAt: timestamp("joined_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -128,7 +128,7 @@ export const teamMembers = pgTable(
 export const teamInvitations = pgTable(
 	"team_invitations",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		teamId: uuid("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "cascade" }),

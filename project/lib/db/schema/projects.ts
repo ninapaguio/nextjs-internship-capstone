@@ -21,10 +21,10 @@ import { users } from "./users";
 export const projects = pgTable(
 	"projects",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
-		teamId: uuid("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "restrict" }),
+		id: uuid("id").primaryKey().defaultRandom(),
+		teamId: uuid("team_id").references(() => teams.id, {
+			onDelete: "restrict",
+		}),
 		createdById: uuid("created_by_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
@@ -32,7 +32,7 @@ export const projects = pgTable(
 		description: text("description"),
 		startDate: date("start_date"),
 		endDate: date("end_date"),
-		status: projectStatus("status").default("planned").notNull(),
+		status: projectStatus("status").default("inactive").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -70,7 +70,7 @@ export const projects = pgTable(
 export const lists = pgTable(
 	"lists",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => projects.id, { onDelete: "cascade" }),
@@ -111,7 +111,7 @@ export const lists = pgTable(
 export const labels = pgTable(
 	"labels",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => projects.id, { onDelete: "cascade" }),
@@ -132,7 +132,7 @@ export const labels = pgTable(
 export const complexityOptions = pgTable(
 	"complexity_options",
 	{
-		id: uuid("id").defaultRandom().primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
 		key: varchar("key", { length: 30 }).notNull(),
 		label: varchar("label", { length: 50 }).notNull(),
 		sortOrder: integer("sort_order").notNull(),

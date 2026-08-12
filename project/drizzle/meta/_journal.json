@@ -8,6 +8,20 @@
       "when": 1785945774679,
       "tag": "0000_rapid_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785954917489,
+      "tag": "0001_far_hellfire_club",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786507449924,
+      "tag": "0002_pale_miracleman",
+      "breakpoints": true
     }
   ]
 }

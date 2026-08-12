@@ -1,135 +1,119 @@
-import { Calendar, MoreHorizontal, Users } from "lucide-react";
+"use client";
 
-const projects = [
-	{
-		id: "1",
-		name: "Website Redesign",
-		description:
-			"Complete overhaul of company website with modern design and improved UX",
-		progress: 75,
-		members: 5,
-		dueDate: "2024-02-15",
-		status: "In Progress",
-		color: "bg-blue_munsell-500",
-	},
-	{
-		id: "2",
-		name: "Mobile App Development",
-		description: "iOS and Android app development for customer portal",
-		progress: 45,
-		members: 8,
-		dueDate: "2024-03-20",
-		status: "In Progress",
-		color: "bg-green-500",
-	},
-	{
-		id: "3",
-		name: "Marketing Campaign",
-		description: "Q1 marketing campaign planning and execution",
-		progress: 90,
-		members: 3,
-		dueDate: "2024-01-30",
-		status: "Review",
-		color: "bg-purple-500",
-	},
-	{
-		id: "4",
-		name: "Database Migration",
-		description: "Migrate legacy database to new cloud infrastructure",
-		progress: 30,
-		members: 4,
-		dueDate: "2024-04-10",
-		status: "Planning",
-		color: "bg-orange-500",
-	},
-	{
-		id: "5",
-		name: "Security Audit",
-		description: "Comprehensive security audit and vulnerability assessment",
-		progress: 60,
-		members: 2,
-		dueDate: "2024-02-28",
-		status: "In Progress",
-		color: "bg-red-500",
-	},
-	{
-		id: "6",
-		name: "API Documentation",
-		description: "Create comprehensive API documentation for developers",
-		progress: 85,
-		members: 3,
-		dueDate: "2024-02-05",
-		status: "Review",
-		color: "bg-indigo-500",
-	},
-];
+import { FolderKanban } from "lucide-react";
+import { useState } from "react";
+import type { ProjectCardData } from "@/components/project-card";
+import { ProjectCard } from "@/components/project-card";
+import { ProjectDetailsPanel } from "@/components/projects/project-details-panel";
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "@/components/ui/empty";
+import type { ProjectListData } from "@/hooks/use-projects";
+import { useProjects } from "@/hooks/use-projects";
 
-export function ProjectGrid() {
-	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-			{projects.map((project) => (
-				<div
-					key={project.id}
-					className="bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 p-6 hover:shadow-lg transition-shadow cursor-pointer"
-				>
-					<div className="flex items-start justify-between mb-4">
-						<div className={`w-3 h-3 rounded-full ${project.color}`} />
-						<button className="p-1 hover:bg-platinum-500 dark:hover:bg-paynes_gray-400 rounded">
-							<MoreHorizontal size={16} />
-						</button>
-					</div>
+interface ProjectGridProps {
+	initialData: ProjectListData;
+	hasSearchQuery: boolean;
+	search: string;
+	page: number;
+	pageSize: number;
+	teams: Array<{ id: string; name: string }>;
+}
 
-					<h3 className="text-lg font-semibold text-outer_space-500 dark:text-platinum-500 mb-2">
-						{project.name}
-					</h3>
+// Renders the optimistic project collection received from the server page.
+export function ProjectGrid({
+	initialData,
+	hasSearchQuery,
+	search,
+	page,
+	pageSize,
+	teams,
+}: ProjectGridProps) {
+	const [selectedProject, setSelectedProject] =
+		useState<ProjectCardData | null>(null);
+	const [isPanelOpen, setIsPanelOpen] = useState(false);
+	const {
+		projects,
+		error,
+		isFetching,
+		isPending,
+		updateProject,
+		removeProject,
+	} = useProjects({
+		initialData,
+		search,
+		page,
+		pageSize,
+	});
+	const isUpdating = isFetching || isPending;
 
-					<p className="text-sm text-paynes_gray-500 dark:text-french_gray-400 mb-4 line-clamp-2">
-						{project.description}
+	// Opens the shared project details panel for the selected card.
+	function openProjectPanel(project: ProjectCardData) {
+		setSelectedProject(project);
+		setIsPanelOpen(true);
+	}
+
+	if (projects.length === 0) {
+		return (
+			<>
+				{error && (
+					<p className="text-sm text-destructive" role="alert">
+						{error}
 					</p>
+				)}
+				<Empty className="h-full min-h-80 border-0" aria-busy={isUpdating}>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<FolderKanban />
+						</EmptyMedia>
+						<EmptyTitle>
+							{hasSearchQuery ? "No matching projects" : "No projects yet"}
+						</EmptyTitle>
+						<EmptyDescription>
+							{hasSearchQuery
+								? "Try a different search term or clear the search."
+								: "Create your first project to have Kanban boards."}
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			</>
+		);
+	}
 
-					<div className="flex items-center justify-between text-sm text-paynes_gray-500 dark:text-french_gray-400 mb-4">
-						<div className="flex items-center">
-							<Users size={16} className="mr-1" />
-							{project.members} members
-						</div>
-						<div className="flex items-center">
-							<Calendar size={16} className="mr-1" />
-							{project.dueDate}
-						</div>
-					</div>
-
-					<div className="mb-4">
-						<div className="flex items-center justify-between text-sm mb-2">
-							<span className="text-paynes_gray-500 dark:text-french_gray-400">
-								Progress
-							</span>
-							<span className="text-outer_space-500 dark:text-platinum-500 font-medium">
-								{project.progress}%
-							</span>
-						</div>
-						<div className="w-full bg-french_gray-300 dark:bg-paynes_gray-400 rounded-full h-2">
-							<div
-								className={`h-2 rounded-full transition-all duration-300 ${project.color}`}
-								style={{ width: `${project.progress}%` }}
-							/>
-						</div>
-					</div>
-
-					<div className="flex items-center justify-between">
-						<span
-							className={`px-2 py-1 text-xs font-medium rounded-full ${
-								project.status === "In Progress"
-									? "bg-blue_munsell-100 text-blue_munsell-700 dark:bg-blue_munsell-900 dark:text-blue_munsell-300"
-									: project.status === "Review"
-										? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-										: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-							}`}
-						>
-							{project.status}
-						</span>
-					</div>
-				</div>
-			))}
-		</div>
+	return (
+		<>
+			<div aria-live="polite" className="sr-only">
+				{isUpdating ? "Updating projects" : "Projects are up to date"}
+			</div>
+			{error && (
+				<p className="mb-4 text-sm text-destructive" role="alert">
+					{error}
+				</p>
+			)}
+			<div
+				className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+				aria-busy={isUpdating}
+			>
+				{projects.map((project) => (
+					<ProjectCard
+						key={project.id}
+						project={project}
+						onEdit={openProjectPanel}
+					/>
+				))}
+			</div>
+			<ProjectDetailsPanel
+				project={selectedProject}
+				teams={teams}
+				isOpen={isPanelOpen}
+				onOpenChange={setIsPanelOpen}
+				onUpdate={updateProject}
+				onRemove={removeProject}
+			/>
+		</>
 	);
 }

@@ -106,7 +106,7 @@ export const projectStatusSchema = z.enum([
 	"archived",
 ]);
 
-export const membershipStatusSchema = z.enum(["active", "not active"]);
+export const membershipStatusSchema = z.enum(["active", "disabled"]);
 
 export const activityActionSchema = z.enum([
 	"created",
@@ -229,13 +229,17 @@ export const updateTeamMemberSchema = z
 		teamId: uuidSchema,
 		userId: uuidSchema,
 		roleId: uuidSchema.optional(),
-		status: membershipStatusSchema.optional(),
+		membershipStatus: membershipStatusSchema.optional(),
 	})
 	.strict()
-	.refine((input) => input.roleId !== undefined || input.status !== undefined, {
-		message: "Provide a new role or membership status",
-		path: ["roleId"],
-	});
+	.refine(
+		(input) =>
+			input.roleId !== undefined || input.membershipStatus !== undefined,
+		{
+			message: "Provide a new role or membership status",
+			path: ["roleId"],
+		},
+	);
 
 export const removeTeamMemberSchema = z
 	.object({
@@ -245,7 +249,10 @@ export const removeTeamMemberSchema = z
 	.strict();
 
 const projectFields = {
-	teamId: uuidSchema,
+	teamId: z.preprocess(
+		(value) => (value === null || value === "" ? undefined : value),
+		uuidSchema.optional(),
+	),
 	name: z
 		.string()
 		.trim()
@@ -284,6 +291,7 @@ export const createProjectSchema = z
 
 export const updateProjectSchema = z
 	.object({
+		projectId: uuidSchema,
 		teamId: projectFields.teamId.optional(),
 		name: projectFields.name.optional(),
 		description: nullableText(
@@ -295,7 +303,11 @@ export const updateProjectSchema = z
 	})
 	.strict()
 	.superRefine((input, ctx) => {
-		if (!Object.values(input).some((value) => value !== undefined)) {
+		if (
+			!Object.entries(input).some(
+				([key, value]) => key !== "projectId" && value !== undefined,
+			)
+		) {
 			ctx.addIssue({
 				code: "custom",
 				message: "Provide at least one project field to update",

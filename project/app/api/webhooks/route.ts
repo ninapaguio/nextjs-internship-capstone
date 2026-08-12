@@ -1,13 +1,17 @@
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
-import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { users, webhookEvents } from "@/lib/db/schema";
+import {
+	softDeleteApplicationUser,
+	upsertApplicationUser,
+} from "@/lib/db/mutations/users";
+import { recordWebhookEvent } from "@/lib/db/mutations/webhook-events";
+import { hasProcessedWebhookEvent } from "@/lib/db/queries/webhook-events";
 import { userSchema } from "@/lib/validations";
 
 const deliveryIdSchema = z.string().trim().min(1).max(255);
 
+// Selects the primary Clerk email address with a safe first-address fallback.
 function primaryEmail(data: {
 	primary_email_address_id: string | null;
 	email_addresses: Array<{ id: string; email_address: string }>;
@@ -19,6 +23,7 @@ function primaryEmail(data: {
 	);
 }
 
+// Synchronizes clerk user lifecycle events while preventing duplicate webhook processing.
 export async function POST(req: NextRequest) {
 	let event: Awaited<ReturnType<typeof verifyWebhook>>;
 
@@ -35,11 +40,7 @@ export async function POST(req: NextRequest) {
 			return new Response("Invalid webhook delivery ID", { status: 400 });
 		}
 
-		const [processedEvent] = await db
-			.select({ id: webhookEvents.id })
-			.from(webhookEvents)
-			.where(eq(webhookEvents.id, deliveryId.data))
-			.limit(1);
+		const processedEvent = await hasProcessedWebhookEvent(deliveryId.data);
 
 		if (processedEvent) {
 			return new Response("Webhook already processed", { status: 200 });
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 			const parsedUser = userSchema.safeParse({
 				clerkId: event.data.id,
 				email: primaryEmail(event.data),
-				username: event.data.username,
+				username: event.data.username ?? `user_${event.data.id}`,
 				firstName: event.data.first_name ?? undefined,
 				lastName: event.data.last_name ?? undefined,
 				imageUrl: event.data.image_url,
@@ -59,7 +60,6 @@ export async function POST(req: NextRequest) {
 				return new Response("Invalid Clerk user data", { status: 422 });
 			}
 
-			const now = new Date();
 			const imageUrlWasSkipped =
 				Boolean(event.data.image_url) && parsedUser.data.imageUrl === undefined;
 
@@ -72,47 +72,22 @@ export async function POST(req: NextRequest) {
 			}
 
 			// exclude an invalid image on updates preserves the last valid image
-			const imageUpdate =
-				parsedUser.data.imageUrl === undefined
-					? {}
-					: { imageUrl: parsedUser.data.imageUrl };
-
-			await db
-				.insert(users)
-				.values({
-					...parsedUser.data,
-					updatedAt: now,
-				})
-				.onConflictDoUpdate({
-					target: users.clerkId,
-					set: {
-						email: parsedUser.data.email,
-						username: parsedUser.data.username,
-						firstName: parsedUser.data.firstName,
-						lastName: parsedUser.data.lastName,
-						...imageUpdate,
-						updatedAt: now,
-						deletedAt: null,
-					},
-				});
+			await upsertApplicationUser(parsedUser.data, {
+				preserveExistingImageWhenMissing: true,
+			});
 		}
 
 		if (event.type === "user.deleted" && event.data.id) {
-			const now = new Date();
-
-			await db
-				.update(users)
-				.set({ deletedAt: now, updatedAt: now })
-				.where(eq(users.clerkId, event.data.id));
+			await softDeleteApplicationUser(event.data.id);
 		}
 
-		await db
-			.insert(webhookEvents)
-			.values({ id: deliveryId.data, eventType: event.type })
-			.onConflictDoNothing();
+		await recordWebhookEvent(deliveryId.data, event.type);
 
 		return new Response("Webhook received", { status: 200 });
-	} catch {
+	} catch (error) {
+		console.error("clerk_webhook_processing_failed", {
+			message: error instanceof Error ? error.message : "Unknown error",
+		});
 		return new Response("Webhook processing failed", { status: 500 });
 	}
 }
