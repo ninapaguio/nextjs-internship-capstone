@@ -5,17 +5,25 @@ import { revalidatePath } from "next/cache";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import {
 	changeBoardListLifecycle as changeBoardListLifecycleMutation,
+	deleteBoardTask as deleteBoardTaskMutation,
 	insertBoardList,
 	insertBoardTask,
 	moveBoardTask as moveBoardTaskMutation,
 	updateBoardList as updateBoardListMutation,
+	updateBoardTask as updateBoardTaskMutation,
 } from "@/lib/db/mutations/board";
+import {
+	canAssignUsersToProject,
+	canUseLabelsInProject,
+} from "@/lib/db/queries/board";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import {
 	createListSchema,
 	createTaskSchema,
 	listLifecycleSchema,
 	moveTaskSchema,
+	taskLifecycleSchema,
+	updateBoardTaskSchema,
 	updateListSchema,
 	uuidSchema,
 } from "@/lib/validations";
@@ -53,6 +61,7 @@ export async function createBoardList(
 	const parsed = createListSchema.safeParse({
 		projectId: formData.get("projectId"),
 		name: formData.get("name"),
+		description: formData.get("description"),
 		position: formData.get("position") || undefined,
 	});
 	if (!parsed.success) {
@@ -91,6 +100,7 @@ export async function updateBoardList(
 	const listId = uuidSchema.safeParse(formData.get("listId"));
 	const changes = updateListSchema.safeParse({
 		name: formData.get("name") || undefined,
+		description: formData.get("description"),
 		position: formData.get("position") || undefined,
 	});
 	if (!identifiers.success || !listId.success || !changes.success) {
@@ -182,13 +192,25 @@ export async function createBoardTask(
 			return { status: "error", message: "You cannot update this board." };
 		}
 
-		const {
-			assigneeIds: _assigneeIds,
-			labelIds: _labelIds,
-			...taskInput
-		} = parsed.data;
+		if (
+			!(await canAssignUsersToProject(
+				parsed.data.projectId,
+				parsed.data.assigneeIds,
+			))
+		) {
+			return { status: "error", message: "One or more assignees are invalid." };
+		}
+		if (
+			!(await canUseLabelsInProject(
+				parsed.data.projectId,
+				parsed.data.labelIds,
+			))
+		) {
+			return { status: "error", message: "One or more labels are invalid." };
+		}
+
 		const task = await insertBoardTask({
-			...taskInput,
+			...parsed.data,
 			createdById: applicationUser.id,
 		});
 		if (!task) return { status: "error", message: "The task was not created." };
@@ -201,6 +223,107 @@ export async function createBoardTask(
 		};
 	} catch {
 		return { status: "error", message: "We could not create the task." };
+	}
+}
+
+// Updates task details, completion, placement, assignees, and labels in one action.
+export async function updateBoardTask(
+	formData: FormData,
+): Promise<BoardActionState> {
+	const parsed = updateBoardTaskSchema.safeParse({
+		projectId: formData.get("projectId"),
+		taskId: formData.get("taskId"),
+		listId: formData.get("listId") || undefined,
+		title: formData.get("title") || undefined,
+		description: formData.has("description")
+			? formData.get("description")
+			: undefined,
+		complexityId: formData.get("complexityId") || undefined,
+		dueDate: formData.has("dueDate") ? formData.get("dueDate") : undefined,
+		completed: formData.get("completed") || undefined,
+		assigneeIds:
+			formData.get("replaceAssignees") === "true"
+				? formData.getAll("assigneeIds")
+				: undefined,
+		labelIds:
+			formData.get("replaceLabels") === "true"
+				? formData.getAll("labelIds")
+				: undefined,
+	});
+	if (!parsed.success) {
+		return {
+			status: "error",
+			message: "Review the task fields and try again.",
+			fieldErrors: parsed.error.flatten().fieldErrors,
+		};
+	}
+
+	try {
+		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		if (!applicationUser) {
+			return { status: "error", message: "You cannot update this board." };
+		}
+		if (
+			parsed.data.assigneeIds &&
+			!(await canAssignUsersToProject(
+				parsed.data.projectId,
+				parsed.data.assigneeIds,
+			))
+		) {
+			return { status: "error", message: "One or more assignees are invalid." };
+		}
+		if (
+			parsed.data.labelIds &&
+			!(await canUseLabelsInProject(
+				parsed.data.projectId,
+				parsed.data.labelIds,
+			))
+		) {
+			return { status: "error", message: "One or more labels are invalid." };
+		}
+
+		const { projectId, taskId, ...changes } = parsed.data;
+		const task = await updateBoardTaskMutation(
+			projectId,
+			taskId,
+			applicationUser.id,
+			changes,
+		);
+		if (!task) return { status: "error", message: "The task was not updated." };
+
+		await revalidateBoardPages();
+		return { status: "success", message: "Task updated successfully." };
+	} catch {
+		return { status: "error", message: "We could not update the task." };
+	}
+}
+
+// Soft-deletes one task after validating access to its project board.
+export async function deleteBoardTask(
+	formData: FormData,
+): Promise<BoardActionState> {
+	const parsed = taskLifecycleSchema.safeParse({
+		projectId: formData.get("projectId"),
+		taskId: formData.get("taskId"),
+		action: formData.get("action"),
+	});
+	if (!parsed.success)
+		return { status: "error", message: "Invalid task action." };
+
+	try {
+		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+			return { status: "error", message: "You cannot update this board." };
+		}
+		const task = await deleteBoardTaskMutation(
+			parsed.data.projectId,
+			parsed.data.taskId,
+		);
+		if (!task) return { status: "error", message: "The task was not deleted." };
+
+		await revalidateBoardPages();
+		return { status: "success", message: "Task deleted successfully." };
+	} catch {
+		return { status: "error", message: "We could not delete the task." };
 	}
 }
 

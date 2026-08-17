@@ -324,6 +324,10 @@ const listFields = {
 		.trim()
 		.min(1, "Column name is required")
 		.max(100, "Column name must be 100 characters or fewer"),
+	description: optionalText(
+		2000,
+		"Column description must be 2,000 characters or fewer",
+	),
 	position: z.coerce
 		.number()
 		.int("Position must be a whole number")
@@ -335,6 +339,10 @@ export const createListSchema = z.object(listFields).strict();
 export const updateListSchema = z
 	.object({
 		name: listFields.name.optional(),
+		description: nullableText(
+			2000,
+			"Column description must be 2,000 characters or fewer",
+		),
 		position: listFields.position.optional(),
 	})
 	.strict()
@@ -397,6 +405,40 @@ export const updateTaskSchema = z
 			message: "Provide at least one task field to update",
 		},
 	);
+
+export const updateBoardTaskSchema = z
+	.object({
+		projectId: uuidSchema,
+		taskId: uuidSchema,
+		listId: uuidSchema.optional(),
+		title: taskFields.title.optional(),
+		description: nullableText(
+			10_000,
+			"Task description must be 10,000 characters or fewer",
+		),
+		complexityId: taskFields.complexityId.optional(),
+		dueDate: nullableDateSchema,
+		completed: z.union([z.boolean(), z.stringbool()]).optional(),
+		assigneeIds: taskFields.assigneeIds.optional(),
+		labelIds: taskFields.labelIds.optional(),
+	})
+	.strict()
+	.refine(
+		(input) =>
+			Object.entries(input).some(
+				([key, value]) =>
+					key !== "projectId" && key !== "taskId" && value !== undefined,
+			),
+		{ message: "Provide at least one task field to update" },
+	);
+
+export const taskLifecycleSchema = z
+	.object({
+		projectId: uuidSchema,
+		taskId: uuidSchema,
+		action: z.literal("delete"),
+	})
+	.strict();
 
 export const moveTaskSchema = z
 	.object({

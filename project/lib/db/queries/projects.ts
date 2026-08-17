@@ -31,6 +31,7 @@ export async function getAccessibleProjectById(
 		.select({
 			id: projects.id,
 			teamId: projects.teamId,
+			createdById: projects.createdById,
 			name: projects.name,
 			description: projects.description,
 			startDate: projects.startDate,
