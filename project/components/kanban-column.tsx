@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { BoardList } from "@/stores/board-store";
+import type { BoardList } from "@/types";
 
 interface KanbanColumnProps {
 	list: BoardList;
@@ -20,6 +20,7 @@ interface KanbanColumnProps {
 	onEdit: (list: BoardList) => void;
 	onArchive: (listId: string) => void;
 	onDelete: (listId: string) => void;
+	onOpenTask: (taskId: string) => void;
 }
 
 // Renders one board list as a droppable column in the Kanban interface.
@@ -30,6 +31,7 @@ export function KanbanColumn({
 	onEdit,
 	onArchive,
 	onDelete,
+	onOpenTask,
 }: KanbanColumnProps) {
 	const { ref, isDropTarget } = useDroppable({
 		id: `column:${list.id}`,
@@ -104,9 +106,11 @@ export function KanbanColumn({
 						</TooltipTrigger>
 					</div>
 				</div>
-				<p className="mt-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-					{list.description}
-				</p>
+				{list.description ? (
+					<p className="mt-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+						{list.description}
+					</p>
+				) : null}
 			</header>
 
 			<div className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1">
@@ -115,7 +119,7 @@ export function KanbanColumn({
 						key={task.id}
 						task={task}
 						listId={list.id}
-						status={list.id}
+						onOpen={onOpenTask}
 					/>
 				))}
 				{list.tasks.length === 0 ? (

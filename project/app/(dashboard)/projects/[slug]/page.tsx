@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { KanbanBoard } from "@/components/kanban-board";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
+import { getProjectBoardData } from "@/lib/db/queries/board";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import {
 	createProjectCompositeSlug,
@@ -47,6 +48,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 	);
 
 	if (!project) notFound();
+	const boardData = await getProjectBoardData(
+		project.id,
+		project.teamId,
+		project.createdById,
+	);
 
 	const canonicalSlug = createProjectCompositeSlug(project.id, project.name);
 	if (slug !== canonicalSlug) redirect(`/projects/${canonicalSlug}`);
@@ -81,7 +87,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
 			{/* Interactive Kanban board */}
 			<div className="flex-1 py-5">
-				<KanbanBoard projectId={project.id} />
+				<KanbanBoard projectId={project.id} initialData={boardData} />
 			</div>
 		</section>
 	);

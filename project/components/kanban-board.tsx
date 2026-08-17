@@ -1,11 +1,13 @@
 "use client";
 
 import { DragDropProvider } from "@dnd-kit/react";
-import { ArrowDownAZ, Filter, Search } from "lucide-react";
+import { ArrowDownAZ, Filter, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { changeBoardListLifecycle, moveBoardTask } from "@/actions/board";
 import { KanbanColumn } from "@/components/kanban-column";
 import { CreateListModal } from "@/components/modals/create-list-modal";
 import { CreateTaskModal } from "@/components/modals/create-task-modal";
+import { TaskDetailsPanel } from "@/components/tasks/task-details-panel";
 import { Button } from "@/components/ui/button";
 import {
 	InputGroup,
@@ -14,12 +16,8 @@ import {
 } from "@/components/ui/input-group";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import {
-	type BoardList,
-	type BoardTask,
-	type BoardTaskComplexity,
-	useBoardStore,
-} from "@/stores/board-store";
+import { useBoardStore } from "@/stores/board-store";
+import type { BoardList, BoardTask, ProjectBoardData } from "@/types";
 
 // TODO: Task 5.1 - Design responsive Kanban board layout
 // TODO: Task 5.2 - Implement drag-and-drop functionality with dnd-kit
@@ -58,43 +56,13 @@ State management:
 
 interface KanbanBoardProps {
 	projectId: string;
+	initialData: ProjectBoardData;
 }
 
-const initialColumns: BoardList[] = [
-	{
-		id: "backlog",
-		title: "Backlog",
-		description: "Pending tasks and unresolved issues.",
-		tasks: [],
-	},
-	{
-		id: "current",
-		title: "Current",
-		description: "This item hasn't been started but planned to be worked on.",
-		tasks: [],
-	},
-	{
-		id: "in-progress",
-		title: "In Progress",
-		description: "This actively being worked on",
-		tasks: [],
-	},
-	{
-		id: "review",
-		title: "In Review",
-		description: "This is ready for review and approval",
-		tasks: [],
-	},
-	{
-		id: "done",
-		title: "Done",
-		description: "Completed and verified tasks",
-		tasks: [],
-	},
-];
+type ComplexityFilter = BoardTask["complexity"]["key"] | "all";
 
-// Provides board filtering, task creation, and dnd-kit movement for a project.
-export function KanbanBoard({ projectId }: KanbanBoardProps) {
+// Provides persisted board filtering, task details, and optimistic dnd-kit movement.
+export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 	const columns = useBoardStore((state) => state.lists);
 	const hydrate = useBoardStore((state) => state.hydrate);
 	const addList = useBoardStore((state) => state.addList);
@@ -107,41 +75,53 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
 		(state) => state.moveTaskOptimistically,
 	);
 	const finishTaskDrag = useBoardStore((state) => state.finishTaskDrag);
+	const replaceLists = useBoardStore((state) => state.replaceLists);
+	const markPersisted = useBoardStore((state) => state.markPersisted);
 	const [query, setQuery] = useState("");
-	const [complexityFilter, setComplexityFilter] = useState<
-		BoardTaskComplexity | "All"
-	>("All");
+	const [complexityFilter, setComplexityFilter] =
+		useState<ComplexityFilter>("all");
 	const [sortDirection, setSortDirection] = useState<"none" | "asc" | "desc">(
 		"none",
 	);
 	const [activeListId, setActiveListId] = useState<string | null>(null);
+	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 	const [isListModalOpen, setIsListModalOpen] = useState(false);
 	const [editingList, setEditingList] = useState<BoardList | null>(null);
+	const [boardError, setBoardError] = useState<string | null>(null);
 
-	// Initializes the shared board store once for the active project.
+	// Initializes the shared board store from server-loaded database records.
 	useEffect(() => {
-		hydrate(projectId, initialColumns);
-	}, [hydrate, projectId]);
+		hydrate(projectId, initialData.lists);
+	}, [hydrate, initialData.lists, projectId]);
 
 	const displayedColumns = useMemo(() => {
 		const normalizedQuery = query.trim().toLowerCase();
+		if (
+			!normalizedQuery &&
+			complexityFilter === "all" &&
+			sortDirection === "none"
+		) {
+			return columns.filter((column) => !column.archived);
+		}
+
 		return columns
 			.filter((column) => !column.archived)
 			.map((column) => {
 				const matchingTasks = column.tasks.filter((task) => {
 					const matchesSearch =
 						!normalizedQuery ||
-						`${task.title} ${task.description}`
+						`${task.title} ${task.description ?? ""} ${task.assignees.map((member) => member.name).join(" ")}`
 							.toLowerCase()
 							.includes(normalizedQuery);
 					const matchesComplexity =
-						complexityFilter === "All" || task.complexity === complexityFilter;
+						complexityFilter === "all" ||
+						task.complexity.key === complexityFilter;
 					return matchesSearch && matchesComplexity;
 				});
 				const tasks =
 					sortDirection === "none"
 						? matchingTasks
-						: matchingTasks.sort((left, right) =>
+						: [...matchingTasks].sort((left, right) =>
 								sortDirection === "asc"
 									? left.title.localeCompare(right.title)
 									: right.title.localeCompare(left.title),
@@ -150,7 +130,11 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
 			});
 	}, [columns, complexityFilter, query, sortDirection]);
 
-	const activeList = columns.find((list) => list.id === activeListId);
+	const activeList = columns.find((list) => list.id === activeListId) ?? null;
+	const selectedTask =
+		columns
+			.flatMap((list) => list.tasks)
+			.find((task) => task.id === selectedTaskId) ?? null;
 
 	// Opens the creation dialog for a specific workflow column.
 	function openCreateTask(listId: string) {
@@ -169,40 +153,81 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
 		setIsListModalOpen(true);
 	}
 
-	// Creates a column or saves changes to the selected column.
-	function saveList(title: string, description: string) {
-		if (editingList) {
-			updateList(editingList.id, { title, description });
+	// Publishes a server-confirmed column record to the shared board store.
+	function saveConfirmedList(list: BoardList) {
+		if (editingList) updateList(list.id, list);
+		else addList(list);
+		markPersisted();
+	}
+
+	// Applies an optimistic column lifecycle change and restores failures.
+	async function changeListLifecycle(
+		listId: string,
+		action: "archive" | "delete",
+	) {
+		const snapshot = useBoardStore.getState().lists;
+		if (action === "archive") archiveList(listId);
+		else deleteList(listId);
+		const formData = new FormData();
+		formData.set("projectId", projectId);
+		formData.set("listId", listId);
+		formData.set("action", action);
+		const result = await changeBoardListLifecycle(formData);
+		if (result.status === "error") {
+			replaceLists(snapshot);
+			setBoardError(result.message);
+			return;
+		}
+		markPersisted();
+	}
+
+	// Confirms destructive removal before deleting a column and its tasks.
+	function deleteBoardList(listId: string) {
+		const list = columns.find((item) => item.id === listId);
+		if (!list || !window.confirm(`Delete "${list.title}" and its tasks?`))
+			return;
+		void changeListLifecycle(listId, "delete");
+	}
+
+	// Adds a server-confirmed task to the selected workflow column.
+	function createTask(task: BoardTask) {
+		addTask(task.listId, task);
+		markPersisted();
+	}
+
+	// Persists the final optimistic task position and rolls back failed moves.
+	async function persistDraggedTask() {
+		const state = useBoardStore.getState();
+		const taskId = state.draggedTaskId;
+		const snapshot = state.dragSnapshot;
+		const targetList = state.lists.find((list) =>
+			list.tasks.some((task) => task.id === taskId),
+		);
+		const position =
+			targetList?.tasks.findIndex((task) => task.id === taskId) ?? -1;
+		if (!taskId || !targetList || position < 0) {
+			finishTaskDrag(true);
 			return;
 		}
 
-		addList({
-			id: crypto.randomUUID(),
-			title,
-			description,
-			tasks: [],
-		});
+		// Clears the dragging appearance immediately; persistence continues remotely.
+		finishTaskDrag(false);
+		const formData = new FormData();
+		formData.set("projectId", projectId);
+		formData.set("taskId", taskId);
+		formData.set("targetListId", targetList.id);
+		formData.set("position", String(position));
+		const result = await moveBoardTask(formData);
+		if (result.status === "error") {
+			if (snapshot) replaceLists(snapshot);
+			setBoardError(result.message);
+		} else markPersisted();
 	}
 
-	// Hides a column from the active board without deleting its local data.
-	function archiveBoardList(listId: string) {
-		archiveList(listId);
-	}
-
-	// Permanently removes a local column after explicit confirmation.
-	function deleteBoardList(listId: string) {
-		const list = columns.find((item) => item.id === listId);
-		if (!list) return;
-		if (!window.confirm(`Delete "${list.title}" and its tasks?`)) return;
-		deleteList(listId);
-	}
-
-	// Adds a new local task to the selected workflow column.
-	function createTask(task: BoardTask) {
-		if (!activeListId) return;
-		addTask(activeListId, task);
-	}
-
+	const complexityLabel =
+		complexityFilter === "all"
+			? "All"
+			: complexityFilter[0].toUpperCase() + complexityFilter.slice(1);
 	const sortActionLabel =
 		sortDirection === "none"
 			? "Sort task titles ascending"
@@ -213,112 +238,149 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
 	return (
 		<section aria-label="Project Kanban board" data-project-id={projectId}>
 			<div className="mb-5 flex flex-wrap items-center justify-end gap-2">
-				<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
-					<InputGroup className="h-8 w-48 bg-muted/70 sm:w-56">
-						<InputGroupAddon>
-							<Search aria-hidden="true" />
-						</InputGroupAddon>
-						<InputGroupInput
-							id="board-search"
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
-							placeholder="Search tasks"
-							aria-label="Search tasks"
-						/>
-					</InputGroup>
+				<InputGroup className="h-8 w-48 bg-muted/70 sm:w-56">
+					<InputGroupAddon>
+						<Search aria-hidden="true" />
+					</InputGroupAddon>
+					<InputGroupInput
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+						placeholder="Search tasks"
+						aria-label="Search tasks"
+					/>
+				</InputGroup>
+				<Button
+					variant="outline"
+					size="sm"
+					className="rounded-full text-xs"
+					onPress={() =>
+						setComplexityFilter((current) =>
+							current === "all"
+								? "high"
+								: current === "high"
+									? "medium"
+									: current === "medium"
+										? "low"
+										: "all",
+						)
+					}
+					aria-label="Filter tasks by complexity"
+				>
+					<Filter data-icon="inline-start" /> {complexityLabel}
+				</Button>
+				<TooltipTrigger delay={400}>
 					<Button
-						type="button"
 						variant="outline"
-						size="sm"
+						size="icon-sm"
+						className="rounded-full"
 						onPress={() =>
-							setComplexityFilter((current) =>
-								current === "All"
-									? "High"
-									: current === "High"
-										? "Medium"
-										: current === "Medium"
-											? "Low"
-											: "All",
+							setSortDirection((current) =>
+								current === "none"
+									? "asc"
+									: current === "asc"
+										? "desc"
+										: "none",
 							)
 						}
-						className="rounded-full text-xs text-muted-foreground shadow-xs"
-						aria-label="Filter tasks by complexity"
+						aria-label={sortActionLabel}
 					>
-						<Filter data-icon="inline-start" /> {complexityFilter}
+						<ArrowDownAZ
+							className={cn(
+								"size-4",
+								sortDirection === "desc" && "rotate-180",
+								sortDirection === "none" && "opacity-60",
+							)}
+						/>
 					</Button>
-					<TooltipTrigger delay={400}>
-						<Button
-							type="button"
-							variant="outline"
-							size="icon-sm"
-							onPress={() =>
-								setSortDirection((current) =>
-									current === "none"
-										? "asc"
-										: current === "asc"
-											? "desc"
-											: "none",
-								)
-							}
-							className="rounded-full text-muted-foreground shadow-xs"
-							aria-label={sortActionLabel}
-						>
-							<ArrowDownAZ
-								className={cn(
-									"size-4 transition-transform",
-									sortDirection === "desc" && "rotate-180",
-									sortDirection === "none" && "opacity-60",
-								)}
-							/>
-						</Button>
-						<Tooltip placement="bottom">{sortActionLabel}</Tooltip>
-					</TooltipTrigger>
-				</div>
+					<Tooltip placement="bottom">{sortActionLabel}</Tooltip>
+				</TooltipTrigger>
 			</div>
+
+			{boardError ? (
+				<p className="mb-4 text-sm text-destructive" role="alert">
+					{boardError}
+				</p>
+			) : null}
 
 			<DragDropProvider
 				onDragStart={({ operation }) => {
 					if (operation.source) beginTaskDrag(String(operation.source.id));
 				}}
-				onDragOver={({ operation }) => {
-					if (!operation.source || !operation.target) return;
+				onDragEnd={({ canceled, operation }) => {
+					if (canceled || !operation.source || !operation.target) {
+						finishTaskDrag(true);
+						return;
+					}
+
+					// Reorders once on drop to avoid layout-measurement loops while dragging.
 					moveTaskOptimistically(
 						String(operation.source.id),
 						String(operation.target.id),
 					);
-				}}
-				onDragEnd={({ canceled }) => {
-					finishTaskDrag(canceled);
+					void persistDraggedTask();
 				}}
 			>
-				<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(280px,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80">
-					{displayedColumns.map((column) => (
-						<KanbanColumn
-							key={column.id}
-							list={column}
-							onAddTask={openCreateTask}
-							onAddList={openAddList}
-							onEdit={openEditList}
-							onArchive={archiveBoardList}
-							onDelete={deleteBoardList}
-						/>
-					))}
-				</div>
+				{displayedColumns.length ? (
+					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(280px,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80">
+						{displayedColumns.map((column) => (
+							<KanbanColumn
+								key={column.id}
+								list={column}
+								onAddTask={openCreateTask}
+								onAddList={openAddList}
+								onEdit={openEditList}
+								onArchive={(id) => void changeListLifecycle(id, "archive")}
+								onDelete={deleteBoardList}
+								onOpenTask={setSelectedTaskId}
+							/>
+						))}
+					</div>
+				) : (
+					<div className="grid min-h-72 place-items-center rounded-3xl border border-dashed bg-muted/20 p-8 text-center">
+						<div>
+							<p className="font-semibold">No columns yet</p>
+							<p className="mt-1 text-sm text-muted-foreground">
+								Add the first workflow stage to begin planning tasks.
+							</p>
+							<Button className="mt-4" onPress={openAddList}>
+								<Plus data-icon="inline-start" /> Add column
+							</Button>
+						</div>
+					</div>
+				)}
 			</DragDropProvider>
 
 			<CreateTaskModal
+				projectId={projectId}
+				list={activeList}
+				complexityOptions={initialData.complexityOptions}
+				members={initialData.members}
+				labels={initialData.labels}
 				isOpen={activeListId !== null}
-				columnTitle={activeList?.title ?? "column"}
-				onOpenChange={(isOpen) => {
-					if (!isOpen) setActiveListId(null);
+				onOpenChange={(open) => {
+					if (!open) setActiveListId(null);
 				}}
 				onCreateTask={createTask}
 			/>
 			<CreateListModal
+				projectId={projectId}
 				isOpen={isListModalOpen}
 				list={editingList}
+				nextPosition={columns.length}
 				onOpenChange={setIsListModalOpen}
-				onSave={saveList}
+				onSaved={saveConfirmedList}
+			/>
+			<TaskDetailsPanel
+				projectId={projectId}
+				task={selectedTask}
+				lists={columns.filter((list) => !list.archived)}
+				complexityOptions={initialData.complexityOptions}
+				members={initialData.members}
+				labels={initialData.labels}
+				isOpen={selectedTaskId !== null}
+				onOpenChange={(open) => {
+					if (!open) setSelectedTaskId(null);
+				}}
 			/>
 		</section>
 	);

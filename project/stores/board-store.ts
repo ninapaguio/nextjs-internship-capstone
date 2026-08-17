@@ -1,30 +1,13 @@
 "use client";
 
 import { create } from "zustand";
-
-export type BoardTaskComplexity = "Low" | "Medium" | "High";
-
-export interface BoardTask {
-	id: string;
-	title: string;
-	description: string;
-	complexity: BoardTaskComplexity;
-	dueDate: string;
-	assignee: string;
-}
-
-export interface BoardList {
-	id: string;
-	title: string;
-	description: string;
-	tasks: BoardTask[];
-	archived?: boolean;
-}
+import type { BoardList, BoardTask } from "@/types";
 
 interface BoardState {
 	projectId: string | null;
 	lists: BoardList[];
 	draggedTaskId: string | null;
+	dragTargetId: string | null;
 	dragSnapshot: BoardList[] | null;
 	dragSnapshotHadPendingChanges: boolean;
 	hasPendingChanges: boolean;
@@ -37,6 +20,10 @@ interface BoardState {
 	archiveList: (listId: string) => void;
 	deleteList: (listId: string) => void;
 	addTask: (listId: string, task: BoardTask) => void;
+	updateTask: (taskId: string, changes: Partial<BoardTask>) => void;
+	deleteTask: (taskId: string) => void;
+	replaceLists: (lists: BoardList[]) => void;
+	markPersisted: () => void;
 	beginTaskDrag: (taskId: string) => void;
 	moveTaskOptimistically: (taskId: string, targetId: string) => void;
 	finishTaskDrag: (canceled: boolean) => void;
@@ -72,14 +59,38 @@ function moveTask(lists: BoardList[], taskId: string, targetId: string) {
 	}
 
 	const task = sourceList.tasks[sourceIndex];
-	const nextLists = lists.map((list) => ({ ...list, tasks: [...list.tasks] }));
-	const nextSource = nextLists.find((list) => list.id === sourceList.id);
-	const nextTarget = nextLists.find((list) => list.id === targetList.id);
-	if (!task || !nextSource || !nextTarget) return lists;
+	if (!task) return lists;
 
-	nextSource.tasks.splice(sourceIndex, 1);
-	nextTarget.tasks.splice(targetIndex, 0, task);
-	return nextLists;
+	if (sourceList.id === targetList.id) {
+		const tasks = [...sourceList.tasks];
+		tasks.splice(sourceIndex, 1);
+		tasks.splice(targetIndex, 0, task);
+		const positionedTasks = tasks.map((item, position) =>
+			item.position === position ? item : { ...item, position },
+		);
+		return lists.map((list) =>
+			list.id === sourceList.id ? { ...list, tasks: positionedTasks } : list,
+		);
+	}
+
+	const sourceTasks = sourceList.tasks
+		.filter((item) => item.id !== taskId)
+		.map((item, position) =>
+			item.position === position ? item : { ...item, position },
+		);
+	const targetTasks = [...targetList.tasks];
+	targetTasks.splice(targetIndex, 0, { ...task, listId: targetList.id });
+	const positionedTargetTasks = targetTasks.map((item, position) =>
+		item.position === position ? item : { ...item, position },
+	);
+
+	return lists.map((list) => {
+		if (list.id === sourceList.id) return { ...list, tasks: sourceTasks };
+		if (list.id === targetList.id) {
+			return { ...list, tasks: positionedTargetTasks };
+		}
+		return list;
+	});
 }
 
 // Owns the client-side Kanban state and reversible optimistic drag operations.
@@ -87,6 +98,7 @@ export const useBoardStore = create<BoardState>((set) => ({
 	projectId: null,
 	lists: [],
 	draggedTaskId: null,
+	dragTargetId: null,
 	dragSnapshot: null,
 	dragSnapshotHadPendingChanges: false,
 	hasPendingChanges: false,
@@ -95,13 +107,14 @@ export const useBoardStore = create<BoardState>((set) => ({
 			state.projectId === projectId
 				? state
 				: {
-					projectId,
-					lists,
-					draggedTaskId: null,
-					dragSnapshot: null,
-					dragSnapshotHadPendingChanges: false,
-					hasPendingChanges: false,
-				},
+						projectId,
+						lists,
+						draggedTaskId: null,
+						dragTargetId: null,
+						dragSnapshot: null,
+						dragSnapshotHadPendingChanges: false,
+						hasPendingChanges: false,
+					},
 		),
 	addList: (list) =>
 		set((state) => ({
@@ -134,21 +147,68 @@ export const useBoardStore = create<BoardState>((set) => ({
 			),
 			hasPendingChanges: true,
 		})),
+	updateTask: (taskId, changes) =>
+		set((state) => {
+			const sourceList = findTaskList(state.lists, taskId);
+			const task = sourceList?.tasks.find((item) => item.id === taskId);
+			if (!sourceList || !task) return state;
+
+			const targetListId = changes.listId ?? sourceList.id;
+			const updatedTask = { ...task, ...changes, listId: targetListId };
+			return {
+				lists: state.lists.map((list) => {
+					if (list.id === sourceList.id && list.id !== targetListId) {
+						return {
+							...list,
+							tasks: list.tasks.filter((item) => item.id !== taskId),
+						};
+					}
+					if (list.id === targetListId) {
+						return {
+							...list,
+							tasks:
+								list.id === sourceList.id
+									? list.tasks.map((item) =>
+											item.id === taskId ? updatedTask : item,
+										)
+									: [...list.tasks, updatedTask],
+						};
+					}
+					return list;
+				}),
+				hasPendingChanges: true,
+			};
+		}),
+	deleteTask: (taskId) =>
+		set((state) => ({
+			lists: state.lists.map((list) => ({
+				...list,
+				tasks: list.tasks.filter((task) => task.id !== taskId),
+			})),
+			hasPendingChanges: true,
+		})),
+	replaceLists: (lists) => set({ lists, hasPendingChanges: false }),
+	markPersisted: () => set({ hasPendingChanges: false }),
 	beginTaskDrag: (taskId) =>
 		set((state) => ({
 			draggedTaskId: taskId,
+			dragTargetId: null,
 			dragSnapshot: state.lists,
 			dragSnapshotHadPendingChanges: state.hasPendingChanges,
 		})),
 	moveTaskOptimistically: (taskId, targetId) =>
 		set((state) => {
+			if (state.dragTargetId === targetId) return state;
 			const lists = moveTask(state.lists, taskId, targetId);
-			return lists === state.lists ? state : { lists, hasPendingChanges: true };
+			return lists === state.lists
+				? { dragTargetId: targetId }
+				: { lists, dragTargetId: targetId, hasPendingChanges: true };
 		}),
 	finishTaskDrag: (canceled) =>
 		set((state) => ({
 			lists: canceled && state.dragSnapshot ? state.dragSnapshot : state.lists,
 			draggedTaskId: null,
+			dragTargetId: null,
 			dragSnapshot: null,
 			dragSnapshotHadPendingChanges: false,
 			hasPendingChanges: canceled
