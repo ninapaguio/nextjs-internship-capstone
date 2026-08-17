@@ -75,6 +75,7 @@ export const lists = pgTable(
 			.notNull()
 			.references(() => projects.id, { onDelete: "cascade" }),
 		name: varchar("name", { length: 100 }).notNull(),
+		description: text("description"),
 		position: integer("position").notNull(),
 		status: listStatus("status").default("active").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })

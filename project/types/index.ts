@@ -60,9 +60,8 @@ export type {
 } from "./tasks";
 
 export type { UIState } from "./ui";
-
+export type { TeamListItem } from "./teams";
 export type MembershipStatus = "active" | "disabled";
-
 export type MemberWorkStatus =
 	| "has_updates"
 	| "no_recent_updates"
