@@ -26,7 +26,6 @@ import { RangeCalendar } from "@/components/ui/calendar";
 import {
 	Dialog,
 	DialogClose,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,

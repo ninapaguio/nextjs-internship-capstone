@@ -78,19 +78,19 @@ function formatProjectDeadline(date: string | null) {
 export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 	return (
 		<div className="group relative rounded-2xl outline-none focus-within:ring-3 focus-within:ring-ring/30">
-			<Link href={project.href} className="absolute inset-0 z-0 rounded-2xl">
+			<Link href={project.href} className="absolute inset-0 z-10 rounded-2xl">
 				<span className="sr-only">Open {project.name}</span>
 			</Link>
 			<Card
 				size="sm"
-				className="h-full gap-0 rounded-2xl bg-muted/55 py-0 shadow-none ring-1 ring-border transition duration-200 group-hover:-translate-y-0.5 group-hover:bg-muted/75 group-hover:shadow-md"
+				className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-muted/55 py-0 shadow-none ring-1 ring-border transition duration-200 group-hover:-translate-y-0.5 group-hover:bg-muted/75 group-hover:shadow-md"
 			>
 				<CardHeader className="gap-3 px-4 pt-4 pb-3">
-					<div className="relative z-10 flex items-center justify-between gap-3 pointer-events-none">
+					<div className="relative flex items-center justify-between gap-3 pointer-events-none">
 						<CardTitle className="line-clamp-1 text-sm font-semibold transition-colors group-hover:text-primary">
 							{project.name}
 						</CardTitle>
-						<div className="flex items-center gap-1 pointer-events-auto">
+						<div className="relative z-20 flex items-center gap-1 pointer-events-auto">
 							<span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
 								<Clock3 className="size-3" aria-hidden="true" />
 								{formatProjectDeadline(project.endDate)}

@@ -1,3 +1,37 @@
+"use client";
+
+import type { CalendarDate } from "@internationalized/date";
+import { CalendarDays, Layers3, Tag, UserRound } from "lucide-react";
+import { useActionState, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { type BoardActionState, createBoardTask } from "@/actions/board";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+	Dialog,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import type {
+	BoardComplexityOption,
+	BoardLabelOption,
+	BoardList,
+	BoardMemberOption,
+	BoardTask,
+} from "@/types";
+
 // TODO: Task 4.4 - Build task creation and editing functionality
 // TODO: Task 5.6 - Create task detail modals and editing interfaces
 
@@ -33,19 +67,275 @@ Integration:
 - Real-time updates for comments
 */
 
-export function CreateTaskModal() {
+interface CreateTaskModalProps {
+	projectId: string;
+	list: BoardList | null;
+	complexityOptions: BoardComplexityOption[];
+	members: BoardMemberOption[];
+	labels: BoardLabelOption[];
+	isOpen: boolean;
+	onOpenChange: (isOpen: boolean) => void;
+	onCreateTask: (task: BoardTask) => void;
+}
+
+const initialState: BoardActionState = { status: "idle", message: "" };
+
+// Shows pending feedback while the create-task Server Action runs.
+function CreateTaskSubmit() {
+	const { pending } = useFormStatus();
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-			<div className="bg-white dark:bg-outer_space-500 rounded-lg p-6 w-full max-w-2xl mx-4">
-				<h3 className="text-lg font-semibold text-outer_space-500 dark:text-platinum-500 mb-4">
-					TODO: Create/Edit Task Modal
-				</h3>
-				<div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded border border-yellow-200 dark:border-yellow-800">
-					<p className="text-sm text-yellow-800 dark:text-yellow-200">
-						📋 Implement task creation/editing form with rich features
-					</p>
+		<Button type="submit" isDisabled={pending}>
+			{pending ? "Adding…" : "Add task"}
+		</Button>
+	);
+}
+
+// Formats a calendar date for the create-task trigger.
+function formatDueDate(date: CalendarDate | null) {
+	if (!date) return "No due date";
+	return new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	}).format(date.toDate("UTC"));
+}
+
+// Creates a persisted task in the currently selected board list.
+export function CreateTaskModal({
+	projectId,
+	list,
+	complexityOptions,
+	members,
+	labels,
+	isOpen,
+	onOpenChange,
+	onCreateTask,
+}: CreateTaskModalProps) {
+	const defaultComplexity =
+		complexityOptions[1] ?? complexityOptions[0] ?? null;
+	const [dueDate, setDueDate] = useState<CalendarDate | null>(null);
+	const [complexityId, setComplexityId] = useState(defaultComplexity?.id ?? "");
+	const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+	const [labelIds, setLabelIds] = useState<string[]>([]);
+
+	// Calls the task action and adds the confirmed database record to Zustand.
+	const [state, formAction] = useActionState(
+		async (
+			previousState: BoardActionState,
+			formData: FormData,
+		): Promise<BoardActionState> => {
+			if (!list) return { status: "error", message: "Select a column first." };
+			const result = await createBoardTask(previousState, formData);
+			if (result.status !== "success" || !result.data) return result;
+
+			const complexity = complexityOptions.find(
+				(option) => option.id === complexityId,
+			);
+			if (!complexity) {
+				return { status: "error", message: "Select a valid complexity." };
+			}
+
+			onCreateTask({
+				id: result.data.id,
+				listId: list.id,
+				title: String(formData.get("title") ?? ""),
+				description: String(formData.get("description") ?? "") || null,
+				complexity,
+				dueDate: dueDate?.toString() ?? null,
+				position: list.tasks.length,
+				completedAt: null,
+				assignees: members.filter((member) => assigneeIds.includes(member.id)),
+				labels: labels.filter((label) => labelIds.includes(label.id)),
+			});
+			setDueDate(null);
+			setAssigneeIds([]);
+			setLabelIds([]);
+			onOpenChange(false);
+			return result;
+		},
+		initialState,
+	);
+
+	return (
+		<Dialog isOpen={isOpen} onOpenChange={onOpenChange} className="sm:max-w-xl">
+			<form action={formAction} className="grid gap-5">
+				<input type="hidden" name="projectId" value={projectId} />
+				<input type="hidden" name="listId" value={list?.id ?? ""} />
+				<input type="hidden" name="complexityId" value={complexityId} />
+				<input type="hidden" name="dueDate" value={dueDate?.toString() ?? ""} />
+				{assigneeIds.map((id) => (
+					<input key={id} type="hidden" name="assigneeIds" value={id} />
+				))}
+				{labelIds.map((id) => (
+					<input key={id} type="hidden" name="labelIds" value={id} />
+				))}
+				<DialogHeader>
+					<DialogTitle className="text-xl font-semibold">
+						Create a task
+					</DialogTitle>
+					<DialogDescription>
+						Add a focused work item to{" "}
+						<strong>{list?.title ?? "this column"}</strong>.
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="grid gap-4">
+					<label
+						className="grid gap-2 text-sm font-medium"
+						htmlFor="task-title"
+					>
+						Task title
+						<Input
+							id="task-title"
+							name="title"
+							placeholder="e.g. Review onboarding copy"
+							required
+							maxLength={200}
+							autoFocus
+						/>
+					</label>
+
+					<label
+						className="grid gap-2 text-sm font-medium"
+						htmlFor="task-description"
+					>
+						Description
+						<Textarea
+							id="task-description"
+							name="description"
+							placeholder="What needs to be done?"
+							className="min-h-24"
+							maxLength={10_000}
+						/>
+					</label>
+
+					<div className="grid gap-4 sm:grid-cols-2">
+						<label
+							className="grid gap-2 text-sm font-medium"
+							htmlFor="task-complexity"
+						>
+							<span className="flex items-center gap-1.5">
+								<Layers3 className="size-4" /> Complexity
+							</span>
+							<Select
+								id="task-complexity"
+								aria-label="Complexity"
+								value={complexityId}
+								onChange={(value) => setComplexityId(String(value))}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{complexityOptions.map((option) => (
+										<SelectItem key={option.id} id={option.id}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</label>
+
+						<label
+							className="grid gap-2 text-sm font-medium"
+							htmlFor="task-due-date"
+						>
+							<span className="flex items-center gap-1.5">
+								<CalendarDays className="size-4" /> Due date
+							</span>
+							<PopoverTrigger>
+								<Button
+									variant="outline"
+									className="w-full justify-start font-normal"
+								>
+									<CalendarDays data-icon="inline-start" />
+									{formatDueDate(dueDate)}
+								</Button>
+								<Popover className="w-auto p-0">
+									<Calendar
+										aria-label="Task due date"
+										value={dueDate}
+										onChange={setDueDate}
+									/>
+								</Popover>
+							</PopoverTrigger>
+						</label>
+
+						<label
+							className="grid gap-2 text-sm font-medium"
+							htmlFor="task-assignee"
+						>
+							<span className="flex items-center gap-1.5">
+								<UserRound className="size-4" /> Assignee
+							</span>
+							<Select
+								id="task-assignee"
+								aria-label="Assignees"
+								selectionMode="multiple"
+								value={assigneeIds}
+								onChange={(values) =>
+									setAssigneeIds(Array.from(values, String))
+								}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{members.map((member) => (
+										<SelectItem key={member.id} id={member.id}>
+											{member.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</label>
+
+						<label
+							className="grid gap-2 text-sm font-medium"
+							htmlFor="task-label"
+						>
+							<span className="flex items-center gap-1.5">
+								<Tag className="size-4" /> Labels
+							</span>
+							<Select
+								id="task-label"
+								aria-label="Labels"
+								selectionMode="multiple"
+								value={labelIds}
+								onChange={(values) => setLabelIds(Array.from(values, String))}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{labels.map((label) => (
+										<SelectItem key={label.id} id={label.id}>
+											{label.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</label>
+					</div>
 				</div>
-			</div>
-		</div>
+
+				{state.status === "error" ? (
+					<p className="text-sm font-medium text-rose-600" role="alert">
+						{state.message}
+					</p>
+				) : null}
+
+				<DialogFooter>
+					<Button
+						type="button"
+						variant="outline"
+						onPress={() => onOpenChange(false)}
+					>
+						Cancel
+					</Button>
+					<CreateTaskSubmit />
+				</DialogFooter>
+			</form>
+		</Dialog>
 	);
 }

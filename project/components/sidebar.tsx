@@ -46,8 +46,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 			)}
 
 			<aside
-				className={`fixed inset-y-0 left-0 z-50 flex w-18 flex-col border-r bg-sidebar text-sidebar-foreground shadow-sm transition-transform duration-200 ease-out ${open ? "translate-x-0" : "-translate-x-full"
-					}`}
+				className={`fixed inset-y-0 left-0 z-50 flex w-18 flex-col border-r bg-sidebar text-sidebar-foreground shadow-sm transition-transform duration-200 ease-out ${
+					open ? "translate-x-0" : "-translate-x-full"
+				}`}
 			>
 				<div className="h-16 shrink-0" aria-hidden="true" />
 
@@ -66,10 +67,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 										href={item.href}
 										aria-current={active ? "page" : undefined}
 										onClick={handleNavigation}
-										className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium leading-none transition-colors ${active
+										className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium leading-none transition-colors ${
+											active
 												? "bg-sidebar-accent text-sidebar-accent-foreground"
 												: "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
-											}`}
+										}`}
 									>
 										<Icon className="size-5" strokeWidth={1.8} />
 										<span>{item.label}</span>

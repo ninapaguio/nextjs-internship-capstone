@@ -71,9 +71,6 @@ export function CreateTeamModal({
 		>
 			<DialogHeader className="pr-10">
 				<DialogTitle className="text-xl">Create a new team</DialogTitle>
-				<DialogDescription>
-					Create a workspace for projects shared with your team members.
-				</DialogDescription>
 			</DialogHeader>
 
 			<form ref={formRef} action={formAction} className="space-y-6">

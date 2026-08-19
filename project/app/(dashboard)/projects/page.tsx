@@ -67,7 +67,7 @@ export default async function ProjectsPage({
 
 	if (!applicationUser) {
 		return (
-			<section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+			<section className="mx-auto max-w-7xl py-8">
 				<div className="rounded-4xl border bg-card p-8 text-center">
 					<h1 className="text-xl font-semibold">
 						We couldn't load your workspace
@@ -100,7 +100,7 @@ export default async function ProjectsPage({
 	}));
 
 	return (
-		<section className="flex min-h-[calc(100dvh-5rem)] flex-col px-4 pb-4 sm:px-8 lg:px-10">
+		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
 			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
 				<TooltipTrigger delay={400}>
 					<Link

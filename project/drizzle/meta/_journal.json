@@ -5,7 +5,7 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1785945774679,
+      "when": 1785945108347,
       "tag": "0000_rapid_colossus",
       "breakpoints": true
     },
@@ -21,6 +21,41 @@
       "version": "7",
       "when": 1786507449924,
       "tag": "0002_pale_miracleman",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786574357146,
+      "tag": "0003_robust_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786960426230,
+      "tag": "0004_wide_excalibur",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787037282842,
+      "tag": "0005_keen_shadowcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787109258208,
+      "tag": "0006_calm_nightcrawler",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787143717321,
+      "tag": "0007_yummy_ego",
       "breakpoints": true
     }
   ]

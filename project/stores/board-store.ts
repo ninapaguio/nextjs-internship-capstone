@@ -1,45 +1,220 @@
 "use client";
 
 import { create } from "zustand";
-
-export interface BoardTask {
-	id: string;
-	listId: string;
-	title: string;
-	position: number;
-}
-
-export interface BoardList {
-	id: string;
-	title: string;
-	position: number;
-}
+import type { BoardList, BoardTask } from "@/types";
 
 interface BoardState {
+	projectId: string | null;
 	lists: BoardList[];
-	tasks: BoardTask[];
 	draggedTaskId: string | null;
-	hydrate: (lists: BoardList[], tasks: BoardTask[]) => void;
-	moveTaskOptimistically: (
-		taskId: string,
+	dragTargetId: string | null;
+	dragSnapshot: BoardList[] | null;
+	dragSnapshotHadPendingChanges: boolean;
+	hasPendingChanges: boolean;
+	hydrate: (projectId: string, lists: BoardList[]) => void;
+	addList: (list: BoardList) => void;
+	updateList: (
 		listId: string,
-		position: number,
+		changes: Pick<BoardList, "title" | "description">,
 	) => void;
-	setDraggedTaskId: (taskId: string | null) => void;
+	archiveList: (listId: string) => void;
+	deleteList: (listId: string) => void;
+	addTask: (listId: string, task: BoardTask) => void;
+	updateTask: (taskId: string, changes: Partial<BoardTask>) => void;
+	deleteTask: (taskId: string) => void;
+	replaceLists: (lists: BoardList[]) => void;
+	markPersisted: () => void;
+	beginTaskDrag: (taskId: string) => void;
+	moveTaskOptimistically: (taskId: string, targetId: string) => void;
+	finishTaskDrag: (canceled: boolean) => void;
 }
 
+// Finds the list containing a task without mutating board state.
+function findTaskList(lists: BoardList[], taskId: string) {
+	return lists.find((list) => list.tasks.some((task) => task.id === taskId));
+}
+
+// Produces an immutable task move for immediate optimistic board feedback.
+function moveTask(lists: BoardList[], taskId: string, targetId: string) {
+	if (taskId === targetId) return lists;
+
+	const sourceList = findTaskList(lists, taskId);
+	const targetList = targetId.startsWith("column:")
+		? lists.find((list) => list.id === targetId.slice("column:".length))
+		: findTaskList(lists, targetId);
+	if (!sourceList || !targetList) return lists;
+
+	const sourceIndex = sourceList.tasks.findIndex((task) => task.id === taskId);
+	const rawTargetIndex = targetId.startsWith("column:")
+		? targetList.tasks.length
+		: targetList.tasks.findIndex((task) => task.id === targetId);
+	if (sourceIndex < 0 || rawTargetIndex < 0) return lists;
+
+	let targetIndex = rawTargetIndex;
+	if (sourceList.id === targetList.id && sourceIndex < targetIndex) {
+		targetIndex -= 1;
+	}
+	if (sourceList.id === targetList.id && sourceIndex === targetIndex) {
+		return lists;
+	}
+
+	const task = sourceList.tasks[sourceIndex];
+	if (!task) return lists;
+
+	if (sourceList.id === targetList.id) {
+		const tasks = [...sourceList.tasks];
+		tasks.splice(sourceIndex, 1);
+		tasks.splice(targetIndex, 0, task);
+		const positionedTasks = tasks.map((item, position) =>
+			item.position === position ? item : { ...item, position },
+		);
+		return lists.map((list) =>
+			list.id === sourceList.id ? { ...list, tasks: positionedTasks } : list,
+		);
+	}
+
+	const sourceTasks = sourceList.tasks
+		.filter((item) => item.id !== taskId)
+		.map((item, position) =>
+			item.position === position ? item : { ...item, position },
+		);
+	const targetTasks = [...targetList.tasks];
+	targetTasks.splice(targetIndex, 0, { ...task, listId: targetList.id });
+	const positionedTargetTasks = targetTasks.map((item, position) =>
+		item.position === position ? item : { ...item, position },
+	);
+
+	return lists.map((list) => {
+		if (list.id === sourceList.id) return { ...list, tasks: sourceTasks };
+		if (list.id === targetList.id) {
+			return { ...list, tasks: positionedTargetTasks };
+		}
+		return list;
+	});
+}
+
+// Owns the client-side Kanban state and reversible optimistic drag operations.
 export const useBoardStore = create<BoardState>((set) => ({
+	projectId: null,
 	lists: [],
-	tasks: [],
 	draggedTaskId: null,
-	hydrate: (lists, tasks) => set({ lists, tasks }),
-	moveTaskOptimistically: (taskId, listId, position) =>
+	dragTargetId: null,
+	dragSnapshot: null,
+	dragSnapshotHadPendingChanges: false,
+	hasPendingChanges: false,
+	hydrate: (projectId, lists) =>
+		set((state) =>
+			state.projectId === projectId
+				? state
+				: {
+						projectId,
+						lists,
+						draggedTaskId: null,
+						dragTargetId: null,
+						dragSnapshot: null,
+						dragSnapshotHadPendingChanges: false,
+						hasPendingChanges: false,
+					},
+		),
+	addList: (list) =>
 		set((state) => ({
-			tasks: state.tasks.map((task) =>
-				task.id === taskId ? { ...task, listId, position } : task,
-			),
+			lists: [...state.lists, list],
+			hasPendingChanges: true,
 		})),
-	setDraggedTaskId: (draggedTaskId) => set({ draggedTaskId }),
+	updateList: (listId, changes) =>
+		set((state) => ({
+			lists: state.lists.map((list) =>
+				list.id === listId ? { ...list, ...changes } : list,
+			),
+			hasPendingChanges: true,
+		})),
+	archiveList: (listId) =>
+		set((state) => ({
+			lists: state.lists.map((list) =>
+				list.id === listId ? { ...list, archived: true } : list,
+			),
+			hasPendingChanges: true,
+		})),
+	deleteList: (listId) =>
+		set((state) => ({
+			lists: state.lists.filter((list) => list.id !== listId),
+			hasPendingChanges: true,
+		})),
+	addTask: (listId, task) =>
+		set((state) => ({
+			lists: state.lists.map((list) =>
+				list.id === listId ? { ...list, tasks: [...list.tasks, task] } : list,
+			),
+			hasPendingChanges: true,
+		})),
+	updateTask: (taskId, changes) =>
+		set((state) => {
+			const sourceList = findTaskList(state.lists, taskId);
+			const task = sourceList?.tasks.find((item) => item.id === taskId);
+			if (!sourceList || !task) return state;
+
+			const targetListId = changes.listId ?? sourceList.id;
+			const updatedTask = { ...task, ...changes, listId: targetListId };
+			return {
+				lists: state.lists.map((list) => {
+					if (list.id === sourceList.id && list.id !== targetListId) {
+						return {
+							...list,
+							tasks: list.tasks.filter((item) => item.id !== taskId),
+						};
+					}
+					if (list.id === targetListId) {
+						return {
+							...list,
+							tasks:
+								list.id === sourceList.id
+									? list.tasks.map((item) =>
+											item.id === taskId ? updatedTask : item,
+										)
+									: [...list.tasks, updatedTask],
+						};
+					}
+					return list;
+				}),
+				hasPendingChanges: true,
+			};
+		}),
+	deleteTask: (taskId) =>
+		set((state) => ({
+			lists: state.lists.map((list) => ({
+				...list,
+				tasks: list.tasks.filter((task) => task.id !== taskId),
+			})),
+			hasPendingChanges: true,
+		})),
+	replaceLists: (lists) => set({ lists, hasPendingChanges: false }),
+	markPersisted: () => set({ hasPendingChanges: false }),
+	beginTaskDrag: (taskId) =>
+		set((state) => ({
+			draggedTaskId: taskId,
+			dragTargetId: null,
+			dragSnapshot: state.lists,
+			dragSnapshotHadPendingChanges: state.hasPendingChanges,
+		})),
+	moveTaskOptimistically: (taskId, targetId) =>
+		set((state) => {
+			if (state.dragTargetId === targetId) return state;
+			const lists = moveTask(state.lists, taskId, targetId);
+			return lists === state.lists
+				? { dragTargetId: targetId }
+				: { lists, dragTargetId: targetId, hasPendingChanges: true };
+		}),
+	finishTaskDrag: (canceled) =>
+		set((state) => ({
+			lists: canceled && state.dragSnapshot ? state.dragSnapshot : state.lists,
+			draggedTaskId: null,
+			dragTargetId: null,
+			dragSnapshot: null,
+			dragSnapshotHadPendingChanges: false,
+			hasPendingChanges: canceled
+				? state.dragSnapshotHadPendingChanges
+				: state.hasPendingChanges,
+		})),
 }));
 
 /* // TODO: Task 5.3 - Set up client-side state management with Zustand

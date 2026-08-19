@@ -64,10 +64,10 @@ import type { ProjectCardData } from "@/components/project-card";
 type ProjectOptimisticAction =
 	| { type: "add"; project: ProjectCardData }
 	| {
-		type: "update";
-		projectId: ProjectCardData["id"];
-		changes: Partial<ProjectCardData>;
-	}
+			type: "update";
+			projectId: ProjectCardData["id"];
+			changes: Partial<ProjectCardData>;
+	  }
 	| { type: "remove"; projectId: ProjectCardData["id"] };
 
 export interface ProjectMutationResult {
@@ -164,9 +164,9 @@ export function useProjects({
 			queryClient.setQueryData<ProjectListData>(queryKey, (currentData) =>
 				currentData
 					? {
-						...currentData,
-						projectRows: reduceProjects(currentData.projectRows, action),
-					}
+							...currentData,
+							projectRows: reduceProjects(currentData.projectRows, action),
+						}
 					: currentData,
 			);
 
