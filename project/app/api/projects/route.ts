@@ -2,7 +2,6 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import { getProjectList } from "@/lib/db/queries/projects";
-import { getAvailableTeamsForUser } from "@/lib/db/queries/teams";
 import { createProjectHref } from "@/lib/project-slug";
 import { projectFilterSchema } from "@/lib/validations";
 
@@ -37,10 +36,8 @@ export async function GET(request: Request) {
 		);
 	}
 
-	const accessibleTeams = await getAvailableTeamsForUser(applicationUser.id);
 	const result = await getProjectList({
 		applicationUserId: applicationUser.id,
-		teamIds: accessibleTeams.map((team) => team.id),
 		query: parsed.data.query ?? "",
 		requestedPage: parsed.data.page,
 		pageSize: parsed.data.pageSize,

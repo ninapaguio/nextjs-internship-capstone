@@ -19,11 +19,8 @@ import {
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import { getProjectList } from "@/lib/db/queries/projects";
-import {
-	getAvailableTeamsForUser,
-	getOwnedTeamsForUser,
-} from "@/lib/db/queries/teams";
 import { createProjectHref } from "@/lib/project-slug";
+import type { ProjectsPageProps } from "@/types";
 
 export const metadata: Metadata = {
 	title: "Projects",
@@ -34,13 +31,9 @@ export const metadata: Metadata = {
 	},
 };
 
-interface ProjectsPageProps {
-	searchParams: Promise<{ search?: string; page?: string }>;
-}
-
 const PAGE_SIZE = 6;
 
-// Builds a project-list URL while retaining the active search query.
+// Builds a project-list url while retaining the active search query.
 function projectPageHref(search: string, page: number) {
 	const params = new URLSearchParams();
 
@@ -50,7 +43,7 @@ function projectPageHref(search: string, page: number) {
 	return suffix ? `/projects?${suffix}` : "/projects";
 }
 
-// Loads projects and team options available to the signed-in user.
+// Loads solo and team projects available through project membership.
 export default async function ProjectsPage({
 	searchParams,
 }: ProjectsPageProps) {
@@ -81,15 +74,9 @@ export default async function ProjectsPage({
 		);
 	}
 
-	const [ownedTeams, accessibleTeams] = await Promise.all([
-		getOwnedTeamsForUser(applicationUser.id),
-		getAvailableTeamsForUser(applicationUser.id),
-	]);
-	const teamIds = accessibleTeams.map((team) => team.id);
 	const { currentPage, projectRows, totalPages, totalProjects } =
 		await getProjectList({
 			applicationUserId: applicationUser.id,
-			teamIds,
 			query: search,
 			requestedPage: page,
 			pageSize: PAGE_SIZE,
@@ -128,7 +115,7 @@ export default async function ProjectsPage({
 							/>
 						</InputGroup>
 					</form>
-					<CreateProjectModal teams={ownedTeams} />
+					<CreateProjectModal />
 				</div>
 			</header>
 
@@ -144,7 +131,6 @@ export default async function ProjectsPage({
 					search={search}
 					page={currentPage}
 					pageSize={PAGE_SIZE}
-					teams={ownedTeams}
 				/>
 			</div>
 

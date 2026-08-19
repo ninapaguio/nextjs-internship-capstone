@@ -8,36 +8,17 @@ import {
 	insertProject,
 	updateOwnedProject,
 } from "@/lib/db/mutations/projects";
-import { canAccessTeam } from "@/lib/db/queries/teams";
 import {
 	createProjectSchema,
 	projectLifecycleSchema,
 	updateProjectSchema,
 } from "@/lib/validations";
+import type {
+	CreateProjectActionState,
+	ProjectMutationActionState,
+} from "@/types";
 
-export interface CreateProjectActionState {
-	status: "idle" | "error" | "success";
-	message: string;
-	fieldErrors?: Partial<
-		Record<
-			"teamId" | "name" | "description" | "startDate" | "endDate",
-			string[]
-		>
-	>;
-}
-
-export interface ProjectMutationActionState {
-	status: "success" | "error";
-	message: string;
-	fieldErrors?: Partial<
-		Record<
-			"projectId" | "teamId" | "name" | "description" | "startDate" | "endDate",
-			string[]
-		>
-	>;
-}
-
-// Creates a project after validating the form and confirming team access.
+// Creates a solo project and makes the authenticated creator its owner.
 export async function createProject(
 	_previousState: CreateProjectActionState,
 	formData: FormData,
@@ -49,10 +30,6 @@ export async function createProject(
 	}
 
 	const parsed = createProjectSchema.safeParse({
-		teamId:
-			formData.get("teamId") === "personal"
-				? undefined
-				: formData.get("teamId"),
 		name: formData.get("name"),
 		description: formData.get("description"),
 		startDate: formData.get("startDate"),
@@ -78,17 +55,6 @@ export async function createProject(
 			};
 		}
 
-		const hasTeamAccess = parsed.data.teamId
-			? await canAccessTeam(parsed.data.teamId, applicationUser.id)
-			: true;
-
-		if (!hasTeamAccess) {
-			return {
-				status: "error",
-				message: "You do not have permission to create projects for this team.",
-			};
-		}
-
 		await insertProject({
 			...parsed.data,
 			createdById: applicationUser.id,
@@ -106,7 +72,7 @@ export async function createProject(
 	}
 }
 
-// Updates a project after validating ownership and any selected team access.
+// Updates a project after validating owner access.
 export async function updateProject(
 	formData: FormData,
 ): Promise<ProjectMutationActionState> {
@@ -116,8 +82,6 @@ export async function updateProject(
 
 	const parsed = updateProjectSchema.safeParse({
 		projectId: formData.get("projectId"),
-		teamId:
-			formData.get("teamId") === "personal" ? null : formData.get("teamId"),
 		name: formData.get("name"),
 		description: formData.get("description"),
 		startDate: formData.get("startDate"),
@@ -135,13 +99,6 @@ export async function updateProject(
 	const applicationUser = await ensureApplicationUser(clerkId);
 	if (!applicationUser) {
 		return { status: "error", message: "Your account could not be loaded." };
-	}
-
-	if (
-		parsed.data.teamId &&
-		!(await canAccessTeam(parsed.data.teamId, applicationUser.id))
-	) {
-		return { status: "error", message: "You cannot use the selected team." };
 	}
 
 	const { projectId, ...changes } = parsed.data;

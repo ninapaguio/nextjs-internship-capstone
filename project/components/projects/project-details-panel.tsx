@@ -9,19 +9,11 @@ import { CalendarDays } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RangeValue } from "react-aria-components";
 import { changeProjectLifecycle, updateProject } from "@/actions/projects";
-import type { ProjectCardData } from "@/components/project-card";
 import { Button } from "@/components/ui/button";
 import { RangeCalendar } from "@/components/ui/calendar";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import {
 	SheetContent,
 	SheetDescription,
@@ -30,16 +22,10 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProjectMutationResult } from "@/hooks/use-projects";
-
-interface TeamOption {
-	id: string;
-	name: string;
-}
+import type { ProjectCardData, ProjectMutationResult } from "@/types";
 
 interface ProjectDetailsPanelProps {
 	project: ProjectCardData | null;
-	teams: TeamOption[];
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 	onUpdate: (
@@ -76,7 +62,6 @@ function formatDateRange(range: RangeValue<CalendarDate> | null) {
 // Renders one shared side panel for editing, archiving, or deleting a project.
 export function ProjectDetailsPanel({
 	project,
-	teams,
 	isOpen,
 	onOpenChange,
 	onUpdate,
@@ -105,8 +90,6 @@ export function ProjectDetailsPanel({
 		const description = String(formData.get("description") ?? "") || null;
 		const startDate = dateRange?.start.toString() ?? null;
 		const endDate = dateRange?.end.toString() ?? null;
-		const teamIdValue = String(formData.get("teamId") ?? "personal");
-		const team = teams.find((option) => option.id === teamIdValue);
 
 		onUpdate(
 			activeProject.id,
@@ -115,8 +98,6 @@ export function ProjectDetailsPanel({
 				description,
 				startDate,
 				endDate,
-				teamId: team?.id ?? null,
-				teamName: team?.name ?? "Personal",
 			},
 			async () => {
 				const result = await updateProject(formData);
@@ -180,26 +161,6 @@ export function ProjectDetailsPanel({
 							maxLength={5000}
 							className="min-h-28"
 						/>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor="edit-project-team">Team</FieldLabel>
-						<Select
-							name="teamId"
-							aria-label="Team"
-							defaultValue={project.teamId ?? "personal"}
-						>
-							<SelectTrigger id="edit-project-team" className="w-full">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem id="personal">Only me</SelectItem>
-								{teams.map((team) => (
-									<SelectItem key={team.id} id={team.id}>
-										{team.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
 					</Field>
 					<Field>
 						<FieldLabel>Project timeline</FieldLabel>

@@ -26,22 +26,7 @@ import {
 	ProgressTrack,
 } from "@/components/ui/progress";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Project } from "@/types";
-
-export interface ProjectCardData {
-	id: Project["id"];
-	href: string;
-	teamId: Project["teamId"];
-	name: Project["name"];
-	description: Project["description"];
-	startDate: Project["startDate"];
-	teamName: string;
-	status: Project["status"];
-	endDate: Project["endDate"];
-	totalTasks: number;
-	totalMembers: number;
-	progressPercentage: number;
-}
+import type { ProjectCardData } from "@/types";
 
 interface ProjectCardProps {
 	project: ProjectCardData;
@@ -95,24 +80,26 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 								<Clock3 className="size-3" aria-hidden="true" />
 								{formatProjectDeadline(project.endDate)}
 							</span>
-							<DropdownMenuTrigger>
-								<TooltipTrigger delay={400}>
-									<Button
-										size="icon-xs"
-										variant="ghost"
-										aria-label={`Actions for ${project.name}`}
-									>
-										<MoreHorizontal />
-									</Button>
-									<Tooltip>Project actions</Tooltip>
-								</TooltipTrigger>
-								<DropdownMenu placement="bottom end">
-									<DropdownMenuItem onAction={() => onEdit(project)}>
-										<Pencil />
-										Edit project
-									</DropdownMenuItem>
-								</DropdownMenu>
-							</DropdownMenuTrigger>
+							{project.accessRole === "owner" ? (
+								<DropdownMenuTrigger>
+									<TooltipTrigger delay={400}>
+										<Button
+											size="icon-xs"
+											variant="ghost"
+											aria-label={`Actions for ${project.name}`}
+										>
+											<MoreHorizontal />
+										</Button>
+										<Tooltip>Project actions</Tooltip>
+									</TooltipTrigger>
+									<DropdownMenu placement="bottom end">
+										<DropdownMenuItem onAction={() => onEdit(project)}>
+											<Pencil />
+											Edit project
+										</DropdownMenuItem>
+									</DropdownMenu>
+								</DropdownMenuTrigger>
+							) : null}
 						</div>
 					</div>
 					<div className="space-y-2">

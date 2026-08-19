@@ -2,7 +2,6 @@
 
 import { FolderKanban } from "lucide-react";
 import { useState } from "react";
-import type { ProjectCardData } from "@/components/project-card";
 import { ProjectCard } from "@/components/project-card";
 import { ProjectDetailsPanel } from "@/components/projects/project-details-panel";
 import {
@@ -12,8 +11,8 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "@/components/ui/empty";
-import type { ProjectListData } from "@/hooks/use-projects";
 import { useProjects } from "@/hooks/use-projects";
+import type { ProjectCardData, ProjectListData } from "@/types";
 
 interface ProjectGridProps {
 	initialData: ProjectListData;
@@ -21,7 +20,6 @@ interface ProjectGridProps {
 	search: string;
 	page: number;
 	pageSize: number;
-	teams: Array<{ id: string; name: string }>;
 }
 
 // Renders the optimistic project collection received from the server page.
@@ -31,7 +29,6 @@ export function ProjectGrid({
 	search,
 	page,
 	pageSize,
-	teams,
 }: ProjectGridProps) {
 	const [selectedProject, setSelectedProject] =
 		useState<ProjectCardData | null>(null);
@@ -108,7 +105,6 @@ export function ProjectGrid({
 			</div>
 			<ProjectDetailsPanel
 				project={selectedProject}
-				teams={teams}
 				isOpen={isPanelOpen}
 				onOpenChange={setIsPanelOpen}
 				onUpdate={updateProject}
