@@ -4,7 +4,7 @@ import type { CalendarDate } from "@internationalized/date";
 import { CalendarDays, Layers3, Tag, UserRound } from "lucide-react";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { type BoardActionState, createBoardTask } from "@/actions/board";
+import { createBoardTask } from "@/actions/board";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -25,12 +25,24 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type {
+	BoardActionState,
 	BoardComplexityOption,
 	BoardLabelOption,
 	BoardList,
 	BoardMemberOption,
 	BoardTask,
 } from "@/types";
+
+interface CreateTaskModalProps {
+	projectId: string;
+	list: BoardList | null;
+	complexityOptions: BoardComplexityOption[];
+	members: BoardMemberOption[];
+	labels: BoardLabelOption[];
+	isOpen: boolean;
+	onOpenChange: (isOpen: boolean) => void;
+	onCreateTask: (task: BoardTask) => void;
+}
 
 // TODO: Task 4.4 - Build task creation and editing functionality
 // TODO: Task 5.6 - Create task detail modals and editing interfaces
@@ -66,17 +78,6 @@ Integration:
 - Handle file uploads
 - Real-time updates for comments
 */
-
-interface CreateTaskModalProps {
-	projectId: string;
-	list: BoardList | null;
-	complexityOptions: BoardComplexityOption[];
-	members: BoardMemberOption[];
-	labels: BoardLabelOption[];
-	isOpen: boolean;
-	onOpenChange: (isOpen: boolean) => void;
-	onCreateTask: (task: BoardTask) => void;
-}
 
 const initialState: BoardActionState = { status: "idle", message: "" };
 

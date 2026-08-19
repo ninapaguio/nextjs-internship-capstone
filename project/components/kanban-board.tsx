@@ -17,7 +17,17 @@ import {
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
-import type { BoardList, BoardTask, ProjectBoardData } from "@/types";
+import type {
+	BoardList,
+	BoardTask,
+	ComplexityFilter,
+	ProjectBoardData,
+} from "@/types";
+
+interface KanbanBoardProps {
+	projectId: string;
+	initialData: ProjectBoardData;
+}
 
 // TODO: Task 5.1 - Design responsive Kanban board layout
 // TODO: Task 5.2 - Implement drag-and-drop functionality with dnd-kit
@@ -53,13 +63,6 @@ State management:
 - Implement optimistic updates
 - Handle conflicts with server state
 */
-
-interface KanbanBoardProps {
-	projectId: string;
-	initialData: ProjectBoardData;
-}
-
-type ComplexityFilter = BoardTask["complexity"]["key"] | "all";
 
 // Provides persisted board filtering, task details, and optimistic dnd-kit movement.
 export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {

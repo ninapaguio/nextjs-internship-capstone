@@ -1,33 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { BoardList, BoardTask } from "@/types";
-
-interface BoardState {
-	projectId: string | null;
-	lists: BoardList[];
-	draggedTaskId: string | null;
-	dragTargetId: string | null;
-	dragSnapshot: BoardList[] | null;
-	dragSnapshotHadPendingChanges: boolean;
-	hasPendingChanges: boolean;
-	hydrate: (projectId: string, lists: BoardList[]) => void;
-	addList: (list: BoardList) => void;
-	updateList: (
-		listId: string,
-		changes: Pick<BoardList, "title" | "description">,
-	) => void;
-	archiveList: (listId: string) => void;
-	deleteList: (listId: string) => void;
-	addTask: (listId: string, task: BoardTask) => void;
-	updateTask: (taskId: string, changes: Partial<BoardTask>) => void;
-	deleteTask: (taskId: string) => void;
-	replaceLists: (lists: BoardList[]) => void;
-	markPersisted: () => void;
-	beginTaskDrag: (taskId: string) => void;
-	moveTaskOptimistically: (taskId: string, targetId: string) => void;
-	finishTaskDrag: (canceled: boolean) => void;
-}
+import type { BoardList, BoardState } from "@/types";
 
 // Finds the list containing a task without mutating board state.
 function findTaskList(lists: BoardList[], taskId: string) {
