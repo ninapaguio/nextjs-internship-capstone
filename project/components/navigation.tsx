@@ -5,10 +5,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 
-type HeaderProps = {
+interface HeaderProps {
 	sidebarOpen: boolean;
 	onToggleNavigation: () => void;
-};
+}
 
 // Displays global actions and the single control for opening or closing navigation.
 export function Header({ sidebarOpen, onToggleNavigation }: HeaderProps) {
