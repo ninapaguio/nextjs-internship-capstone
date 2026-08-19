@@ -13,6 +13,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+interface SidebarProps {
+	open: boolean;
+	onClose: () => void;
+}
+
 const navigation = [
 	{ label: "Dashboard", href: "/dashboard", icon: Gauge },
 	{ label: "Projects", href: "/projects", icon: FolderClosed },
@@ -20,11 +25,6 @@ const navigation = [
 	{ label: "Analytics", href: "/analytics", icon: BarChart3 },
 	{ label: "Calendar", href: "/calendar", icon: CalendarDays },
 ];
-
-type SidebarProps = {
-	open: boolean;
-	onClose: () => void;
-};
 
 export function Sidebar({ open, onClose }: SidebarProps) {
 	const pathname = usePathname();
