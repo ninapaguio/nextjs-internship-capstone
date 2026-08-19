@@ -6,11 +6,11 @@ import {
 	complexityOptions,
 	labels,
 	lists,
+	projectMembers,
 	projects,
 	taskAssignees,
 	taskLabels,
 	tasks,
-	teamMembers,
 	users,
 } from "@/lib/db/schema";
 import type {
@@ -41,98 +41,73 @@ function getMemberName(member: {
 // Loads active lists, tasks, labels, complexity options, and project members.
 export async function getProjectBoardData(
 	projectId: string,
-	teamId: string | null,
-	projectCreatorId: string,
 ): Promise<ProjectBoardData> {
-	const [
-		listRows,
-		taskRows,
-		complexityRows,
-		labelRows,
-		creatorRows,
-		teamMemberRows,
-	] = await Promise.all([
-		db
-			.select({
-				id: lists.id,
-				title: lists.name,
-				description: lists.description,
-				position: lists.position,
-			})
-			.from(lists)
-			.where(
-				and(
-					eq(lists.projectId, projectId),
-					isNull(lists.archivedAt),
-					isNull(lists.deletedAt),
+	const [listRows, taskRows, complexityRows, labelRows, projectMemberRows] =
+		await Promise.all([
+			db
+				.select({
+					id: lists.id,
+					title: lists.name,
+					description: lists.description,
+					position: lists.position,
+				})
+				.from(lists)
+				.where(
+					and(
+						eq(lists.projectId, projectId),
+						isNull(lists.archivedAt),
+						isNull(lists.deletedAt),
+					),
+				)
+				.orderBy(asc(lists.position)),
+			db
+				.select({
+					id: tasks.id,
+					listId: tasks.listId,
+					title: tasks.title,
+					description: tasks.description,
+					dueDate: tasks.dueDate,
+					position: tasks.position,
+					completedAt: tasks.completedAt,
+					complexityId: complexityOptions.id,
+					complexityKey: complexityOptions.key,
+					complexityLabel: complexityOptions.label,
+				})
+				.from(tasks)
+				.innerJoin(
+					complexityOptions,
+					eq(tasks.complexityId, complexityOptions.id),
+				)
+				.where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
+				.orderBy(asc(tasks.position)),
+			db
+				.select({
+					id: complexityOptions.id,
+					key: complexityOptions.key,
+					label: complexityOptions.label,
+				})
+				.from(complexityOptions)
+				.where(eq(complexityOptions.isActive, true))
+				.orderBy(asc(complexityOptions.sortOrder)),
+			db
+				.select({ id: labels.id, name: labels.name, color: labels.color })
+				.from(labels)
+				.where(eq(labels.projectId, projectId))
+				.orderBy(asc(labels.name)),
+			db
+				.select({
+					id: users.id,
+					firstName: users.firstName,
+					lastName: users.lastName,
+					username: users.username,
+					imageUrl: users.imageUrl,
+				})
+				.from(projectMembers)
+				.innerJoin(users, eq(projectMembers.userId, users.id))
+				.where(
+					and(eq(projectMembers.projectId, projectId), isNull(users.deletedAt)),
 				),
-			)
-			.orderBy(asc(lists.position)),
-		db
-			.select({
-				id: tasks.id,
-				listId: tasks.listId,
-				title: tasks.title,
-				description: tasks.description,
-				dueDate: tasks.dueDate,
-				position: tasks.position,
-				completedAt: tasks.completedAt,
-				complexityId: complexityOptions.id,
-				complexityKey: complexityOptions.key,
-				complexityLabel: complexityOptions.label,
-			})
-			.from(tasks)
-			.innerJoin(
-				complexityOptions,
-				eq(tasks.complexityId, complexityOptions.id),
-			)
-			.where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
-			.orderBy(asc(tasks.position)),
-		db
-			.select({
-				id: complexityOptions.id,
-				key: complexityOptions.key,
-				label: complexityOptions.label,
-			})
-			.from(complexityOptions)
-			.where(eq(complexityOptions.isActive, true))
-			.orderBy(asc(complexityOptions.sortOrder)),
-		db
-			.select({ id: labels.id, name: labels.name, color: labels.color })
-			.from(labels)
-			.where(eq(labels.projectId, projectId))
-			.orderBy(asc(labels.name)),
-		db
-			.select({
-				id: users.id,
-				firstName: users.firstName,
-				lastName: users.lastName,
-				username: users.username,
-				imageUrl: users.imageUrl,
-			})
-			.from(users)
-			.where(and(eq(users.id, projectCreatorId), isNull(users.deletedAt)))
-			.limit(1),
-		teamId
-			? db
-					.select({
-						id: users.id,
-						firstName: users.firstName,
-						lastName: users.lastName,
-						username: users.username,
-						imageUrl: users.imageUrl,
-					})
-					.from(teamMembers)
-					.innerJoin(users, eq(teamMembers.userId, users.id))
-					.where(
-						and(
-							eq(teamMembers.teamId, teamId),
-							eq(teamMembers.membershipStatus, "active"),
-							isNull(users.deletedAt),
-						),
-					)
-			: Promise.resolve([]),
-	]);
+		]);
 
 	const taskIds = taskRows.map((task) => task.id);
 	const assigneeRows = taskIds.length
@@ -159,7 +134,7 @@ export async function getProjectBoardData(
 		: [];
 
 	const membersById = new Map<string, BoardMemberOption>();
-	for (const member of [...creatorRows, ...teamMemberRows]) {
+	for (const member of projectMemberRows) {
 		membersById.set(member.id, {
 			id: member.id,
 			name: getMemberName(member),
@@ -247,34 +222,21 @@ export async function canUseLabelsInProject(
 	return matchingLabels.length === labelIds.length;
 }
 
-// Confirms every requested assignee is the project creator or an active team member.
+// Confirms every requested assignee has an active project membership.
 export async function canAssignUsersToProject(
 	projectId: string,
 	userIds: string[],
 ) {
 	if (userIds.length === 0) return true;
 
-	const projectRows = await db
-		.select({ teamId: projects.teamId, createdById: projects.createdById })
-		.from(projects)
-		.where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-		.limit(1);
-	const project = projectRows[0];
-	if (!project) return false;
-
-	const allowedIds = new Set([project.createdById]);
-	if (project.teamId) {
-		const members = await db
-			.select({ userId: teamMembers.userId })
-			.from(teamMembers)
-			.where(
-				and(
-					eq(teamMembers.teamId, project.teamId),
-					eq(teamMembers.membershipStatus, "active"),
-				),
-			);
-		for (const member of members) allowedIds.add(member.userId);
-	}
+	const members = await db
+		.select({ userId: projectMembers.userId })
+		.from(projectMembers)
+		.innerJoin(projects, eq(projectMembers.projectId, projects.id))
+		.where(
+			and(eq(projectMembers.projectId, projectId), isNull(projects.deletedAt)),
+		);
+	const allowedIds = new Set(members.map((member) => member.userId));
 
 	return userIds.every((userId) => allowedIds.has(userId));
 }

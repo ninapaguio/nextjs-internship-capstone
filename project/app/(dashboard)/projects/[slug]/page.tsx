@@ -1,22 +1,22 @@
 import { auth } from "@clerk/nextjs/server";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { KanbanBoard } from "@/components/kanban-board";
+import { InviteProjectMemberModal } from "@/components/modals/invite-project-member-modal";
+import { ProjectInvitationsManager } from "@/components/project-invitations-manager";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import { getProjectBoardData } from "@/lib/db/queries/board";
+import { getProjectInvitationsForOwner } from "@/lib/db/queries/project-members";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import {
 	createProjectCompositeSlug,
 	extractProjectIdFromSlug,
 } from "@/lib/project-slug";
 import { uuidSchema } from "@/lib/validations";
-
-interface ProjectPageProps {
-	params: Promise<{ slug: string }>;
-}
+import type { ProjectPageProps } from "@/types";
 
 export const metadata: Metadata = {
 	title: "Project workspace | EverFlow",
@@ -46,13 +46,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 		parsedProjectId.data,
 		applicationUser.id,
 	);
-
 	if (!project) notFound();
-	const boardData = await getProjectBoardData(
-		project.id,
-		project.teamId,
-		project.createdById,
-	);
+	const [boardData, invitations] = await Promise.all([
+		getProjectBoardData(project.id),
+		project.accessRole === "owner"
+			? getProjectInvitationsForOwner(project.id, applicationUser.id)
+			: Promise.resolve([]),
+	]);
 
 	const canonicalSlug = createProjectCompositeSlug(project.id, project.name);
 	if (slug !== canonicalSlug) redirect(`/projects/${canonicalSlug}`);
@@ -76,12 +76,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 				</div>
 
 				<div className="flex items-center gap-2">
-					<button
-						type="button"
-						className="flex h-8 items-center gap-1.5 rounded-full border bg-background px-3 text-xs font-medium shadow-xs transition hover:bg-muted"
-					>
-						<Users className="size-3.5" /> Members
-					</button>
+					{project.accessRole === "owner" ? (
+						<>
+							<ProjectInvitationsManager invitations={invitations} />
+							<InviteProjectMemberModal
+								projectId={project.id}
+								projectName={project.name}
+							/>
+						</>
+					) : null}
 				</div>
 			</header>
 

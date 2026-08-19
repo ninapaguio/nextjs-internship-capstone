@@ -1,24 +1,10 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-const isPublicRoute = createRouteMatcher([
-	"/",
-	"/sign-in/:path*",
-	"/sign-up/:path*",
-	"/api/webhooks/:path*",
-]);
-
-export default clerkMiddleware(
-	async (auth, request) => {
-		if (!isPublicRoute(request)) {
-			await auth.protect();
-		}
-	},
-	{
-		authorizedParties: appUrl ? [appUrl] : undefined,
-	},
-);
+export default clerkMiddleware({
+	authorizedParties: appUrl ? [appUrl] : undefined,
+});
 
 export const config = {
 	matcher: [
