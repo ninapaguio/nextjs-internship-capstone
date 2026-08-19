@@ -21,3 +21,53 @@ export interface ProjectCardView {
 	totalMembers: number;
 	progressPercentage: number;
 }
+
+// Complete view model rendered by a project card and its details panel.
+export interface ProjectCardData extends ProjectCardView {
+	href: string;
+	teamId: string | null;
+	accessRole: "owner" | "member";
+	teamName: string;
+	status: Project["status"];
+}
+
+export interface ProjectMutationResult {
+	status: "success" | "error";
+	message: string;
+}
+
+export interface ProjectListData {
+	currentPage: number;
+	projectRows: ProjectCardData[];
+	totalPages: number;
+	totalProjects: number;
+}
+
+export type ProjectOptimisticAction =
+	| { type: "add"; project: ProjectCardData }
+	| {
+			type: "update";
+			projectId: ProjectCardData["id"];
+			changes: Partial<ProjectCardData>;
+	  }
+	| { type: "remove"; projectId: ProjectCardData["id"] };
+
+export interface UseProjectsOptions {
+	initialData: ProjectListData;
+	search: string;
+	page: number;
+	pageSize: number;
+}
+
+export interface ProjectMutationVariables {
+	action: ProjectOptimisticAction;
+	mutation: () => Promise<ProjectMutationResult>;
+}
+
+export interface ProjectsPageProps {
+	searchParams: Promise<{ search?: string; page?: string }>;
+}
+
+export interface ProjectPageProps {
+	params: Promise<{ slug: string }>;
+}

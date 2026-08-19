@@ -2,12 +2,31 @@
 // to discover and prevent accidental exports when a new local type is added
 
 export type {
+	ActionStatus,
+	BoardActionState,
+	CancelProjectInvitationActionState,
+	CreateProjectActionState,
+	InviteProjectMemberActionState,
+	ProjectInvitationDecisionActionState,
+	ProjectMemberActionState,
+	ProjectMutationActionState,
+	TeamRoleActionState,
+} from "./action-states";
+export type {
+	BoardActivityItem,
+	BoardActivityType,
+	BoardComment,
 	BoardComplexityOption,
 	BoardLabelOption,
 	BoardList,
 	BoardMemberOption,
+	BoardState,
 	BoardTask,
+	ComplexityFilter,
+	EditableTaskField,
 	ProjectBoardData,
+	TaskFeedEntry,
+	TaskFeedTab,
 } from "./board";
 export type {
 	Comment,
@@ -18,16 +37,18 @@ export type {
 	NewLabel,
 	NewList,
 	NewProject,
+	NewProjectMember,
 	NewTask,
 	NewTeam,
+	NewTeamRole,
 	NewUser,
 	Project,
+	ProjectMember,
 	Task,
 	TaskActivity,
 	TaskAssignee,
 	TaskLabel,
 	Team,
-	TeamMember,
 	TeamRole,
 	User,
 } from "./database";
@@ -36,32 +57,58 @@ export type {
 	CreateListInput,
 	CreateProjectInput,
 	CreateTaskInput,
-	CreateTeamInput,
 	LabelInput,
 	MoveTaskInput,
 	ProjectFilterInput,
 	TaskAssignmentInput,
 	TaskFilterInput,
-	TeamInvitationInput,
 	TeamRoleInput,
 	UpdateListInput,
 	UpdateProjectInput,
+	UpdateProjectMemberInput,
 	UpdateTaskInput,
-	UpdateTeamInput,
-	UpdateTeamMemberInput,
 	UserInput,
 	UserUpdateInput,
 } from "./inputs";
-export type { ListWithTasks, ProjectBoard, ProjectCardView } from "./projects";
+export type {
+	AcceptInvitationPageProps,
+	InvitationStateOption,
+	InviteProjectMemberModalProps,
+	ProjectInvitationDecisionData,
+	ProjectInvitationDecisionProps,
+	ProjectInvitationListItem,
+	ProjectInvitationManagementStatus,
+	ProjectInvitationPageProps,
+	ProjectInvitationsManagerProps,
+} from "./project-invitations";
+export type {
+	ListWithTasks,
+	ProjectBoard,
+	ProjectCardData,
+	ProjectCardView,
+	ProjectListData,
+	ProjectMutationResult,
+	ProjectMutationVariables,
+	ProjectOptimisticAction,
+	ProjectPageProps,
+	ProjectsPageProps,
+	UseProjectsOptions,
+} from "./projects";
+export type { ApplicationUser } from "./server";
 export type {
 	CommentWithAuthor,
 	TaskActivityWithActor,
 	TaskDetails,
 } from "./tasks";
-
+export type {
+	ProjectAccessRole,
+	TeamDetailData,
+	TeamDetailMember,
+	TeamListItem,
+	TeamProjectAssignment,
+	TeamRoleOption,
+} from "./teams";
 export type { UIState } from "./ui";
-export type { TeamListItem } from "./teams";
-export type MembershipStatus = "active" | "disabled";
 export type MemberWorkStatus =
 	| "has_updates"
 	| "no_recent_updates"
