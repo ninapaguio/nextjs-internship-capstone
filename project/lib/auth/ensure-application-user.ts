@@ -4,10 +4,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { upsertApplicationUser } from "@/lib/db/mutations/users";
 import { getApplicationUserByClerkId } from "@/lib/db/queries/users";
 import { userSchema } from "@/lib/validations";
-
-interface ApplicationUser {
-	id: string;
-}
+import type { ApplicationUser } from "@/types";
 
 // Returns the local user, creating it from the active Clerk profile when needed.
 export async function ensureApplicationUser(

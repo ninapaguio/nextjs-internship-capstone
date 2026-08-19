@@ -1,0 +1,344 @@
+import "server-only";
+
+import { and, count, eq, gt, isNull, lte } from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+	projectInvitations,
+	projectMembers,
+	projects,
+	teams,
+	users,
+} from "@/lib/db/schema";
+
+interface UpdateProjectMemberAssignmentInput {
+	assignedRoleId: string | null;
+}
+
+interface CreateProjectInvitationMutationInput {
+	projectId: string;
+	email: string;
+	invitedById: string;
+	expiresAt: Date;
+}
+
+// Updates the assigned Team role for an existing Project member.
+export async function updateProjectMemberAssignment(
+	projectId: string,
+	userId: string,
+	input: UpdateProjectMemberAssignmentInput,
+) {
+	const [member] = await db
+		.update(projectMembers)
+		.set({ ...input, updatedAt: new Date() })
+		.where(
+			and(
+				eq(projectMembers.projectId, projectId),
+				eq(projectMembers.userId, userId),
+			),
+		)
+		.returning({ userId: projectMembers.userId });
+
+	return member ?? null;
+}
+
+// Adds one member and creates the Project's generated Team when membership reaches two.
+export async function addProjectMember(
+	projectId: string,
+	userId: string,
+	addedById: string,
+) {
+	const [project] = await db
+		.select({
+			id: projects.id,
+		})
+		.from(projects)
+		.innerJoin(
+			projectMembers,
+			and(
+				eq(projectMembers.projectId, projects.id),
+				eq(projectMembers.userId, addedById),
+				eq(projectMembers.accessRole, "owner"),
+			),
+		)
+		.where(
+			and(
+				eq(projects.id, projectId),
+				isNull(projects.deletedAt),
+				isNull(projects.archivedAt),
+			),
+		)
+		.limit(1);
+	if (!project) return null;
+
+	const [addedMember] = await db
+		.insert(projectMembers)
+		.values({ projectId, userId, accessRole: "member", addedById })
+		.onConflictDoNothing()
+		.returning({ userId: projectMembers.userId });
+
+	const [{ value: memberCount }] = await db
+		.select({ value: count() })
+		.from(projectMembers)
+		.where(eq(projectMembers.projectId, projectId));
+
+	if (memberCount >= 2) {
+		await db
+			.insert(teams)
+			.values({ projectId })
+			.onConflictDoUpdate({
+				target: teams.projectId,
+				set: {
+					status: "active",
+					archivedAt: null,
+					deletedAt: null,
+					updatedAt: new Date(),
+				},
+			});
+	}
+
+	return { projectId, memberCount, wasAdded: Boolean(addedMember) };
+}
+
+// Removes a member and archives the generated Team when the Project becomes SOLO.
+export async function removeProjectMember(
+	projectId: string,
+	userId: string,
+	removedById: string,
+) {
+	const [owner] = await db
+		.select({ userId: projectMembers.userId })
+		.from(projectMembers)
+		.where(
+			and(
+				eq(projectMembers.projectId, projectId),
+				eq(projectMembers.userId, removedById),
+				eq(projectMembers.accessRole, "owner"),
+			),
+		)
+		.limit(1);
+	if (!owner) return null;
+
+	const [removed] = await db
+		.delete(projectMembers)
+		.where(
+			and(
+				eq(projectMembers.projectId, projectId),
+				eq(projectMembers.userId, userId),
+				eq(projectMembers.accessRole, "member"),
+			),
+		)
+		.returning({ userId: projectMembers.userId });
+	if (!removed) return null;
+
+	const [{ value: memberCount }] = await db
+		.select({ value: count() })
+		.from(projectMembers)
+		.where(eq(projectMembers.projectId, projectId));
+	if (memberCount === 1) {
+		const now = new Date();
+		await db
+			.update(teams)
+			.set({ status: "archived", archivedAt: now, updatedAt: now })
+			.where(eq(teams.projectId, projectId));
+	}
+
+	return { userId: removed.userId, memberCount };
+}
+
+// Stores a pending Project invitation before Clerk sends its application email.
+export async function createProjectInvitation(
+	input: CreateProjectInvitationMutationInput,
+) {
+	await db
+		.update(projectInvitations)
+		.set({ status: "expired" })
+		.where(
+			and(
+				eq(projectInvitations.projectId, input.projectId),
+				eq(projectInvitations.email, input.email),
+				eq(projectInvitations.status, "pending"),
+				lte(projectInvitations.expiresAt, new Date()),
+			),
+		);
+
+	const [invitation] = await db
+		.insert(projectInvitations)
+		.values(input)
+		.onConflictDoNothing()
+		.returning({ id: projectInvitations.id });
+	return invitation ?? null;
+}
+
+// Marks one elapsed pending invitation as expired before a state transition is attempted.
+export async function expirePendingProjectInvitation(invitationId: string) {
+	return db
+		.update(projectInvitations)
+		.set({ status: "expired" })
+		.where(
+			and(
+				eq(projectInvitations.id, invitationId),
+				eq(projectInvitations.status, "pending"),
+				lte(projectInvitations.expiresAt, new Date()),
+			),
+		)
+		.returning({ id: projectInvitations.id });
+}
+
+// Revokes a pending invitation only when the requesting user owns its Project.
+export async function cancelProjectInvitation(
+	invitationId: string,
+	applicationUserId: string,
+) {
+	await expirePendingProjectInvitation(invitationId);
+
+	const [authorizedInvitation] = await db
+		.select({
+			clerkInvitationId: projectInvitations.clerkInvitationId,
+			projectId: projectInvitations.projectId,
+			projectName: projects.name,
+		})
+		.from(projectInvitations)
+		.innerJoin(projects, eq(projects.id, projectInvitations.projectId))
+		.innerJoin(
+			projectMembers,
+			and(
+				eq(projectMembers.projectId, projectInvitations.projectId),
+				eq(projectMembers.userId, applicationUserId),
+				eq(projectMembers.accessRole, "owner"),
+			),
+		)
+		.where(
+			and(
+				eq(projectInvitations.id, invitationId),
+				eq(projectInvitations.status, "pending"),
+				gt(projectInvitations.expiresAt, new Date()),
+				isNull(projects.deletedAt),
+				isNull(projects.archivedAt),
+			),
+		)
+		.limit(1);
+	if (!authorizedInvitation) return null;
+
+	const [canceledInvitation] = await db
+		.update(projectInvitations)
+		.set({ status: "revoked" })
+		.where(
+			and(
+				eq(projectInvitations.id, invitationId),
+				eq(projectInvitations.status, "pending"),
+				gt(projectInvitations.expiresAt, new Date()),
+			),
+		)
+		.returning({ id: projectInvitations.id });
+
+	return canceledInvitation ? authorizedInvitation : null;
+}
+
+// Revokes a local invitation when Clerk could not send its matching email.
+export async function revokeProjectInvitation(invitationId: string) {
+	await db
+		.update(projectInvitations)
+		.set({ status: "revoked" })
+		.where(
+			and(
+				eq(projectInvitations.id, invitationId),
+				eq(projectInvitations.status, "pending"),
+			),
+		);
+}
+
+// Links Clerk's application-invitation identifier to its local Project invitation.
+export async function linkProjectInvitationToClerk(
+	invitationId: string,
+	clerkInvitationId: string,
+) {
+	await db
+		.update(projectInvitations)
+		.set({ clerkInvitationId })
+		.where(eq(projectInvitations.id, invitationId));
+}
+
+// Accepts a pending invitation and performs the SOLO-to-TEAM membership transition.
+export async function acceptProjectInvitation(
+	invitationId: string,
+	applicationUserId: string,
+) {
+	await expirePendingProjectInvitation(invitationId);
+
+	const [invitation] = await db
+		.select({
+			projectId: projectInvitations.projectId,
+			projectName: projects.name,
+			invitedById: projectInvitations.invitedById,
+		})
+		.from(projectInvitations)
+		.innerJoin(projects, eq(projects.id, projectInvitations.projectId))
+		.innerJoin(
+			users,
+			and(
+				eq(users.id, applicationUserId),
+				eq(users.email, projectInvitations.email),
+			),
+		)
+		.where(
+			and(
+				eq(projectInvitations.id, invitationId),
+				eq(projectInvitations.status, "pending"),
+				gt(projectInvitations.expiresAt, new Date()),
+				isNull(users.deletedAt),
+				isNull(projects.deletedAt),
+				isNull(projects.archivedAt),
+			),
+		)
+		.limit(1);
+	if (!invitation) return null;
+
+	const membership = await addProjectMember(
+		invitation.projectId,
+		applicationUserId,
+		invitation.invitedById,
+	);
+	if (!membership) return null;
+
+	await db
+		.update(projectInvitations)
+		.set({ status: "accepted", acceptedAt: new Date() })
+		.where(eq(projectInvitations.id, invitationId));
+
+	return { ...membership, projectName: invitation.projectName };
+}
+
+// Declines a pending invitation only when the signed-in user's email matches it.
+export async function declineProjectInvitation(
+	invitationId: string,
+	applicationUserId: string,
+) {
+	await expirePendingProjectInvitation(invitationId);
+
+	const [invitation] = await db
+		.select({ clerkInvitationId: projectInvitations.clerkInvitationId })
+		.from(projectInvitations)
+		.innerJoin(
+			users,
+			and(
+				eq(users.id, applicationUserId),
+				eq(users.email, projectInvitations.email),
+			),
+		)
+		.where(
+			and(
+				eq(projectInvitations.id, invitationId),
+				eq(projectInvitations.status, "pending"),
+				isNull(users.deletedAt),
+			),
+		)
+		.limit(1);
+	if (!invitation) return null;
+
+	await db
+		.update(projectInvitations)
+		.set({ status: "declined" })
+		.where(eq(projectInvitations.id, invitationId));
+
+	return invitation;
+}
