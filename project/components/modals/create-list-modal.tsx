@@ -2,22 +2,17 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import {
-	type BoardActionState,
-	createBoardList,
-	updateBoardList,
-} from "@/actions/board";
+import { createBoardList, updateBoardList } from "@/actions/board";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { BoardList } from "@/types";
+import type { BoardActionState, BoardList } from "@/types";
 
 interface CreateListModalProps {
 	projectId: string;

@@ -19,6 +19,12 @@ import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/types";
 
+interface TaskCardProps {
+	task: BoardTask;
+	listId: string;
+	onOpen: (taskId: string) => void;
+}
+
 // TODO: Task 5.6 - Create task detail modals and editing interfaces
 
 /*
@@ -57,12 +63,6 @@ Features to implement:
 - Overdue indicators
 - Responsive design
 */
-
-interface TaskCardProps {
-	task: BoardTask;
-	listId: string;
-	onOpen: (taskId: string) => void;
-}
 
 const complexityStyles: Record<BoardTask["complexity"]["key"], string> = {
 	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",

@@ -1,10 +1,33 @@
 "use client";
 
 import { type CalendarDate, parseDate } from "@internationalized/date";
-import { Check, Pencil } from "lucide-react";
-import { type ReactNode, useActionState, useEffect, useState } from "react";
+import {
+	ArrowRightLeft,
+	CalendarClock,
+	Check,
+	CheckCircle2,
+	FileText,
+	Gauge,
+	History,
+	type LucideIcon,
+	Pencil,
+	Plus,
+	RotateCcw,
+	Send,
+	Sparkles,
+	Tag,
+	UserMinus,
+	UserPlus,
+} from "lucide-react";
+import {
+	type ReactNode,
+	useActionState,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useFormStatus } from "react-dom";
-import { type BoardActionState, updateBoardTask } from "@/actions/board";
+import { updateBoardTask } from "@/actions/board";
 import {
 	Avatar,
 	AvatarFallback,
@@ -36,11 +59,18 @@ import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
 import type {
+	BoardActionState,
+	BoardActivityItem,
+	BoardActivityType,
+	BoardComment,
 	BoardComplexityOption,
 	BoardLabelOption,
 	BoardList,
 	BoardMemberOption,
 	BoardTask,
+	EditableTaskField,
+	TaskFeedEntry,
+	TaskFeedTab,
 } from "@/types";
 
 interface TaskDetailsPanelProps {
@@ -52,16 +82,15 @@ interface TaskDetailsPanelProps {
 	labels: BoardLabelOption[];
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	comments?: BoardComment[];
+	activity?: BoardActivityItem[];
+	currentUser?: BoardMemberOption | null;
+	onAddComment?: (taskId: string, body: string) => Promise<void> | void;
+	onCreateLabel?: (
+		projectId: string,
+		name: string,
+	) => Promise<BoardLabelOption> | BoardLabelOption;
 }
-
-type EditableField =
-	| "title"
-	| "assignees"
-	| "labels"
-	| "column"
-	| "complexity"
-	| "description"
-	| null;
 
 const initialState: BoardActionState = { status: "idle", message: "" };
 
@@ -89,6 +118,79 @@ function formatDueDate(date: CalendarDate | null) {
 		day: "numeric",
 		year: "numeric",
 	}).format(date.toDate("UTC"));
+}
+
+// Formats an ISO timestamp as a short relative label ("2h ago", "yesterday").
+function formatRelativeTime(iso: string) {
+	const date = new Date(iso);
+	const diffSeconds = Math.round((date.getTime() - Date.now()) / 1000);
+	const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+	const divisions: [Intl.RelativeTimeFormatUnit, number][] = [
+		["year", 60 * 60 * 24 * 365],
+		["month", 60 * 60 * 24 * 30],
+		["week", 60 * 60 * 24 * 7],
+		["day", 60 * 60 * 24],
+		["hour", 60 * 60],
+		["minute", 60],
+	];
+	for (const [unit, secondsInUnit] of divisions) {
+		if (Math.abs(diffSeconds) >= secondsInUnit) {
+			return rtf.format(Math.round(diffSeconds / secondsInUnit), unit);
+		}
+	}
+	return rtf.format(diffSeconds, "second");
+}
+
+const activityIcons: Record<BoardActivityType, LucideIcon> = {
+	created: Sparkles,
+	column_changed: ArrowRightLeft,
+	assignee_added: UserPlus,
+	assignee_removed: UserMinus,
+	label_added: Tag,
+	label_removed: Tag,
+	due_date_changed: CalendarClock,
+	complexity_changed: Gauge,
+	description_changed: FileText,
+	completed: CheckCircle2,
+	reopened: RotateCcw,
+};
+
+// Turns an activity entry into a short, human-readable sentence fragment.
+function describeActivity(item: BoardActivityItem) {
+	switch (item.type) {
+		case "created":
+			return "created this task";
+		case "column_changed":
+			return item.detail
+				? `moved this task to ${item.detail}`
+				: "moved this task";
+		case "assignee_added":
+			return item.detail ? `assigned ${item.detail}` : "assigned a member";
+		case "assignee_removed":
+			return item.detail ? `unassigned ${item.detail}` : "removed an assignee";
+		case "label_added":
+			return item.detail ? `added the ${item.detail} label` : "added a label";
+		case "label_removed":
+			return item.detail
+				? `removed the ${item.detail} label`
+				: "removed a label";
+		case "due_date_changed":
+			return item.detail
+				? `set the due date to ${item.detail}`
+				: "cleared the due date";
+		case "complexity_changed":
+			return item.detail
+				? `set complexity to ${item.detail}`
+				: "changed the complexity";
+		case "description_changed":
+			return "updated the description";
+		case "completed":
+			return "marked this task complete";
+		case "reopened":
+			return "reopened this task";
+		default:
+			return "updated this task";
+	}
 }
 
 // Returns compact initials when a member has no profile image.
@@ -165,7 +267,275 @@ function AssigneeAvatars({
 	);
 }
 
-// Renders a side panel for editing a task without comments or activity history.
+// Segmented "Comments / All activity" switch
+function FeedTabs({
+	active,
+	onChange,
+	commentCount,
+}: {
+	active: TaskFeedTab;
+	onChange: (tab: TaskFeedTab) => void;
+	commentCount: number;
+}) {
+	const tabs: { key: TaskFeedTab; label: string }[] = [
+		{
+			key: "comments",
+			label: commentCount > 0 ? `Comments (${commentCount})` : "Comments",
+		},
+		{ key: "activity", label: "All activity" },
+	];
+
+	return (
+		<div
+			role="tablist"
+			aria-label="Comments and activity"
+			className="flex items-center gap-4 border-b px-6"
+		>
+			{tabs.map((tab) => (
+				<button
+					key={tab.key}
+					type="button"
+					role="tab"
+					aria-selected={active === tab.key}
+					onClick={() => onChange(tab.key)}
+					className={cn(
+						"relative -mb-px py-3 text-sm font-medium transition-colors",
+						active === tab.key
+							? "text-foreground"
+							: "text-muted-foreground hover:text-foreground",
+					)}
+				>
+					{tab.label}
+					{active === tab.key && (
+						<span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />
+					)}
+				</button>
+			))}
+		</div>
+	);
+}
+
+// A single comment bubble with author, relative timestamp, and body text.
+function CommentRow({ comment }: { comment: BoardComment }) {
+	return (
+		<div className="flex gap-3">
+			<Avatar className="mt-0.5 size-8 shrink-0">
+				{comment.author.imageUrl && (
+					<AvatarImage
+						src={comment.author.imageUrl}
+						alt={comment.author.name}
+					/>
+				)}
+				<AvatarFallback>
+					{getMemberInitials(comment.author.name)}
+				</AvatarFallback>
+			</Avatar>
+			<div className="min-w-0 flex-1 rounded-lg bg-muted/40 px-3 py-2 ring-1 ring-border/60">
+				<div className="flex items-baseline justify-between gap-2">
+					<span className="text-sm font-medium">{comment.author.name}</span>
+					<span className="shrink-0 text-xs text-muted-foreground">
+						{formatRelativeTime(comment.createdAt)}
+					</span>
+				</div>
+				<p className="mt-0.5 whitespace-pre-wrap wrap-break-word text-sm text-foreground/90">
+					{comment.body}
+				</p>
+			</div>
+		</div>
+	);
+}
+
+// single system activity entry
+function ActivityRow({ item }: { item: BoardActivityItem }) {
+	const Icon = activityIcons[item.type] ?? History;
+	return (
+		<div className="flex gap-3">
+			<span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+				<Icon className="size-4" />
+			</span>
+			<div className="min-w-0 flex-1 py-1">
+				<p className="text-sm">
+					<span className="font-medium">{item.actor.name}</span>{" "}
+					<span className="text-muted-foreground">
+						{describeActivity(item)}
+					</span>
+				</p>
+				<span className="text-xs text-muted-foreground">
+					{formatRelativeTime(item.createdAt)}
+				</span>
+			</div>
+		</div>
+	);
+}
+
+// Sticky comment composer: current user's avatar, a textarea, and a send button.
+function CommentComposer({
+	currentUser,
+	onSubmit,
+}: {
+	currentUser?: BoardMemberOption | null;
+	onSubmit: (body: string) => Promise<void> | void;
+}) {
+	const [draft, setDraft] = useState("");
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	async function handleSubmit() {
+		const body = draft.trim();
+		if (!body || isSubmitting) return;
+		setIsSubmitting(true);
+		try {
+			await onSubmit(body);
+			setDraft("");
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
+	return (
+		<div className="flex gap-3 border-t bg-background px-6 py-4">
+			<Avatar className="mt-0.5 size-8 shrink-0">
+				{currentUser?.imageUrl && (
+					<AvatarImage src={currentUser.imageUrl} alt={currentUser.name} />
+				)}
+				<AvatarFallback>
+					{getMemberInitials(currentUser?.name ?? "You")}
+				</AvatarFallback>
+			</Avatar>
+			<div className="min-w-0 flex-1 space-y-2">
+				<Textarea
+					aria-label="Add a comment"
+					placeholder="Add a comment…"
+					value={draft}
+					onChange={(event) => setDraft(event.target.value)}
+					onKeyDown={(event) => {
+						if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+							event.preventDefault();
+							handleSubmit();
+						}
+					}}
+					className="min-h-16 bg-muted/30"
+				/>
+				<div className="flex items-center justify-between gap-2">
+					<span className="text-xs text-muted-foreground">
+						⌘/Ctrl + Enter to send
+					</span>
+					<Button
+						type="button"
+						size="sm"
+						isDisabled={!draft.trim() || isSubmitting}
+						onPress={handleSubmit}
+					>
+						<Send data-icon="inline-start" />
+						{isSubmitting ? "Posting…" : "Comment"}
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// Comments/activity section
+function TaskActivitySection({
+	taskId,
+	comments,
+	activity,
+	currentUser,
+	onAddComment,
+}: {
+	taskId: string;
+	comments: BoardComment[];
+	activity: BoardActivityItem[];
+	currentUser?: BoardMemberOption | null;
+	onAddComment?: (taskId: string, body: string) => Promise<void> | void;
+}) {
+	const [tab, setTab] = useState<TaskFeedTab>("comments");
+	const [localComments, setLocalComments] = useState(comments);
+
+	useEffect(() => {
+		setLocalComments(comments);
+	}, [comments]);
+
+	const sortedComments = useMemo(
+		() =>
+			[...localComments].sort(
+				(a, b) =>
+					new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+			),
+		[localComments],
+	);
+
+	const feed = useMemo<TaskFeedEntry[]>(() => {
+		const commentEntries: TaskFeedEntry[] = localComments.map((comment) => ({
+			kind: "comment",
+			id: `comment-${comment.id}`,
+			createdAt: comment.createdAt,
+			comment,
+		}));
+		const activityEntries: TaskFeedEntry[] = activity.map((item) => ({
+			kind: "activity",
+			id: `activity-${item.id}`,
+			createdAt: item.createdAt,
+			activity: item,
+		}));
+		return [...commentEntries, ...activityEntries].sort(
+			(a, b) =>
+				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+		);
+	}, [localComments, activity]);
+
+	// Optimistically appends the comment, then defers to the caller for persistence.
+	async function handleAddComment(body: string) {
+		const optimisticComment: BoardComment = {
+			id: `temp-${Date.now()}`,
+			author: currentUser ?? { id: "me", name: "You", imageUrl: null },
+			body,
+			createdAt: new Date().toISOString(),
+		};
+		setLocalComments((current) => [...current, optimisticComment]);
+		await onAddComment?.(taskId, body);
+	}
+
+	return (
+		<div className="flex flex-col border-t bg-background">
+			<FeedTabs active={tab} onChange={setTab} commentCount={comments.length} />
+
+			<div className="space-y-4 px-6 py-5">
+				{tab === "comments" ? (
+					sortedComments.length > 0 ? (
+						sortedComments.map((comment) => (
+							<CommentRow key={comment.id} comment={comment} />
+						))
+					) : (
+						<p className="py-6 text-center text-sm text-muted-foreground">
+							No comments yet. Start the conversation below.
+						</p>
+					)
+				) : feed.length > 0 ? (
+					feed.map((entry) =>
+						entry.kind === "comment" ? (
+							<CommentRow key={entry.id} comment={entry.comment} />
+						) : (
+							<ActivityRow key={entry.id} item={entry.activity} />
+						),
+					)
+				) : (
+					<p className="py-6 text-center text-sm text-muted-foreground">
+						No activity yet.
+					</p>
+				)}
+			</div>
+
+			{tab === "comments" && (
+				<CommentComposer
+					currentUser={currentUser}
+					onSubmit={handleAddComment}
+				/>
+			)}
+		</div>
+	);
+}
+
+// Renders a side panel for editing a task, with a comments/activity feed
 export function TaskDetailsPanel({
 	projectId,
 	task,
@@ -175,11 +545,16 @@ export function TaskDetailsPanel({
 	labels,
 	isOpen,
 	onOpenChange,
+	comments = [],
+	activity = [],
+	currentUser = null,
+	onAddComment,
+	onCreateLabel,
 }: TaskDetailsPanelProps) {
 	const updateTaskInStore = useBoardStore((state) => state.updateTask);
 	const replaceLists = useBoardStore((state) => state.replaceLists);
 	const markPersisted = useBoardStore((state) => state.markPersisted);
-	const [editingField, setEditingField] = useState<EditableField>(null);
+	const [editingField, setEditingField] = useState<EditableTaskField>(null);
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
 	const [dueDate, setDueDate] = useState<CalendarDate | null>(null);
@@ -188,6 +563,13 @@ export function TaskDetailsPanel({
 	const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
 	const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
 	const [panelError, setPanelError] = useState<string | null>(null);
+	const [localLabels, setLocalLabels] = useState<BoardLabelOption[]>(labels);
+	const [newLabelName, setNewLabelName] = useState("");
+	const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+
+	useEffect(() => {
+		setLocalLabels(labels);
+	}, [labels]);
 
 	useEffect(() => {
 		setEditingField(null);
@@ -198,8 +580,27 @@ export function TaskDetailsPanel({
 		setSelectedComplexityId(task?.complexity.id ?? "");
 		setSelectedAssigneeIds(task?.assignees.map((member) => member.id) ?? []);
 		setSelectedLabelIds(task?.labels.map((label) => label.id) ?? []);
+		setNewLabelName("");
 		setPanelError(null);
 	}, [task]);
+
+	// Creates a label from the current draft name, selects it, and clears the
+	// input. Falls back to a local, unsaved label if `onCreateLabel` is absent.
+	async function handleCreateLabel() {
+		const name = newLabelName.trim();
+		if (!name || isCreatingLabel) return;
+		setIsCreatingLabel(true);
+		try {
+			const created =
+				(await onCreateLabel?.(projectId, name)) ??
+				({ id: `temp-label-${Date.now()}`, name } as BoardLabelOption);
+			setLocalLabels((current) => [...current, created]);
+			setSelectedLabelIds((current) => [...current, created.id]);
+			setNewLabelName("");
+		} finally {
+			setIsCreatingLabel(false);
+		}
+	}
 
 	// Optimistically updates the task and restores the board if persistence fails.
 	const [state, formAction] = useActionState(
@@ -215,7 +616,7 @@ export function TaskDetailsPanel({
 			const assignees = members.filter((member) =>
 				selectedAssigneeIds.includes(member.id),
 			);
-			const selectedLabels = labels.filter((label) =>
+			const selectedLabels = localLabels.filter((label) =>
 				selectedLabelIds.includes(label.id),
 			);
 			const changes: Partial<BoardTask> = {
@@ -246,7 +647,7 @@ export function TaskDetailsPanel({
 	const selectedAssignees = members.filter((member) =>
 		selectedAssigneeIds.includes(member.id),
 	);
-	const selectedLabels = labels.filter((label) =>
+	const selectedLabels = localLabels.filter((label) =>
 		selectedLabelIds.includes(label.id),
 	);
 	const selectedList = lists.find((list) => list.id === selectedListId);
@@ -280,31 +681,33 @@ export function TaskDetailsPanel({
 			className="w-full sm:max-w-xl lg:max-w-2xl"
 		>
 			<SheetHeader className="border-b pr-14">
-				<div className="flex items-start justify-between gap-3">
+				<div className="flex min-w-0 items-start gap-3">
 					<SheetTitle className="sr-only">Task details</SheetTitle>
-					{editingField === "title" ? (
-						<Input
-							aria-label="Task title"
-							value={title}
-							onChange={(event) => setTitle(event.target.value)}
-							maxLength={200}
-							autoFocus
-							className="h-10 flex-1 text-lg font-semibold"
-						/>
-					) : (
-						<TooltipTrigger delay={400}>
-							<Button
-								type="button"
-								variant="ghost"
-								className="h-auto min-w-0 justify-start gap-2 px-0 py-1 text-left text-xl font-semibold hover:bg-transparent"
-								onPress={() => setEditingField("title")}
-							>
-								<span className="truncate">{title}</span>
-								<Pencil className="size-4" />
-							</Button>
-							<Tooltip placement="bottom start">Edit task title</Tooltip>
-						</TooltipTrigger>
-					)}
+					<div className="min-w-0 flex-1">
+						{editingField === "title" ? (
+							<Input
+								aria-label="Task title"
+								value={title}
+								onChange={(event) => setTitle(event.target.value)}
+								maxLength={200}
+								autoFocus
+								className="h-10 w-full text-lg font-semibold"
+							/>
+						) : (
+							<TooltipTrigger delay={400}>
+								<Button
+									type="button"
+									variant="ghost"
+									className="h-auto w-full min-w-0 justify-start gap-2 px-0 py-1 text-left text-xl font-semibold hover:bg-transparent"
+									onPress={() => setEditingField("title")}
+								>
+									<span className="min-w-0 truncate">{title}</span>
+									<Pencil className="size-4 shrink-0" />
+								</Button>
+								<Tooltip placement="bottom start">Edit task title</Tooltip>
+							</TooltipTrigger>
+						)}
+					</div>
 				</div>
 				<SheetDescription>
 					Select a displayed value to edit it, then save your changes.
@@ -369,25 +772,53 @@ export function TaskDetailsPanel({
 
 						<DetailRow label="Labels">
 							{editingField === "labels" ? (
-								<Select
-									aria-label="Labels"
-									selectionMode="multiple"
-									value={selectedLabelIds}
-									onChange={(values) =>
-										setSelectedLabelIds(Array.from(values, String))
-									}
-								>
-									<SelectTrigger className="w-full">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{labels.map((label) => (
-											<SelectItem key={label.id} id={label.id}>
-												{label.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<div className="space-y-2">
+									<Select
+										aria-label="Labels"
+										selectionMode="multiple"
+										value={selectedLabelIds}
+										onChange={(values) =>
+											setSelectedLabelIds(Array.from(values, String))
+										}
+									>
+										<SelectTrigger className="w-full">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{localLabels.map((label) => (
+												<SelectItem key={label.id} id={label.id}>
+													{label.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<div className="flex items-center gap-2">
+										<Input
+											aria-label="New label name"
+											placeholder="Create a label…"
+											value={newLabelName}
+											onChange={(event) => setNewLabelName(event.target.value)}
+											maxLength={40}
+											className="h-8 flex-1"
+											onKeyDown={(event) => {
+												if (event.key === "Enter") {
+													event.preventDefault();
+													handleCreateLabel();
+												}
+											}}
+										/>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											isDisabled={!newLabelName.trim() || isCreatingLabel}
+											onPress={handleCreateLabel}
+										>
+											<Plus data-icon="inline-start" />
+											{isCreatingLabel ? "Adding…" : "Add"}
+										</Button>
+									</div>
+								</div>
 							) : (
 								<Button
 									type="button"
@@ -554,6 +985,14 @@ export function TaskDetailsPanel({
 						<TaskDetailsSubmit />
 					</SheetFooter>
 				</form>
+
+				<TaskActivitySection
+					taskId={task.id}
+					comments={comments}
+					activity={activity}
+					currentUser={currentUser}
+					onAddComment={onAddComment}
+				/>
 			</div>
 		</SheetContent>
 	);

@@ -27,13 +27,7 @@ import {
 	updateListSchema,
 	uuidSchema,
 } from "@/lib/validations";
-
-export interface BoardActionState {
-	status: "idle" | "success" | "error";
-	message: string;
-	data?: { id: string };
-	fieldErrors?: Record<string, string[] | undefined>;
-}
+import type { BoardActionState } from "@/types";
 
 // Authenticates the current Clerk user and verifies access to a project board.
 async function authorizeBoardProject(projectId: string) {
