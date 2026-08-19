@@ -5,18 +5,17 @@ import {
 	asc,
 	desc,
 	eq,
+	exists,
 	ilike,
-	inArray,
 	isNull,
 	or,
 	sql,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projects, tasks, teamMembers, teams } from "@/lib/db/schema";
+import { projectMembers, projects, tasks, teams } from "@/lib/db/schema";
 
 interface ProjectListQueryInput {
 	applicationUserId: string;
-	teamIds: string[];
 	query: string;
 	requestedPage: number;
 	pageSize: number;
@@ -30,20 +29,27 @@ export async function getAccessibleProjectById(
 	const [project] = await db
 		.select({
 			id: projects.id,
-			teamId: projects.teamId,
+			teamId: teams.id,
+			accessRole: projectMembers.accessRole,
 			createdById: projects.createdById,
 			name: projects.name,
 			description: projects.description,
 			startDate: projects.startDate,
 		})
 		.from(projects)
-		.leftJoin(teams, eq(projects.teamId, teams.id))
 		.leftJoin(
-			teamMembers,
+			teams,
 			and(
-				eq(teamMembers.teamId, projects.teamId),
-				eq(teamMembers.userId, applicationUserId),
-				eq(teamMembers.membershipStatus, "active"),
+				eq(teams.projectId, projects.id),
+				isNull(teams.archivedAt),
+				isNull(teams.deletedAt),
+			),
+		)
+		.innerJoin(
+			projectMembers,
+			and(
+				eq(projectMembers.projectId, projects.id),
+				eq(projectMembers.userId, applicationUserId),
 			),
 		)
 		.where(
@@ -51,11 +57,7 @@ export async function getAccessibleProjectById(
 				eq(projects.id, projectId),
 				isNull(projects.deletedAt),
 				isNull(projects.archivedAt),
-				or(
-					eq(projects.createdById, applicationUserId),
-					eq(teams.createdById, applicationUserId),
-					eq(teamMembers.userId, applicationUserId),
-				),
+				eq(projectMembers.userId, applicationUserId),
 			),
 		)
 		.limit(1);
@@ -66,15 +68,21 @@ export async function getAccessibleProjectById(
 // Loads one searchable, paginated project-list result for an application user.
 export async function getProjectList({
 	applicationUserId,
-	teamIds,
 	query,
 	requestedPage,
 	pageSize,
 }: ProjectListQueryInput) {
 	const conditions = and(
-		or(
-			and(isNull(projects.teamId), eq(projects.createdById, applicationUserId)),
-			teamIds.length > 0 ? inArray(projects.teamId, teamIds) : undefined,
+		exists(
+			db
+				.select({ userId: projectMembers.userId })
+				.from(projectMembers)
+				.where(
+					and(
+						eq(projectMembers.projectId, projects.id),
+						eq(projectMembers.userId, applicationUserId),
+					),
+				),
 		),
 		isNull(projects.deletedAt),
 		isNull(projects.archivedAt),
@@ -96,24 +104,22 @@ export async function getProjectList({
 	const projectRows = await db
 		.select({
 			id: projects.id,
-			teamId: projects.teamId,
+			teamId: teams.id,
+			accessRole: projectMembers.accessRole,
 			name: projects.name,
 			description: projects.description,
 			startDate: projects.startDate,
-			teamName: sql<string>`coalesce(${teams.name}, 'Personal')`,
+			teamName: sql<string>`case when ${teams.id} is null then 'Solo' else ${projects.name} end`,
 			status: projects.status,
 			endDate: projects.endDate,
 			totalTasks: sql<number>`(
 				select count(*)::int from ${tasks}
 				where ${tasks.projectId} = ${projects.id} and ${tasks.deletedAt} is null
 			)`,
-			totalMembers: sql<number>`case
-				when ${projects.teamId} is null then 1
-				else (
-					select count(*)::int from ${teamMembers}
-					where ${teamMembers.teamId} = ${projects.teamId} and ${teamMembers.membershipStatus} = 'active'
-				)
-			end`,
+			totalMembers: sql<number>`(
+				select count(*)::int from ${projectMembers}
+				where ${projectMembers.projectId} = ${projects.id}
+			)`,
 			progressPercentage: sql<number>`coalesce((
 				select round(
 					100.0 * count(*) filter (where ${tasks.completedAt} is not null)
@@ -123,7 +129,21 @@ export async function getProjectList({
 			), 0)`,
 		})
 		.from(projects)
-		.leftJoin(teams, eq(projects.teamId, teams.id))
+		.leftJoin(
+			teams,
+			and(
+				eq(teams.projectId, projects.id),
+				isNull(teams.archivedAt),
+				isNull(teams.deletedAt),
+			),
+		)
+		.innerJoin(
+			projectMembers,
+			and(
+				eq(projectMembers.projectId, projects.id),
+				eq(projectMembers.userId, applicationUserId),
+			),
+		)
 		.where(conditions)
 		.orderBy(desc(projects.updatedAt), asc(projects.name))
 		.limit(pageSize)

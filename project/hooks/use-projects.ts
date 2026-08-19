@@ -59,40 +59,14 @@ Dependencies to install:
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ProjectCardData } from "@/components/project-card";
-
-type ProjectOptimisticAction =
-	| { type: "add"; project: ProjectCardData }
-	| {
-			type: "update";
-			projectId: ProjectCardData["id"];
-			changes: Partial<ProjectCardData>;
-	  }
-	| { type: "remove"; projectId: ProjectCardData["id"] };
-
-export interface ProjectMutationResult {
-	status: "success" | "error";
-	message: string;
-}
-
-export interface ProjectListData {
-	currentPage: number;
-	projectRows: ProjectCardData[];
-	totalPages: number;
-	totalProjects: number;
-}
-
-interface UseProjectsOptions {
-	initialData: ProjectListData;
-	search: string;
-	page: number;
-	pageSize: number;
-}
-
-interface ProjectMutationVariables {
-	action: ProjectOptimisticAction;
-	mutation: () => Promise<ProjectMutationResult>;
-}
+import type {
+	ProjectCardData,
+	ProjectListData,
+	ProjectMutationResult,
+	ProjectMutationVariables,
+	ProjectOptimisticAction,
+	UseProjectsOptions,
+} from "@/types";
 
 // Creates the stable cache key for one searched and paginated project result.
 function projectQueryKey(search: string, page: number, pageSize: number) {
