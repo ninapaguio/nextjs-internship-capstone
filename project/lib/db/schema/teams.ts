@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-	boolean,
 	check,
-	foreignKey,
 	index,
 	pgTable,
 	primaryKey,
@@ -13,18 +11,17 @@ import {
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core";
-import { invitationStatus, membershipStatus, teamStatus } from "./enums";
+import { invitationStatus, projectAccessRole, teamStatus } from "./enums";
+import { projects } from "./projects";
 import { users } from "./users";
 
 export const teams = pgTable(
 	"teams",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
-		name: varchar("name", { length: 120 }).notNull(),
-		description: text("description"),
-		createdById: uuid("created_by_id")
+		projectId: uuid("project_id")
 			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
+			.references(() => projects.id, { onDelete: "cascade" }),
 		status: teamStatus("status").default("active").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
@@ -36,11 +33,11 @@ export const teams = pgTable(
 		deletedAt: timestamp("deleted_at", { withTimezone: true }),
 	},
 	(table) => [
-		index("teams_created_by_id_idx").on(table.createdById),
+		uniqueIndex("teams_project_id_unique").on(table.projectId),
 		index("teams_status_idx").on(table.status),
 		index("teams_deleted_at_idx").on(table.deletedAt),
 		index("teams_active_idx")
-			.on(table.createdById)
+			.on(table.projectId)
 			.where(sql`${table.deletedAt} is null and ${table.archivedAt} is null`),
 		check(
 			"teams_archive_status_consistent",
@@ -53,7 +50,7 @@ export const teams = pgTable(
 	],
 );
 
-// Roles are reusable within a team; permissions are attached to roles
+// Team roles are defined once and can be assigned to members of the generated Team.
 export const teamRoles = pgTable(
 	"team_roles",
 	{
@@ -61,81 +58,71 @@ export const teamRoles = pgTable(
 		teamId: uuid("team_id")
 			.notNull()
 			.references(() => teams.id, { onDelete: "cascade" }),
-		key: varchar("key", { length: 50 }).notNull(),
-		name: varchar("name", { length: 50 }).notNull(),
-		description: text("description"),
-		isSystem: boolean("is_system").default(false).notNull(),
+		name: varchar("name", { length: 80 }).notNull(),
+		createdById: uuid("created_by_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
-	},
-	(table) => [
-		uniqueIndex("team_roles_team_key_unique").on(table.teamId, table.key),
-		uniqueIndex("team_roles_team_name_unique").on(table.teamId, table.name),
-		unique("team_roles_team_id_id_unique").on(table.teamId, table.id),
-	],
-);
-
-export const permissions = pgTable("permissions", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	key: varchar("key", { length: 80 }).notNull().unique(),
-	description: text("description"),
-});
-
-export const rolePermissions = pgTable(
-	"role_permissions",
-	{
-		roleId: uuid("role_id")
-			.notNull()
-			.references(() => teamRoles.id, { onDelete: "cascade" }),
-		permissionId: uuid("permission_id")
-			.notNull()
-			.references(() => permissions.id, { onDelete: "cascade" }),
-	},
-	(table) => [primaryKey({ columns: [table.roleId, table.permissionId] })],
-);
-
-export const teamMembers = pgTable(
-	"team_members",
-	{
-		teamId: uuid("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "cascade" }),
-		userId: uuid("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		roleId: uuid("role_id")
-			.notNull()
-			.references(() => teamRoles.id, { onDelete: "restrict" }),
-		membershipStatus: membershipStatus("status").default("active").notNull(),
-		joinedAt: timestamp("joined_at", { withTimezone: true })
+		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
 	},
 	(table) => [
-		primaryKey({ columns: [table.teamId, table.userId] }),
-		index("team_members_user_id_idx").on(table.userId),
-		index("team_members_role_id_idx").on(table.roleId),
-		foreignKey({
-			columns: [table.teamId, table.roleId],
-			foreignColumns: [teamRoles.teamId, teamRoles.id],
-			name: "fk_team_members_role_team",
-		}).onDelete("restrict"),
+		uniqueIndex("team_roles_team_name_unique").on(table.teamId, table.name),
+		unique("team_roles_team_id_id_unique").on(table.teamId, table.id),
+		index("team_roles_created_by_id_idx").on(table.createdById),
 	],
 );
 
-// Invitations exist when the email does not yet belong to a user
-export const teamInvitations = pgTable(
-	"team_invitations",
+// Grants project-scoped OWNER or MEMBER access; this is the source of Team membership.
+export const projectMembers = pgTable(
+	"project_members",
+	{
+		projectId: uuid("project_id")
+			.notNull()
+			.references(() => projects.id, { onDelete: "cascade" }),
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		accessRole: projectAccessRole("access_role").default("member").notNull(),
+		assignedRoleId: uuid("assigned_role_id").references(() => teamRoles.id, {
+			onDelete: "set null",
+		}),
+		addedById: uuid("added_by_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.projectId, table.userId] }),
+		index("project_members_user_id_idx").on(table.userId),
+		index("project_members_project_role_idx").on(
+			table.projectId,
+			table.accessRole,
+		),
+		uniqueIndex("project_members_one_owner_unique")
+			.on(table.projectId)
+			.where(sql`${table.accessRole} = 'owner'`),
+		index("project_members_assigned_role_id_idx").on(table.assignedRoleId),
+	],
+);
+
+// Tracks an application invitation until the invited Clerk user joins one Project.
+export const projectInvitations = pgTable(
+	"project_invitations",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
-		teamId: uuid("team_id")
+		projectId: uuid("project_id")
 			.notNull()
-			.references(() => teams.id, { onDelete: "cascade" }),
-		roleId: uuid("role_id")
-			.notNull()
-			.references(() => teamRoles.id, { onDelete: "restrict" }),
-		memberName: varchar("member_name", { length: 120 }).notNull(),
+			.references(() => projects.id, { onDelete: "cascade" }),
+		clerkInvitationId: varchar("clerk_invitation_id", { length: 255 }).unique(),
 		email: text("email").notNull(),
 		invitedById: uuid("invited_by_id")
 			.notNull()
@@ -148,15 +135,9 @@ export const teamInvitations = pgTable(
 		acceptedAt: timestamp("accepted_at", { withTimezone: true }),
 	},
 	(table) => [
-		index("team_invitations_team_email_idx").on(table.teamId, table.email),
-		index("team_invitations_status_idx").on(table.status),
-		uniqueIndex("team_invitations_pending_email_unique")
-			.on(table.teamId, sql`lower(${table.email})`)
+		index("project_invitations_project_id_idx").on(table.projectId),
+		uniqueIndex("project_invitations_pending_email_unique")
+			.on(table.projectId, sql`lower(${table.email})`)
 			.where(sql`${table.status} = 'pending'`),
-		foreignKey({
-			columns: [table.teamId, table.roleId],
-			foreignColumns: [teamRoles.teamId, teamRoles.id],
-			name: "fk_team_invitations_role_team",
-		}).onDelete("restrict"),
 	],
 );

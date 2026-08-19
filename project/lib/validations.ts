@@ -43,7 +43,6 @@ export const commentSchema = "TODO: Implement comment validation schema"; */
 import { z } from "zod";
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-const ROLE_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 function emptyStringToUndefined(value: unknown) {
 	if (typeof value !== "string") return value;
@@ -106,7 +105,22 @@ export const projectStatusSchema = z.enum([
 	"archived",
 ]);
 
-export const membershipStatusSchema = z.enum(["active", "disabled"]);
+export const projectAccessRoleSchema = z.enum(["owner", "member"]);
+
+export const teamRoleSchema = z
+	.object({
+		teamId: uuidSchema,
+		name: z
+			.string()
+			.trim()
+			.min(1, "Role name is required")
+			.max(80, "Role name must be 80 characters or fewer"),
+	})
+	.strict();
+
+export const updateTeamRoleSchema = teamRoleSchema
+	.extend({ roleId: uuidSchema })
+	.strict();
 
 export const activityActionSchema = z.enum([
 	"created",
@@ -125,8 +139,7 @@ const imageUrlSchema = z
 	.max(2048, "Image URL is too long")
 	.refine((value) => /^https:\/\//i.test(value), "Image is invalid");
 
-// Clerk controls this cosmetic profile image. If its URL is malformed, omit
-// only the image instead of blocking synchronization of the required user data
+// Skip an invalid Clerk profile image so user synchronization can continue.
 const clerkImageUrlSchema = z
 	.preprocess(emptyStringToUndefined, imageUrlSchema.optional())
 	.catch(undefined);
@@ -157,102 +170,22 @@ export const userUpdateSchema = z
 	})
 	.strict();
 
-const teamFields = {
-	name: z
-		.string()
-		.trim()
-		.min(1, "Team name is required")
-		.max(120, "Team name must be 120 characters or fewer"),
-	description: optionalText(
-		2000,
-		"Team description must be 2,000 characters or fewer",
-	),
-};
-
-export const createTeamSchema = z.object(teamFields).strict();
-export const updateTeamSchema = z
+export const projectInvitationSchema = z
 	.object({
-		name: teamFields.name.optional(),
-		description: nullableText(
-			2000,
-			"Team description must be 2,000 characters or fewer",
-		),
-	})
-	.strict()
-	.refine(
-		(input) => Object.values(input).some((value) => value !== undefined),
-		{
-			message: "Provide at least one team field to update",
-		},
-	);
-
-export const teamRoleSchema = z
-	.object({
-		teamId: uuidSchema,
-		key: z
-			.string()
-			.trim()
-			.min(1, "Role key is required")
-			.max(50, "Role key must be 50 characters or fewer")
-			.regex(
-				ROLE_KEY_PATTERN,
-				"Role key must use lowercase letters, numbers, and underscores",
-			),
-		name: z
-			.string()
-			.trim()
-			.min(1, "Role name is required")
-			.max(50, "Role name must be 50 characters or fewer"),
-		description: optionalText(
-			500,
-			"Role description must be 500 characters or fewer",
-		),
-		permissionIds: uniqueIds("A permission cannot be assigned twice"),
-	})
-	.strict();
-
-export const teamInvitationSchema = z
-	.object({
-		teamId: uuidSchema,
-		roleId: uuidSchema,
-		memberName: z
-			.string()
-			.trim()
-			.min(1, "Member name is required")
-			.max(120, "Member name must be 120 characters or fewer"),
+		projectId: uuidSchema,
 		email: normalizedEmailSchema,
 	})
 	.strict();
 
-export const updateTeamMemberSchema = z
-	.object({
-		teamId: uuidSchema,
-		userId: uuidSchema,
-		roleId: uuidSchema.optional(),
-		membershipStatus: membershipStatusSchema.optional(),
-	})
-	.strict()
-	.refine(
-		(input) =>
-			input.roleId !== undefined || input.membershipStatus !== undefined,
-		{
-			message: "Provide a new role or membership status",
-			path: ["roleId"],
-		},
-	);
+export const projectInvitationDecisionSchema = z
+	.object({ invitationId: uuidSchema })
+	.strict();
 
-export const removeTeamMemberSchema = z
-	.object({
-		teamId: uuidSchema,
-		userId: uuidSchema,
-	})
+export const projectInvitationCancellationSchema = z
+	.object({ invitationId: uuidSchema })
 	.strict();
 
 const projectFields = {
-	teamId: z.preprocess(
-		(value) => (value === null || value === "" ? undefined : value),
-		uuidSchema.optional(),
-	),
 	name: z
 		.string()
 		.trim()
@@ -292,7 +225,6 @@ export const createProjectSchema = z
 export const updateProjectSchema = z
 	.object({
 		projectId: uuidSchema,
-		teamId: projectFields.teamId.optional(),
 		name: projectFields.name.optional(),
 		description: nullableText(
 			5000,
@@ -316,6 +248,25 @@ export const updateProjectSchema = z
 
 		validateProjectDateRange(input, ctx);
 	});
+
+export const updateProjectMemberSchema = z
+	.object({
+		teamId: uuidSchema,
+		projectId: uuidSchema,
+		userId: uuidSchema,
+		assignedRoleId: z
+			.union([uuidSchema, z.literal("")])
+			.transform((value) => value || null),
+	})
+	.strict();
+
+export const removeProjectMemberSchema = z
+	.object({
+		teamId: uuidSchema,
+		projectId: uuidSchema,
+		userId: uuidSchema,
+	})
+	.strict();
 
 const listFields = {
 	projectId: uuidSchema,
@@ -506,13 +457,6 @@ export const entityIdSchema = z.object({ id: uuidSchema }).strict();
 export const projectLifecycleSchema = z
 	.object({
 		projectId: uuidSchema,
-		action: z.enum(["archive", "restore", "delete"]),
-	})
-	.strict();
-
-export const teamLifecycleSchema = z
-	.object({
-		teamId: uuidSchema,
 		action: z.enum(["archive", "restore", "delete"]),
 	})
 	.strict();

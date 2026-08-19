@@ -7,33 +7,28 @@ import {
 	taskLabels,
 	tasks,
 } from "./tasks";
-import {
-	permissions,
-	rolePermissions,
-	teamInvitations,
-	teamMembers,
-	teamRoles,
-	teams,
-} from "./teams";
+import { projectInvitations, projectMembers, teamRoles, teams } from "./teams";
 import { users } from "./users";
 
 export const usersRelations = relations(users, ({ many }) => ({
-	createdTeams: many(teams),
-	teamMemberships: many(teamMembers),
+	createdTeamRoles: many(teamRoles),
 	createdProjects: many(projects),
+	projectMemberships: many(projectMembers, {
+		relationName: "projectMembershipUser",
+	}),
+	addedProjectMembers: many(projectMembers, {
+		relationName: "projectMembershipAddedBy",
+	}),
 	createdTasks: many(tasks),
 	comments: many(comments),
 }));
 
 export const teamsRelations = relations(teams, ({ one, many }) => ({
-	createdBy: one(users, {
-		fields: [teams.createdById],
-		references: [users.id],
+	project: one(projects, {
+		fields: [teams.projectId],
+		references: [projects.id],
 	}),
 	roles: many(teamRoles),
-	members: many(teamMembers),
-	invitations: many(teamInvitations),
-	projects: many(projects),
 }));
 
 export const teamRolesRelations = relations(teamRoles, ({ one, many }) => ({
@@ -41,67 +36,29 @@ export const teamRolesRelations = relations(teamRoles, ({ one, many }) => ({
 		fields: [teamRoles.teamId],
 		references: [teams.id],
 	}),
-	members: many(teamMembers),
-	permissions: many(rolePermissions),
-	invitations: many(teamInvitations),
-}));
-
-export const permissionsRelations = relations(permissions, ({ many }) => ({
-	roles: many(rolePermissions),
-}));
-
-export const rolePermissionsRelations = relations(
-	rolePermissions,
-	({ one }) => ({
-		role: one(teamRoles, {
-			fields: [rolePermissions.roleId],
-			references: [teamRoles.id],
-		}),
-		permission: one(permissions, {
-			fields: [rolePermissions.permissionId],
-			references: [permissions.id],
-		}),
-	}),
-);
-
-export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
-	team: one(teams, {
-		fields: [teamMembers.teamId],
-		references: [teams.id],
-	}),
-	user: one(users, {
-		fields: [teamMembers.userId],
+	createdBy: one(users, {
+		fields: [teamRoles.createdById],
 		references: [users.id],
 	}),
-	role: one(teamRoles, {
-		fields: [teamMembers.roleId],
-		references: [teamRoles.id],
-	}),
+	projectMembers: many(projectMembers),
 }));
 
-export const teamInvitationsRelations = relations(
-	teamInvitations,
+export const projectInvitationsRelations = relations(
+	projectInvitations,
 	({ one }) => ({
-		team: one(teams, {
-			fields: [teamInvitations.teamId],
-			references: [teams.id],
-		}),
-		role: one(teamRoles, {
-			fields: [teamInvitations.roleId],
-			references: [teamRoles.id],
+		project: one(projects, {
+			fields: [projectInvitations.projectId],
+			references: [projects.id],
 		}),
 		invitedBy: one(users, {
-			fields: [teamInvitations.invitedById],
+			fields: [projectInvitations.invitedById],
 			references: [users.id],
 		}),
 	}),
 );
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
-	team: one(teams, {
-		fields: [projects.teamId],
-		references: [teams.id],
-	}),
+	team: one(teams),
 	createdBy: one(users, {
 		fields: [projects.createdById],
 		references: [users.id],
@@ -109,6 +66,28 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 	lists: many(lists),
 	labels: many(labels),
 	tasks: many(tasks),
+	members: many(projectMembers),
+}));
+
+export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
+	project: one(projects, {
+		fields: [projectMembers.projectId],
+		references: [projects.id],
+	}),
+	user: one(users, {
+		fields: [projectMembers.userId],
+		references: [users.id],
+		relationName: "projectMembershipUser",
+	}),
+	addedBy: one(users, {
+		fields: [projectMembers.addedById],
+		references: [users.id],
+		relationName: "projectMembershipAddedBy",
+	}),
+	assignedRole: one(teamRoles, {
+		fields: [projectMembers.assignedRoleId],
+		references: [teamRoles.id],
+	}),
 }));
 
 export const listsRelations = relations(lists, ({ one, many }) => ({

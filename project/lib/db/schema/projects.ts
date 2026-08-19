@@ -14,17 +14,13 @@ import {
 	varchar,
 } from "drizzle-orm/pg-core";
 import { listStatus, projectStatus } from "./enums";
-import { teams } from "./teams";
 import { users } from "./users";
 
-// Projects managed by a reusable Team Group
+// Projects begin as solo workspaces and gain one generated Team when membership grows.
 export const projects = pgTable(
 	"projects",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
-		teamId: uuid("team_id").references(() => teams.id, {
-			onDelete: "restrict",
-		}),
 		createdById: uuid("created_by_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
@@ -43,14 +39,12 @@ export const projects = pgTable(
 		deletedAt: timestamp("deleted_at", { withTimezone: true }),
 	},
 	(table) => [
-		index("projects_team_id_idx").on(table.teamId),
 		index("projects_created_by_id_idx").on(table.createdById),
 		index("projects_status_idx").on(table.status),
 		index("projects_deleted_at_idx").on(table.deletedAt),
 		index("projects_active_idx")
-			.on(table.teamId)
+			.on(table.createdById)
 			.where(sql`${table.deletedAt} is null and ${table.archivedAt} is null`),
-		uniqueIndex("projects_team_id_id_unique").on(table.teamId, table.id),
 		check(
 			"projects_valid_date_range",
 			sql`${table.startDate} is null or ${table.endDate} is null or ${table.endDate} >= ${table.startDate}`,

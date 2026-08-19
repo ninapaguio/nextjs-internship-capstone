@@ -2,27 +2,30 @@ export {
 	activityAction,
 	invitationStatus,
 	listStatus,
-	membershipStatus,
+	projectAccessRole,
 	projectStatus,
 	teamStatus,
 } from "./enums";
 
-export { complexityOptions, labels, lists, projects } from "./projects";
+export {
+	complexityOptions,
+	labels,
+	lists,
+	projects,
+} from "./projects";
 
 export {
 	commentsRelations,
 	complexityOptionsRelations,
 	labelsRelations,
 	listsRelations,
-	permissionsRelations,
+	projectInvitationsRelations,
+	projectMembersRelations,
 	projectsRelations,
-	rolePermissionsRelations,
 	taskActivitiesRelations,
 	taskAssigneesRelations,
 	taskLabelsRelations,
 	tasksRelations,
-	teamInvitationsRelations,
-	teamMembersRelations,
 	teamRolesRelations,
 	teamsRelations,
 	usersRelations,
@@ -37,10 +40,8 @@ export {
 } from "./tasks";
 
 export {
-	permissions,
-	rolePermissions,
-	teamInvitations,
-	teamMembers,
+	projectInvitations,
+	projectMembers,
 	teamRoles,
 	teams,
 } from "./teams";
