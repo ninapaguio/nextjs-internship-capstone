@@ -114,7 +114,7 @@ export async function getProjectList({
 			endDate: projects.endDate,
 			totalTasks: sql<number>`(
 				select count(*)::int from ${tasks}
-				where ${tasks.projectId} = ${projects.id} and ${tasks.deletedAt} is null
+				where ${tasks.projectId} = ${projects.id} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null
 			)`,
 			totalMembers: sql<number>`(
 				select count(*)::int from ${projectMembers}
@@ -125,7 +125,7 @@ export async function getProjectList({
 					100.0 * count(*) filter (where ${tasks.completedAt} is not null)
 					/ nullif(count(*), 0)
 				)::int from ${tasks}
-				where ${tasks.projectId} = ${projects.id} and ${tasks.deletedAt} is null
+				where ${tasks.projectId} = ${projects.id} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null
 			), 0)`,
 		})
 		.from(projects)

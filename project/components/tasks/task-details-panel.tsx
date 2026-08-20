@@ -2,11 +2,13 @@
 
 import { type CalendarDate, parseDate } from "@internationalized/date";
 import {
+	Archive,
 	ArrowRightLeft,
 	CalendarClock,
 	Check,
 	CheckCircle2,
 	CircleMinus,
+	Ellipsis,
 	FileText,
 	Gauge,
 	History,
@@ -16,9 +18,10 @@ import {
 	RotateCcw,
 	Sparkles,
 	Tag,
+	Trash2,
 	UserMinus,
 	UserPlus,
-	Trash2,
+	X,
 } from "lucide-react";
 import {
 	type ReactNode,
@@ -29,7 +32,12 @@ import {
 	useState,
 } from "react";
 import { useFormStatus } from "react-dom";
-import { createBoardComment, updateBoardTask } from "@/actions/board";
+import {
+	changeBoardTaskLifecycle,
+	createBoardComment,
+	updateBoardTask,
+} from "@/actions/board";
+import { TaskLabelSelect } from "@/components/tasks/task-label-select";
 import {
 	Avatar,
 	AvatarFallback,
@@ -38,8 +46,12 @@ import {
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TaskLabelSelect } from "@/components/tasks/task-label-select";
 import { Calendar } from "@/components/ui/calendar";
+import {
+	DropdownMenu,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
@@ -51,6 +63,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import {
+	SheetClose,
 	SheetContent,
 	SheetDescription,
 	SheetFooter,
@@ -276,53 +289,73 @@ function DependencyDisplayRow({
 	task,
 	relationship,
 	onSelectTask,
+	onRemove,
 }: {
 	task: BoardTask;
 	relationship: "blocked-by" | "blocking";
 	onSelectTask: (taskId: string) => void;
+	onRemove?: () => void;
 }) {
 	const isBlockedBy = relationship === "blocked-by";
 	const RelationshipIcon = isBlockedBy ? Hourglass : CircleMinus;
 	return (
-		<TooltipTrigger delay={300}>
-			<Button
-				type="button"
-				variant="ghost"
-				className="grid h-auto w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 text-xs sm:grid-cols-[6.25rem_minmax(0,1fr)_auto]"
-				aria-label={`Open task ${task.title}`}
-				onPress={() => onSelectTask(task.id)}
-			>
-				<span
-					className={cn(
-						"col-span-2 flex items-center gap-1.5 whitespace-nowrap font-medium sm:col-span-1",
-						isBlockedBy
-							? "text-amber-700 dark:text-amber-300"
-							: "text-rose-700 dark:text-rose-300",
-					)}
+		<div className="flex min-w-0 items-center gap-1">
+			<TooltipTrigger delay={300}>
+				<Button
+					type="button"
+					variant="ghost"
+					className="grid h-auto min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 overflow-hidden rounded-md px-1 py-1 text-xs sm:grid-cols-[6.25rem_minmax(0,1fr)_auto]"
+					aria-label={`Open task ${task.title}`}
+					onPress={() => onSelectTask(task.id)}
 				>
-					<RelationshipIcon className="size-3.5 shrink-0" aria-hidden="true" />
-					{isBlockedBy ? "Blocked by" : "Blocking"}
-				</span>
-				<span className="flex min-w-0 items-center gap-1.5">
-					<CheckCircle2
+					<span
 						className={cn(
-							"size-4 shrink-0",
-							task.completedAt
-								? "text-emerald-600"
-								: "text-muted-foreground",
+							"col-span-2 flex items-center gap-1.5 whitespace-nowrap font-medium sm:col-span-1",
+							isBlockedBy
+								? "text-amber-700 dark:text-amber-300"
+								: "text-rose-700 dark:text-rose-300",
 						)}
-						aria-hidden="true"
-					/>
-					<span className="truncate font-medium text-foreground">
-						{task.title}
+					>
+						<RelationshipIcon
+							className="size-3.5 shrink-0"
+							aria-hidden="true"
+						/>
+						{isBlockedBy ? "Blocked by" : "Blocking"}
 					</span>
-				</span>
-				<span className="whitespace-nowrap text-muted-foreground">
-					· {formatDependencyDueDate(task.dueDate)}
-				</span>
-			</Button>
-			<Tooltip placement="top">{task.title}</Tooltip>
-		</TooltipTrigger>
+					<span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+						<CheckCircle2
+							className={cn(
+								"size-4 shrink-0",
+								task.completedAt ? "text-emerald-600" : "text-muted-foreground",
+							)}
+							aria-hidden="true"
+						/>
+						<span className="block min-w-0 truncate font-medium text-foreground">
+							{task.title}
+						</span>
+					</span>
+					<span className="whitespace-nowrap text-muted-foreground">
+						· {formatDependencyDueDate(task.dueDate)}
+					</span>
+				</Button>
+				<Tooltip placement="top">{task.title}</Tooltip>
+			</TooltipTrigger>
+			{onRemove ? (
+				<TooltipTrigger delay={300}>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-xs"
+						className="shrink-0"
+						aria-label={`Remove dependency ${task.title}`}
+						onPress={onRemove}
+					>
+						<X />
+					</Button>
+					<Tooltip placement="top">Remove dependency</Tooltip>
+				</TooltipTrigger>
+			) : null}
+		</div>
 	);
 }
 
@@ -343,7 +376,6 @@ function AssigneeAvatars({
 				onPress={onEdit}
 			>
 				Unassigned
-				<Pencil data-icon="inline-end" />
 			</Button>
 		);
 	}
@@ -529,7 +561,7 @@ function CommentComposer({
 
 	useEffect(() => {
 		if (state.status === "success") setDraft("");
-	}, [state.status, state.data?.id]);
+	}, [state.status]);
 
 	return (
 		<form
@@ -656,9 +688,7 @@ function TaskActivitySection({
 				: current;
 			if (!persistedComment) return withoutOptimistic;
 			if (
-				withoutOptimistic.some(
-					(comment) => comment.id === persistedComment.id,
-				)
+				withoutOptimistic.some((comment) => comment.id === persistedComment.id)
 			) {
 				return withoutOptimistic;
 			}
@@ -675,7 +705,7 @@ function TaskActivitySection({
 				commentCount={localComments.length}
 			/>
 
-			<div
+			<section
 				aria-label={tab === "comments" ? "Task comments" : "Task activity"}
 				aria-busy={
 					(tab === "comments" && isCommentsLoading) ||
@@ -684,8 +714,8 @@ function TaskActivitySection({
 				className={cn(
 					"space-y-4 px-6 py-5",
 					tab === "comments" &&
-					localComments.length > 3 &&
-					"max-h-72 overflow-y-auto overscroll-contain",
+						localComments.length > 3 &&
+						"max-h-72 overflow-y-auto overscroll-contain",
 				)}
 			>
 				{tab === "comments" && isCommentsLoading ? (
@@ -739,7 +769,7 @@ function TaskActivitySection({
 						No activity yet.
 					</p>
 				)}
-			</div>
+			</section>
 
 			{tab === "comments" && (
 				<CommentComposer
@@ -775,6 +805,7 @@ export function TaskDetailsPanel({
 	onCreateLabel,
 }: TaskDetailsPanelProps) {
 	const updateTaskInStore = useBoardStore((state) => state.updateTask);
+	const removeTaskFromStore = useBoardStore((state) => state.deleteTask);
 	const replaceLists = useBoardStore((state) => state.replaceLists);
 	const markPersisted = useBoardStore((state) => state.markPersisted);
 	const [editingField, setEditingField] = useState<EditableTaskField>(null);
@@ -788,9 +819,16 @@ export function TaskDetailsPanel({
 	const [selectedDependencyIds, setSelectedDependencyIds] = useState<string[]>(
 		[],
 	);
+	const [selectedBlockingTaskIds, setSelectedBlockingTaskIds] = useState<
+		string[]
+	>([]);
+	const [dependencyRelationship, setDependencyRelationship] = useState<
+		"blocked-by" | "blocking"
+	>("blocked-by");
 	const [dependencyQuery, setDependencyQuery] = useState("");
 	const [feedTab, setFeedTab] = useState<TaskFeedTab>("comments");
 	const [panelError, setPanelError] = useState<string | null>(null);
+	const [isLifecyclePending, setIsLifecyclePending] = useState(false);
 	const [localLabels, setLocalLabels] = useState<BoardLabelOption[]>(labels);
 	const taskActivity = useTaskActivity(
 		projectId,
@@ -812,10 +850,19 @@ export function TaskDetailsPanel({
 		setSelectedAssigneeIds(task?.assignees.map((member) => member.id) ?? []);
 		setSelectedLabelIds(task?.labels[0] ? [task.labels[0].id] : []);
 		setSelectedDependencyIds(task?.dependencyIds ?? []);
+		setSelectedBlockingTaskIds(
+			task
+				? lists
+						.flatMap((list) => list.tasks)
+						.filter((candidate) => candidate.dependencyIds.includes(task.id))
+						.map((candidate) => candidate.id)
+				: [],
+		);
+		setDependencyRelationship("blocked-by");
 		setDependencyQuery("");
 		setFeedTab("comments");
 		setPanelError(null);
-	}, [task]);
+	}, [lists, task]);
 
 	// Adds a persisted label to the panel's available project labels.
 	async function createPanelLabel(name: string) {
@@ -858,6 +905,21 @@ export function TaskDetailsPanel({
 			};
 
 			updateTaskInStore(task.id, changes);
+			for (const candidate of lists.flatMap((list) => list.tasks)) {
+				if (candidate.id === task.id) continue;
+				const currentlyBlockedByTask = candidate.dependencyIds.includes(
+					task.id,
+				);
+				const shouldBeBlockedByTask = selectedBlockingTaskIds.includes(
+					candidate.id,
+				);
+				if (currentlyBlockedByTask === shouldBeBlockedByTask) continue;
+				updateTaskInStore(candidate.id, {
+					dependencyIds: shouldBeBlockedByTask
+						? [...candidate.dependencyIds, task.id]
+						: candidate.dependencyIds.filter((id) => id !== task.id),
+				});
+			}
 			const result = await updateBoardTask(formData);
 			if (result.status === "error") replaceLists(snapshot);
 			else {
@@ -887,8 +949,16 @@ export function TaskDetailsPanel({
 		selectedDependencyIds.includes(candidate.id),
 	);
 	const blockingTasks = dependencyCandidates.filter((candidate) =>
-		candidate.dependencyIds.includes(task.id),
+		selectedBlockingTaskIds.includes(candidate.id),
 	);
+	const activeDependencyIds =
+		dependencyRelationship === "blocked-by"
+			? selectedDependencyIds
+			: selectedBlockingTaskIds;
+	const activeDependencyTasks =
+		dependencyRelationship === "blocked-by"
+			? selectedDependencies
+			: blockingTasks;
 	const normalizedDependencyQuery = dependencyQuery.trim().toLowerCase();
 	const filteredDependencyCandidates = dependencyCandidates.filter(
 		(candidate) =>
@@ -906,13 +976,28 @@ export function TaskDetailsPanel({
 		complexityOptions.find((option) => option.id === selectedComplexityId) ??
 		task.complexity;
 
-	// Toggles one prerequisite while allowing several tasks to block the current task.
+	// Toggles a dependency in the direction selected by the user.
 	function toggleDependency(dependencyId: string) {
-		setSelectedDependencyIds((current) =>
+		const isSelected = activeDependencyIds.includes(dependencyId);
+		const update = (current: string[]) =>
 			current.includes(dependencyId)
 				? current.filter((id) => id !== dependencyId)
-				: [...current, dependencyId],
-		);
+				: [...current, dependencyId];
+		if (dependencyRelationship === "blocked-by") {
+			setSelectedDependencyIds(update);
+			if (!isSelected) {
+				setSelectedBlockingTaskIds((current) =>
+					current.filter((id) => id !== dependencyId),
+				);
+			}
+		} else {
+			setSelectedBlockingTaskIds(update);
+			if (!isSelected) {
+				setSelectedDependencyIds((current) =>
+					current.filter((id) => id !== dependencyId),
+				);
+			}
+		}
 	}
 
 	// Toggles completion immediately and restores the task if persistence fails.
@@ -942,14 +1027,90 @@ export function TaskDetailsPanel({
 		}
 	}
 
+	// Archives or deletes the selected task after the Server Action succeeds.
+	async function handleTaskLifecycle(action: "archive" | "delete") {
+		const actionLabel = action === "archive" ? "Archive" : "Delete";
+		if (!window.confirm(`${actionLabel} “${activeTask.title}”?`)) {
+			return;
+		}
+		setIsLifecyclePending(true);
+		setPanelError(null);
+		const formData = new FormData();
+		formData.set("projectId", projectId);
+		formData.set("taskId", activeTask.id);
+		formData.set("action", action);
+		const result = await changeBoardTaskLifecycle(formData);
+		setIsLifecyclePending(false);
+		if (result.status === "error") {
+			setPanelError(result.message);
+			return;
+		}
+		removeTaskFromStore(activeTask.id);
+		markPersisted();
+		onOpenChange(false);
+	}
+
 	return (
 		<SheetContent
 			isOpen={isOpen}
 			onOpenChange={onOpenChange}
 			side="right"
+			showCloseButton={false}
 			className="data-[side=right]:w-full! sm:data-[side=right]:w-[65vw]! sm:max-w-2xl! lg:max-w-3xl! xl:max-w-4xl!"
 		>
-			<SheetHeader className="pr-14">
+			<SheetHeader>
+				<div className="flex items-center justify-between gap-3">
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						isDisabled={!task.completedAt && isBlocked}
+						onPress={handleCompletion}
+					>
+						<Check data-icon="inline-start" />
+						{task.completedAt ? "Reopen task" : "Mark complete"}
+					</Button>
+					<div className="flex items-center gap-1">
+						<DropdownMenuTrigger>
+							<TooltipTrigger delay={400}>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									aria-label="Task options"
+									isDisabled={isLifecyclePending}
+								>
+									<Ellipsis />
+								</Button>
+								<Tooltip placement="bottom">Task options</Tooltip>
+							</TooltipTrigger>
+							<DropdownMenu placement="bottom end">
+								<DropdownMenuItem
+									onAction={() => void handleTaskLifecycle("archive")}
+								>
+									<Archive /> Archive task
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="text-destructive"
+									onAction={() => void handleTaskLifecycle("delete")}
+								>
+									<Trash2 /> Delete task
+								</DropdownMenuItem>
+							</DropdownMenu>
+						</DropdownMenuTrigger>
+						<TooltipTrigger delay={400}>
+							<SheetClose
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label="Close panel"
+							>
+								<X />
+							</SheetClose>
+							<Tooltip placement="bottom end">Close panel</Tooltip>
+						</TooltipTrigger>
+					</div>
+				</div>
 				<div className="flex min-w-0 items-start gap-3">
 					<SheetTitle className="sr-only">Task details</SheetTitle>
 					<div className="min-w-0 flex-1">
@@ -963,18 +1124,22 @@ export function TaskDetailsPanel({
 								className="h-10 w-full text-lg font-semibold"
 							/>
 						) : (
-							<TooltipTrigger delay={400}>
-								<Button
-									type="button"
-									variant="ghost"
-									className="h-auto w-full min-w-0 justify-start gap-2 px-0 py-1 text-left text-xl font-semibold hover:bg-transparent"
-									onPress={() => setEditingField("title")}
-								>
-									<span className="min-w-0 truncate">{title}</span>
-									<Pencil className="size-4 shrink-0" />
-								</Button>
-								<Tooltip placement="bottom start">Edit task title</Tooltip>
-							</TooltipTrigger>
+							<div className="max-w-full whitespace-normal py-1 text-left text-xl font-semibold wrap-anywhere">
+								<span>{title}</span>{" "}
+								<TooltipTrigger delay={400}>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-xs"
+										className="inline-flex align-text-bottom"
+										aria-label="Edit task title"
+										onPress={() => setEditingField("title")}
+									>
+										<Pencil />
+									</Button>
+									<Tooltip placement="bottom start">Edit task title</Tooltip>
+								</TooltipTrigger>
+							</div>
 						)}
 					</div>
 				</div>
@@ -994,6 +1159,7 @@ export function TaskDetailsPanel({
 						<input type="hidden" name="replaceAssignees" value="true" />
 						<input type="hidden" name="replaceLabels" value="true" />
 						<input type="hidden" name="replaceDependencies" value="true" />
+						<input type="hidden" name="replaceBlockingTasks" value="true" />
 						<input
 							type="hidden"
 							name="complexityId"
@@ -1012,6 +1178,9 @@ export function TaskDetailsPanel({
 						))}
 						{selectedDependencyIds.map((id) => (
 							<input key={id} type="hidden" name="dependencyIds" value={id} />
+						))}
+						{selectedBlockingTaskIds.map((id) => (
+							<input key={id} type="hidden" name="blockingTaskIds" value={id} />
 						))}
 
 						<DetailRow label="Assignees">
@@ -1076,17 +1245,31 @@ export function TaskDetailsPanel({
 						<DetailRow label="Dependencies" align="start">
 							{editingField === "dependencies" ? (
 								<div className="space-y-2">
-									<div className="flex items-center gap-2">
-										<Badge variant="secondary" className="h-9 shrink-0 px-3">
-											Blocked by
-										</Badge>
+									<div className="grid min-w-0 grid-cols-[9rem_minmax(0,1fr)] items-center gap-2">
+										<Select
+											aria-label="Dependency relationship"
+											value={dependencyRelationship}
+											onChange={(value) =>
+												setDependencyRelationship(
+													String(value) as "blocked-by" | "blocking",
+												)
+											}
+										>
+											<SelectTrigger className="w-full min-w-0">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem id="blocked-by">Blocked by</SelectItem>
+												<SelectItem id="blocking">Blocking</SelectItem>
+											</SelectContent>
+										</Select>
 										<PopoverTrigger>
 											<Button
 												type="button"
 												variant="outline"
-												className="min-w-0 flex-1 justify-start bg-background font-normal text-muted-foreground"
+												className="w-full min-w-0 justify-start overflow-hidden bg-background font-normal text-muted-foreground"
 											>
-												Find a task
+												<span className="truncate">Find a task</span>
 											</Button>
 											<Popover
 												placement="bottom end"
@@ -1107,7 +1290,7 @@ export function TaskDetailsPanel({
 													</legend>
 													{filteredDependencyCandidates.length > 0 ? (
 														filteredDependencyCandidates.map((candidate) => {
-															const isSelected = selectedDependencyIds.includes(
+															const isSelected = activeDependencyIds.includes(
 																candidate.id,
 															);
 															return (
@@ -1116,7 +1299,7 @@ export function TaskDetailsPanel({
 																	type="button"
 																	aria-label={`${isSelected ? "Remove" : "Add"} ${candidate.title} ${isSelected ? "from" : "as"} a dependency`}
 																	variant="ghost"
-																	className="h-10 w-full justify-start gap-2 rounded-xl px-2 font-normal"
+																	className="grid h-10 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,7rem)_auto] gap-2 overflow-hidden rounded-xl px-2 font-normal"
 																	onPress={() => toggleDependency(candidate.id)}
 																>
 																	<CheckCircle2
@@ -1151,30 +1334,33 @@ export function TaskDetailsPanel({
 											</Popover>
 										</PopoverTrigger>
 									</div>
-									{selectedDependencies.length > 0 ? (
+									{activeDependencyTasks.length > 0 ? (
 										<div className="space-y-1.5">
 											<div className="divide-y rounded-lg border bg-background px-2">
-												{selectedDependencies.map((dependency) => (
+												{activeDependencyTasks.map((dependency) => (
 													<DependencyDisplayRow
 														key={dependency.id}
 														task={dependency}
-														relationship="blocked-by"
+														relationship={dependencyRelationship}
 														onSelectTask={onSelectTask}
+														onRemove={() => toggleDependency(dependency.id)}
 													/>
 												))}
 											</div>
-											<p
-												className={cn(
-													"text-xs",
-													isBlocked
-														? "text-amber-700 dark:text-amber-300"
-														: "text-emerald-700 dark:text-emerald-300",
-												)}
-											>
-												{isBlocked
-													? `${incompleteDependencies.length} blocking task${incompleteDependencies.length === 1 ? "" : "s"} remaining`
-													: "All dependencies completed"}
-											</p>
+											{dependencyRelationship === "blocked-by" ? (
+												<p
+													className={cn(
+														"text-xs",
+														isBlocked
+															? "text-amber-700 dark:text-amber-300"
+															: "text-emerald-700 dark:text-emerald-300",
+													)}
+												>
+													{isBlocked
+														? `${incompleteDependencies.length} blocking task${incompleteDependencies.length === 1 ? "" : "s"} remaining`
+														: "All dependencies completed"}
+												</p>
+											) : null}
 										</div>
 									) : null}
 								</div>
@@ -1350,15 +1536,7 @@ export function TaskDetailsPanel({
 						)}
 					</div>
 
-					<SheetFooter className="mt-auto flex-row justify-between px-6 py-4">
-						<Button
-							type="button"
-							variant="outline"
-							isDisabled={!task.completedAt && isBlocked}
-							onPress={handleCompletion}
-						>
-							{task.completedAt ? "Reopen task" : "Mark complete"}
-						</Button>
+					<SheetFooter className="mt-auto flex-row justify-end px-6 py-4">
 						<TaskDetailsSubmit />
 					</SheetFooter>
 				</form>
