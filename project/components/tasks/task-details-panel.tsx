@@ -24,10 +24,11 @@ import {
 	useActionState,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { useFormStatus } from "react-dom";
-import { updateBoardTask } from "@/actions/board";
+import { createBoardComment, updateBoardTask } from "@/actions/board";
 import {
 	Avatar,
 	AvatarFallback,
@@ -69,6 +70,7 @@ import type {
 	BoardList,
 	BoardMemberOption,
 	BoardTask,
+	CreateBoardCommentActionState,
 	EditableTaskField,
 	TaskFeedEntry,
 	TaskFeedTab,
@@ -84,10 +86,13 @@ interface TaskDetailsPanelProps {
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 	onSelectTask: (taskId: string) => void;
-	comments?: BoardComment[];
+	comments: BoardComment[];
+	commentsError: string | null;
+	isCommentsLoading: boolean;
 	activity?: BoardActivityItem[];
-	currentUser?: BoardMemberOption | null;
-	onAddComment?: (taskId: string, body: string) => Promise<void> | void;
+	currentUser: BoardMemberOption | null;
+	onCommentCreated: (taskId: string, comment: BoardComment) => void;
+	onRetryComments: () => void;
 	onCreateLabel: (
 		projectId: string,
 		name: string,
@@ -95,6 +100,10 @@ interface TaskDetailsPanelProps {
 }
 
 const initialState: BoardActionState = { status: "idle", message: "" };
+const initialCommentState: CreateBoardCommentActionState = {
+	status: "idle",
+	message: "",
+};
 
 const complexityStyles: Record<BoardComplexityOption["key"], string> = {
 	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
@@ -410,7 +419,7 @@ function CommentRow({ comment }: { comment: BoardComment }) {
 						{formatRelativeTime(comment.createdAt)}
 					</span>
 				</div>
-				<p className="mt-0.5 whitespace-pre-wrap wrap-break-word text-sm text-foreground/90">
+				<p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground/90 wrap-anywhere">
 					{comment.body}
 				</p>
 			</div>
@@ -441,31 +450,70 @@ function ActivityRow({ item }: { item: BoardActivityItem }) {
 	);
 }
 
-// Sticky comment composer: current user's avatar, a textarea, and a send button.
-function CommentComposer({
-	currentUser,
-	onSubmit,
-}: {
-	currentUser?: BoardMemberOption | null;
-	onSubmit: (body: string) => Promise<void> | void;
-}) {
-	const [draft, setDraft] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
+// Displays pending state from the nearest comment form action.
+function CommentSubmitButton({ isEmpty }: { isEmpty: boolean }) {
+	const { pending } = useFormStatus();
+	return (
+		<Button type="submit" size="sm" isDisabled={isEmpty || pending}>
+			{pending ? "Posting…" : "Comment"}
+		</Button>
+	);
+}
 
-	async function handleSubmit() {
-		const body = draft.trim();
-		if (!body || isSubmitting) return;
-		setIsSubmitting(true);
+// Submits a task comment through React action state with optimistic callbacks.
+function CommentComposer({
+	projectId,
+	taskId,
+	currentUser,
+	onOptimisticComment,
+	onCommentSettled,
+}: {
+	projectId: string;
+	taskId: string;
+	currentUser: BoardMemberOption | null;
+	onOptimisticComment: (body: string) => string;
+	onCommentSettled: (
+		optimisticId: string | null,
+		comment: BoardComment | null,
+	) => void;
+}) {
+	const formRef = useRef<HTMLFormElement>(null);
+	const [draft, setDraft] = useState("");
+
+	// Shows the comment immediately, then keeps it if saving succeeds or removes it if saving fails.
+	async function submitComment(
+		previousState: CreateBoardCommentActionState,
+		formData: FormData,
+	): Promise<CreateBoardCommentActionState> {
+		const body = String(formData.get("content") ?? "").trim();
+		const optimisticId = body ? onOptimisticComment(body) : null;
 		try {
-			await onSubmit(body);
-			setDraft("");
-		} finally {
-			setIsSubmitting(false);
+			const result = await createBoardComment(previousState, formData);
+			onCommentSettled(optimisticId, result.data ?? null);
+			return result;
+		} catch {
+			onCommentSettled(optimisticId, null);
+			return { status: "error", message: "We could not post the comment." };
 		}
 	}
 
+	const [state, formAction, isPending] = useActionState(
+		submitComment,
+		initialCommentState,
+	);
+
+	useEffect(() => {
+		if (state.status === "success") setDraft("");
+	}, [state.status, state.data?.id]);
+
 	return (
-		<div className="flex gap-3 border-t bg-background px-6 py-4">
+		<form
+			ref={formRef}
+			action={formAction}
+			className="flex gap-3 border-t bg-background px-6 py-4"
+		>
+			<input type="hidden" name="projectId" value={projectId} />
+			<input type="hidden" name="taskId" value={taskId} />
 			<Avatar className="mt-0.5 size-8 shrink-0">
 				{currentUser?.imageUrl && (
 					<AvatarImage src={currentUser.imageUrl} alt={currentUser.name} />
@@ -476,14 +524,22 @@ function CommentComposer({
 			</Avatar>
 			<div className="min-w-0 flex-1 space-y-2">
 				<Textarea
+					name="content"
 					aria-label="Add a comment"
+					aria-invalid={state.status === "error"}
 					placeholder="Add a comment…"
 					value={draft}
+					maxLength={5_000}
+					disabled={isPending}
 					onChange={(event) => setDraft(event.target.value)}
 					onKeyDown={(event) => {
-						if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+						if (
+							!isPending &&
+							event.key === "Enter" &&
+							(event.metaKey || event.ctrlKey)
+						) {
 							event.preventDefault();
-							handleSubmit();
+							formRef.current?.requestSubmit();
 						}
 					}}
 					className="min-h-16 bg-muted/30"
@@ -492,33 +548,39 @@ function CommentComposer({
 					<span className="text-xs text-muted-foreground">
 						⌘/Ctrl + Enter to send
 					</span>
-					<Button
-						type="button"
-						size="sm"
-						isDisabled={!draft.trim() || isSubmitting}
-						onPress={handleSubmit}
-					>
-						{isSubmitting ? "Posting…" : "Comment"}
-					</Button>
+					<CommentSubmitButton isEmpty={!draft.trim()} />
 				</div>
+				{state.status === "error" ? (
+					<p className="text-xs text-destructive" role="alert">
+						{state.message}
+					</p>
+				) : null}
 			</div>
-		</div>
+		</form>
 	);
 }
 
 // Comments/activity section
 function TaskActivitySection({
+	projectId,
 	taskId,
 	comments,
+	commentsError,
+	isCommentsLoading,
 	activity,
 	currentUser,
-	onAddComment,
+	onCommentCreated,
+	onRetryComments,
 }: {
+	projectId: string;
 	taskId: string;
 	comments: BoardComment[];
+	commentsError: string | null;
+	isCommentsLoading: boolean;
 	activity: BoardActivityItem[];
-	currentUser?: BoardMemberOption | null;
-	onAddComment?: (taskId: string, body: string) => Promise<void> | void;
+	currentUser: BoardMemberOption | null;
+	onCommentCreated: (taskId: string, comment: BoardComment) => void;
+	onRetryComments: () => void;
 }) {
 	const [tab, setTab] = useState<TaskFeedTab>("comments");
 	const [localComments, setLocalComments] = useState(comments);
@@ -555,24 +617,77 @@ function TaskActivitySection({
 		);
 	}, [localComments, activity]);
 
-	// Optimistically appends the comment, then defers to the caller for persistence.
-	async function handleAddComment(body: string) {
+	// Adds a temporary comment to the active task feed.
+	function addOptimisticComment(body: string) {
+		const optimisticId = `temp-${Date.now()}`;
 		const optimisticComment: BoardComment = {
-			id: `temp-${Date.now()}`,
+			id: optimisticId,
 			author: currentUser ?? { id: "me", name: "You", imageUrl: null },
 			body,
 			createdAt: new Date().toISOString(),
 		};
 		setLocalComments((current) => [...current, optimisticComment]);
-		await onAddComment?.(taskId, body);
+		return optimisticId;
+	}
+
+	// Replaces a temporary comment after success or removes it after failure.
+	function settleOptimisticComment(
+		optimisticId: string | null,
+		persistedComment: BoardComment | null,
+	) {
+		setLocalComments((current) => {
+			const withoutOptimistic = optimisticId
+				? current.filter((comment) => comment.id !== optimisticId)
+				: current;
+			if (!persistedComment) return withoutOptimistic;
+			if (
+				withoutOptimistic.some(
+					(comment) => comment.id === persistedComment.id,
+				)
+			) {
+				return withoutOptimistic;
+			}
+			return [...withoutOptimistic, persistedComment];
+		});
+		if (persistedComment) onCommentCreated(taskId, persistedComment);
 	}
 
 	return (
 		<div className="flex flex-col border-t bg-background">
-			<FeedTabs active={tab} onChange={setTab} commentCount={comments.length} />
+			<FeedTabs
+				active={tab}
+				onChange={setTab}
+				commentCount={localComments.length}
+			/>
 
-			<div className="space-y-4 px-6 py-5">
-				{tab === "comments" ? (
+			<div
+				aria-label={tab === "comments" ? "Task comments" : "Task activity"}
+				aria-busy={tab === "comments" && isCommentsLoading}
+				className={cn(
+					"space-y-4 px-6 py-5",
+					tab === "comments" &&
+					localComments.length > 3 &&
+					"max-h-72 overflow-y-auto overscroll-contain",
+				)}
+			>
+				{tab === "comments" && isCommentsLoading ? (
+					<p className="py-6 text-center text-sm text-muted-foreground">
+						Loading comments…
+					</p>
+				) : tab === "comments" && commentsError ? (
+					<div className="py-6 text-center">
+						<p className="text-sm text-destructive">{commentsError}</p>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="mt-3"
+							onPress={onRetryComments}
+						>
+							Try again
+						</Button>
+					</div>
+				) : tab === "comments" ? (
 					sortedComments.length > 0 ? (
 						sortedComments.map((comment) => (
 							<CommentRow key={comment.id} comment={comment} />
@@ -599,8 +714,12 @@ function TaskActivitySection({
 
 			{tab === "comments" && (
 				<CommentComposer
+					key={taskId}
+					projectId={projectId}
+					taskId={taskId}
 					currentUser={currentUser}
-					onSubmit={handleAddComment}
+					onOptimisticComment={addOptimisticComment}
+					onCommentSettled={settleOptimisticComment}
 				/>
 			)}
 		</div>
@@ -618,10 +737,13 @@ export function TaskDetailsPanel({
 	isOpen,
 	onOpenChange,
 	onSelectTask,
-	comments = [],
+	comments,
+	commentsError,
 	activity = [],
-	currentUser = null,
-	onAddComment,
+	currentUser,
+	isCommentsLoading,
+	onCommentCreated,
+	onRetryComments,
 	onCreateLabel,
 }: TaskDetailsPanelProps) {
 	const updateTaskInStore = useBoardStore((state) => state.updateTask);
@@ -1203,11 +1325,15 @@ export function TaskDetailsPanel({
 				</form>
 
 				<TaskActivitySection
+					projectId={projectId}
 					taskId={task.id}
 					comments={comments}
+					commentsError={commentsError}
+					isCommentsLoading={isCommentsLoading}
 					activity={activity}
 					currentUser={currentUser}
-					onAddComment={onAddComment}
+					onCommentCreated={onCommentCreated}
+					onRetryComments={onRetryComments}
 				/>
 			</div>
 		</SheetContent>

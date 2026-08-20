@@ -1,3 +1,5 @@
+import type { BoardComment } from "./board";
+
 export type ActionStatus = "idle" | "success" | "error";
 
 export interface BoardActionState {
@@ -9,6 +11,10 @@ export interface BoardActionState {
 
 export interface CreateBoardLabelActionState extends BoardActionState {
 	data?: { id: string; name: string; color: string };
+}
+
+export interface CreateBoardCommentActionState extends BoardActionState {
+	data?: BoardComment;
 }
 
 export interface CreateProjectActionState {

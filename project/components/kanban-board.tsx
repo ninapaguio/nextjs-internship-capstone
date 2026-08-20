@@ -19,6 +19,7 @@ import {
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTaskComments } from "@/hooks/use-task-comments";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
 import type {
@@ -31,6 +32,7 @@ import type {
 
 interface KanbanBoardProps {
 	projectId: string;
+	currentUserId: string;
 	initialData: ProjectBoardData;
 }
 
@@ -70,7 +72,11 @@ State management:
 */
 
 // Provides persisted board filtering, task details, and optimistic dnd-kit movement.
-export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
+export function KanbanBoard({
+	projectId,
+	currentUserId,
+	initialData,
+}: KanbanBoardProps) {
 	const columns = useBoardStore((state) => state.lists);
 	const hydrate = useBoardStore((state) => state.hydrate);
 	const addList = useBoardStore((state) => state.addList);
@@ -99,6 +105,9 @@ export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 	const [boardLabels, setBoardLabels] = useState<BoardLabelOption[]>(
 		initialData.labels,
 	);
+	const currentUser =
+		initialData.members.find((member) => member.id === currentUserId) ?? null;
+	const taskComments = useTaskComments(projectId, selectedTaskId);
 
 	// Persists a new project label and makes it available throughout the board.
 	async function addBoardLabel(
@@ -406,6 +415,12 @@ export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 				complexityOptions={initialData.complexityOptions}
 				members={initialData.members}
 				labels={boardLabels}
+				comments={taskComments.comments}
+				commentsError={taskComments.error}
+				currentUser={currentUser}
+				isCommentsLoading={taskComments.isLoading}
+				onCommentCreated={taskComments.recordComment}
+				onRetryComments={() => void taskComments.refetch()}
 				onCreateLabel={addBoardLabel}
 				isOpen={selectedTaskId !== null}
 				onOpenChange={(open) => {
