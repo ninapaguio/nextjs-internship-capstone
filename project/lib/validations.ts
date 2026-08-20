@@ -360,6 +360,9 @@ export const updateTaskSchema = z
 		dependencyIds: uniqueIds(
 			"A dependency cannot be selected twice",
 		).optional(),
+		blockingTaskIds: uniqueIds(
+			"A blocking task cannot be selected twice",
+		).optional(),
 	})
 	.strict()
 	.refine(
@@ -387,6 +390,9 @@ export const updateBoardTaskSchema = z
 		dependencyIds: uniqueIds(
 			"A dependency cannot be selected twice",
 		).optional(),
+		blockingTaskIds: uniqueIds(
+			"A blocking task cannot be selected twice",
+		).optional(),
 	})
 	.strict()
 	.refine(
@@ -402,7 +408,7 @@ export const taskLifecycleSchema = z
 	.object({
 		projectId: uuidSchema,
 		taskId: uuidSchema,
-		action: z.literal("delete"),
+		action: z.enum(["archive", "delete"]),
 	})
 	.strict();
 

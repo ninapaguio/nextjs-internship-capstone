@@ -5,10 +5,10 @@ import { revalidatePath } from "next/cache";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import {
 	changeBoardListLifecycle as changeBoardListLifecycleMutation,
-	deleteBoardTask as deleteBoardTaskMutation,
+	changeBoardTaskLifecycle as changeBoardTaskLifecycleMutation,
 	insertBoardComment,
-	insertBoardList,
 	insertBoardLabel,
+	insertBoardList,
 	insertBoardTask,
 	moveBoardTask as moveBoardTaskMutation,
 	updateBoardList as updateBoardListMutation,
@@ -160,7 +160,8 @@ export async function createBoardLabel(
 		}
 
 		const label = await insertBoardLabel(parsed.data);
-		if (!label) return { status: "error", message: "The label was not created." };
+		if (!label)
+			return { status: "error", message: "The label was not created." };
 
 		await revalidateBoardPages();
 		return {
@@ -377,6 +378,10 @@ export async function updateBoardTask(
 			formData.get("replaceDependencies") === "true"
 				? formData.getAll("dependencyIds")
 				: undefined,
+		blockingTaskIds:
+			formData.get("replaceBlockingTasks") === "true"
+				? formData.getAll("blockingTaskIds")
+				: undefined,
 	});
 	if (!parsed.success) {
 		return {
@@ -409,11 +414,12 @@ export async function updateBoardTask(
 		) {
 			return { status: "error", message: "One or more labels are invalid." };
 		}
-		if (parsed.data.dependencyIds) {
+		if (parsed.data.dependencyIds && parsed.data.blockingTaskIds) {
 			const dependencyValidation = await validateTaskDependencies(
 				parsed.data.projectId,
 				parsed.data.taskId,
 				parsed.data.dependencyIds,
+				parsed.data.blockingTaskIds,
 			);
 			if (dependencyValidation === "circular") {
 				return {
@@ -457,8 +463,8 @@ export async function updateBoardTask(
 	}
 }
 
-// Soft-deletes one task after validating access to its project board.
-export async function deleteBoardTask(
+// Archives or soft-deletes one task after validating project access.
+export async function changeBoardTaskLifecycle(
 	formData: FormData,
 ): Promise<BoardActionState> {
 	const parsed = taskLifecycleSchema.safeParse({
@@ -473,16 +479,23 @@ export async function deleteBoardTask(
 		if (!(await authorizeBoardProject(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
-		const task = await deleteBoardTaskMutation(
+		const task = await changeBoardTaskLifecycleMutation(
 			parsed.data.projectId,
 			parsed.data.taskId,
+			parsed.data.action,
 		);
-		if (!task) return { status: "error", message: "The task was not deleted." };
+		if (!task) return { status: "error", message: "The task was not changed." };
 
 		await revalidateBoardPages();
-		return { status: "success", message: "Task deleted successfully." };
+		return {
+			status: "success",
+			message:
+				parsed.data.action === "archive"
+					? "Task archived successfully."
+					: "Task deleted successfully.",
+		};
 	} catch {
-		return { status: "error", message: "We could not delete the task." };
+		return { status: "error", message: "We could not change the task." };
 	}
 }
 

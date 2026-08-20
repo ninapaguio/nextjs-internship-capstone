@@ -57,6 +57,7 @@ export async function getTaskComments(
 				eq(comments.taskId, taskId),
 				eq(tasks.projectId, projectId),
 				isNull(comments.deletedAt),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 				isNull(users.deletedAt),
 			),
@@ -142,6 +143,7 @@ export async function getTaskActivities(
 			and(
 				eq(taskActivities.taskId, taskId),
 				eq(tasks.projectId, projectId),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 			),
 		)
@@ -219,7 +221,13 @@ export async function getProjectBoardData(
 					complexityOptions,
 					eq(tasks.complexityId, complexityOptions.id),
 				)
-				.where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
+				.where(
+					and(
+						eq(tasks.projectId, projectId),
+						isNull(tasks.archivedAt),
+						isNull(tasks.deletedAt),
+					),
+				)
 				.orderBy(asc(tasks.position)),
 			db
 				.select({
@@ -253,34 +261,34 @@ export async function getProjectBoardData(
 	const taskIds = taskRows.map((task) => task.id);
 	const assigneeRows = taskIds.length
 		? await db
-			.select({
-				taskId: taskAssignees.taskId,
-				id: users.id,
-				firstName: users.firstName,
-				lastName: users.lastName,
-				email: users.email,
-				imageUrl: users.imageUrl,
-			})
-			.from(taskAssignees)
-			.innerJoin(users, eq(taskAssignees.userId, users.id))
-			.where(
-				and(inArray(taskAssignees.taskId, taskIds), isNull(users.deletedAt)),
-			)
+				.select({
+					taskId: taskAssignees.taskId,
+					id: users.id,
+					firstName: users.firstName,
+					lastName: users.lastName,
+					email: users.email,
+					imageUrl: users.imageUrl,
+				})
+				.from(taskAssignees)
+				.innerJoin(users, eq(taskAssignees.userId, users.id))
+				.where(
+					and(inArray(taskAssignees.taskId, taskIds), isNull(users.deletedAt)),
+				)
 		: [];
 	const [taskLabelRows, dependencyRows] = taskIds.length
 		? await Promise.all([
-			db
-				.select({ taskId: taskLabels.taskId, labelId: taskLabels.labelId })
-				.from(taskLabels)
-				.where(inArray(taskLabels.taskId, taskIds)),
-			db
-				.select({
-					taskId: taskDependencies.taskId,
-					dependsOnTaskId: taskDependencies.dependsOnTaskId,
-				})
-				.from(taskDependencies)
-				.where(inArray(taskDependencies.taskId, taskIds)),
-		])
+				db
+					.select({ taskId: taskLabels.taskId, labelId: taskLabels.labelId })
+					.from(taskLabels)
+					.where(inArray(taskLabels.taskId, taskIds)),
+				db
+					.select({
+						taskId: taskDependencies.taskId,
+						dependsOnTaskId: taskDependencies.dependsOnTaskId,
+					})
+					.from(taskDependencies)
+					.where(inArray(taskDependencies.taskId, taskIds)),
+			])
 		: [[], []];
 
 	const membersById = new Map<string, BoardMemberOption>();
@@ -375,6 +383,7 @@ export async function isActiveTaskInProject(projectId: string, taskId: string) {
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 			),
 		)
@@ -385,26 +394,29 @@ export async function isActiveTaskInProject(projectId: string, taskId: string) {
 
 export type TaskDependencyValidationResult = "valid" | "invalid" | "circular";
 
-// Ensures dependencies belong to the same project and do not create a circular dependency.
+// Validates both dependency directions against active project tasks and cycles.
 export async function validateTaskDependencies(
 	projectId: string,
 	taskId: string,
 	dependencyIds: string[],
+	blockingTaskIds: string[],
 ): Promise<TaskDependencyValidationResult> {
-	if (dependencyIds.length === 0) return "valid";
-	if (dependencyIds.includes(taskId)) return "invalid";
+	const relatedTaskIds = [...new Set([...dependencyIds, ...blockingTaskIds])];
+	if (relatedTaskIds.includes(taskId)) return "invalid";
 
-	const matchingTasks = await db
+	const activeTasks = await db
 		.select({ id: tasks.id })
 		.from(tasks)
 		.where(
 			and(
 				eq(tasks.projectId, projectId),
-				inArray(tasks.id, dependencyIds),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 			),
 		);
-	if (matchingTasks.length !== dependencyIds.length) return "invalid";
+	const activeTaskIds = new Set(activeTasks.map((task) => task.id));
+	if (!activeTaskIds.has(taskId)) return "invalid";
+	if (relatedTaskIds.some((id) => !activeTaskIds.has(id))) return "invalid";
 
 	const dependencyRows = await db
 		.select({
@@ -415,27 +427,37 @@ export async function validateTaskDependencies(
 		.where(eq(taskDependencies.projectId, projectId));
 	const dependencyGraph = new Map<string, string[]>();
 	for (const dependency of dependencyRows) {
+		if (!activeTaskIds.has(dependency.taskId)) continue;
+		if (!activeTaskIds.has(dependency.dependsOnTaskId)) continue;
 		if (dependency.taskId === taskId) continue;
+		if (dependency.dependsOnTaskId === taskId) continue;
 		const current = dependencyGraph.get(dependency.taskId) ?? [];
 		current.push(dependency.dependsOnTaskId);
 		dependencyGraph.set(dependency.taskId, current);
 	}
+	dependencyGraph.set(taskId, dependencyIds);
+	for (const blockingTaskId of blockingTaskIds) {
+		const current = dependencyGraph.get(blockingTaskId) ?? [];
+		current.push(taskId);
+		dependencyGraph.set(blockingTaskId, current);
+	}
 
-	// Checks whether following a candidate's dependencies reaches the edited task.
-	function reachesEditedTask(candidateId: string) {
-		const visited = new Set<string>();
-		const pending = [candidateId];
-		while (pending.length > 0) {
-			const current = pending.pop();
-			if (!current || visited.has(current)) continue;
-			if (current === taskId) return true;
-			visited.add(current);
-			pending.push(...(dependencyGraph.get(current) ?? []));
+	// Detects cycles after applying both proposed relationship lists.
+	const visiting = new Set<string>();
+	const visited = new Set<string>();
+	function hasCycle(currentTaskId: string): boolean {
+		if (visiting.has(currentTaskId)) return true;
+		if (visited.has(currentTaskId)) return false;
+		visiting.add(currentTaskId);
+		for (const dependencyId of dependencyGraph.get(currentTaskId) ?? []) {
+			if (hasCycle(dependencyId)) return true;
 		}
+		visiting.delete(currentTaskId);
+		visited.add(currentTaskId);
 		return false;
 	}
 
-	return dependencyIds.some(reachesEditedTask) ? "circular" : "valid";
+	return activeTasks.some((task) => hasCycle(task.id)) ? "circular" : "valid";
 }
 
 // Checks whether a task still has at least one unfinished prerequisite.
@@ -456,6 +478,7 @@ export async function hasIncompleteTaskDependencies(
 				eq(taskDependencies.projectId, projectId),
 				eq(taskDependencies.taskId, taskId),
 				isNull(dependencyTask.completedAt),
+				isNull(dependencyTask.archivedAt),
 				isNull(dependencyTask.deletedAt),
 			),
 		)

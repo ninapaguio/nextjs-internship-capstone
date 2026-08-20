@@ -62,6 +62,7 @@ interface UpdateBoardTaskInput {
 	assigneeIds?: string[];
 	labelIds?: string[];
 	dependencyIds?: string[];
+	blockingTaskIds?: string[];
 }
 
 interface InsertBoardTaskInput {
@@ -112,14 +113,12 @@ async function getTaskActivitySnapshot(
 		})
 		.from(tasks)
 		.innerJoin(lists, eq(tasks.listId, lists.id))
-		.innerJoin(
-			complexityOptions,
-			eq(tasks.complexityId, complexityOptions.id),
-		)
+		.innerJoin(complexityOptions, eq(tasks.complexityId, complexityOptions.id))
 		.where(
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 			),
 		)
@@ -237,10 +236,7 @@ async function insertTaskSnapshotActivities(
 		});
 	}
 
-	const assignees = compareActivityEntities(
-		previous.assignees,
-		next.assignees,
-	);
+	const assignees = compareActivityEntities(previous.assignees, next.assignees);
 	for (const member of assignees.added) {
 		activityRows.push({
 			taskId,
@@ -383,7 +379,7 @@ export async function insertBoardTask(input: InsertBoardTaskInput) {
 			...taskInput,
 			position:
 				input.position ??
-				sql<number>`coalesce((select max(${tasks.position}) + 1 from ${tasks} where ${tasks.listId} = ${input.listId} and ${tasks.deletedAt} is null), 0)`,
+				sql<number>`coalesce((select max(${tasks.position}) + 1 from ${tasks} where ${tasks.listId} = ${input.listId} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null), 0)`,
 		})
 		.returning({ id: tasks.id });
 	if (task && assigneeIds.length > 0) {
@@ -425,7 +421,37 @@ export async function updateBoardTask(
 	const previousSnapshot = await getTaskActivitySnapshot(projectId, taskId);
 	if (!previousSnapshot) return null;
 
-	const { assigneeIds, labelIds, dependencyIds, completed, ...changes } = input;
+	const previousBlockingRows = input.blockingTaskIds
+		? await db
+				.select({ taskId: taskDependencies.taskId })
+				.from(taskDependencies)
+				.where(
+					and(
+						eq(taskDependencies.projectId, projectId),
+						eq(taskDependencies.dependsOnTaskId, taskId),
+					),
+				)
+		: [];
+	const affectedBlockingTaskIds = [
+		...new Set([
+			...previousBlockingRows.map((dependency) => dependency.taskId),
+			...(input.blockingTaskIds ?? []),
+		]),
+	];
+	const previousBlockingSnapshots = new Map<string, TaskActivitySnapshot>();
+	for (const blockingTaskId of affectedBlockingTaskIds) {
+		const snapshot = await getTaskActivitySnapshot(projectId, blockingTaskId);
+		if (snapshot) previousBlockingSnapshots.set(blockingTaskId, snapshot);
+	}
+
+	const {
+		assigneeIds,
+		labelIds,
+		dependencyIds,
+		blockingTaskIds,
+		completed,
+		...changes
+	} = input;
 	const [task] = await db
 		.update(tasks)
 		.set({
@@ -438,6 +464,7 @@ export async function updateBoardTask(
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 				changes.listId
 					? sql`exists (
@@ -495,6 +522,27 @@ export async function updateBoardTask(
 		}
 	}
 
+	if (task && blockingTaskIds) {
+		await db
+			.delete(taskDependencies)
+			.where(
+				and(
+					eq(taskDependencies.projectId, projectId),
+					eq(taskDependencies.dependsOnTaskId, taskId),
+				),
+			);
+		if (blockingTaskIds.length > 0) {
+			await db.insert(taskDependencies).values(
+				blockingTaskIds.map((blockingTaskId) => ({
+					projectId,
+					taskId: blockingTaskId,
+					dependsOnTaskId: taskId,
+					createdById: actorId,
+				})),
+			);
+		}
+	}
+
 	if (task) {
 		const nextSnapshot = await getTaskActivitySnapshot(projectId, taskId);
 		if (nextSnapshot) {
@@ -505,20 +553,44 @@ export async function updateBoardTask(
 				nextSnapshot,
 			);
 		}
+		for (const [blockingTaskId, snapshot] of previousBlockingSnapshots) {
+			const nextSnapshot = await getTaskActivitySnapshot(
+				projectId,
+				blockingTaskId,
+			);
+			if (nextSnapshot) {
+				await insertTaskSnapshotActivities(
+					blockingTaskId,
+					actorId,
+					snapshot,
+					nextSnapshot,
+				);
+			}
+		}
 	}
 
 	return task ?? null;
 }
 
-// Soft-deletes one task from an authorized project board.
-export async function deleteBoardTask(projectId: string, taskId: string) {
+// Archives or soft-deletes one task from an authorized project board.
+export async function changeBoardTaskLifecycle(
+	projectId: string,
+	taskId: string,
+	action: "archive" | "delete",
+) {
+	const now = new Date();
 	const [task] = await db
 		.update(tasks)
-		.set({ deletedAt: new Date(), updatedAt: new Date() })
+		.set({
+			archivedAt: action === "archive" ? now : undefined,
+			deletedAt: action === "delete" ? now : undefined,
+			updatedAt: now,
+		})
 		.where(
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 			),
 		)
@@ -545,6 +617,7 @@ export async function moveBoardTask(
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
+				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
 				sql`exists (
 					select 1 from ${lists}
