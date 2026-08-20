@@ -15,6 +15,8 @@ import {
 import {
 	canAssignUsersToProject,
 	canUseLabelsInProject,
+	hasIncompleteTaskDependencies,
+	validateTaskDependencies,
 } from "@/lib/db/queries/board";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import {
@@ -220,7 +222,8 @@ export async function createBoardTask(
 	}
 }
 
-// Updates task details, completion, placement, assignees, and labels in one action.
+// Validates and authorizes updates to a task's details, placement, relationships, 
+// and completion before saving the changes and refreshing the board pages.
 export async function updateBoardTask(
 	formData: FormData,
 ): Promise<BoardActionState> {
@@ -242,6 +245,10 @@ export async function updateBoardTask(
 		labelIds:
 			formData.get("replaceLabels") === "true"
 				? formData.getAll("labelIds")
+				: undefined,
+		dependencyIds:
+			formData.get("replaceDependencies") === "true"
+				? formData.getAll("dependencyIds")
 				: undefined,
 	});
 	if (!parsed.success) {
@@ -274,6 +281,37 @@ export async function updateBoardTask(
 			))
 		) {
 			return { status: "error", message: "One or more labels are invalid." };
+		}
+		if (parsed.data.dependencyIds) {
+			const dependencyValidation = await validateTaskDependencies(
+				parsed.data.projectId,
+				parsed.data.taskId,
+				parsed.data.dependencyIds,
+			);
+			if (dependencyValidation === "circular") {
+				return {
+					status: "error",
+					message: "This dependency would create a circular task chain.",
+				};
+			}
+			if (dependencyValidation === "invalid") {
+				return {
+					status: "error",
+					message: "One or more dependencies are invalid.",
+				};
+			}
+		}
+		if (
+			parsed.data.completed === true &&
+			(await hasIncompleteTaskDependencies(
+				parsed.data.projectId,
+				parsed.data.taskId,
+			))
+		) {
+			return {
+				status: "error",
+				message: "Complete every blocking task before completing this task.",
+			};
 		}
 
 		const { projectId, taskId, ...changes } = parsed.data;

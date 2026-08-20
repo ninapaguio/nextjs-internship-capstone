@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
 	complexityOptions,
@@ -9,6 +10,7 @@ import {
 	projectMembers,
 	projects,
 	taskAssignees,
+	taskDependencies,
 	taskLabels,
 	tasks,
 	users,
@@ -112,26 +114,35 @@ export async function getProjectBoardData(
 	const taskIds = taskRows.map((task) => task.id);
 	const assigneeRows = taskIds.length
 		? await db
-				.select({
-					taskId: taskAssignees.taskId,
-					id: users.id,
-					firstName: users.firstName,
-					lastName: users.lastName,
-					username: users.username,
-					imageUrl: users.imageUrl,
-				})
-				.from(taskAssignees)
-				.innerJoin(users, eq(taskAssignees.userId, users.id))
-				.where(
-					and(inArray(taskAssignees.taskId, taskIds), isNull(users.deletedAt)),
-				)
+			.select({
+				taskId: taskAssignees.taskId,
+				id: users.id,
+				firstName: users.firstName,
+				lastName: users.lastName,
+				username: users.username,
+				imageUrl: users.imageUrl,
+			})
+			.from(taskAssignees)
+			.innerJoin(users, eq(taskAssignees.userId, users.id))
+			.where(
+				and(inArray(taskAssignees.taskId, taskIds), isNull(users.deletedAt)),
+			)
 		: [];
-	const taskLabelRows = taskIds.length
-		? await db
+	const [taskLabelRows, dependencyRows] = taskIds.length
+		? await Promise.all([
+			db
 				.select({ taskId: taskLabels.taskId, labelId: taskLabels.labelId })
 				.from(taskLabels)
-				.where(inArray(taskLabels.taskId, taskIds))
-		: [];
+				.where(inArray(taskLabels.taskId, taskIds)),
+			db
+				.select({
+					taskId: taskDependencies.taskId,
+					dependsOnTaskId: taskDependencies.dependsOnTaskId,
+				})
+				.from(taskDependencies)
+				.where(inArray(taskDependencies.taskId, taskIds)),
+		])
+		: [[], []];
 
 	const membersById = new Map<string, BoardMemberOption>();
 	for (const member of projectMemberRows) {
@@ -165,6 +176,15 @@ export async function getProjectBoardData(
 		labelsByTask.set(taskLabel.taskId, current);
 	}
 
+	const activeTaskIds = new Set(taskIds);
+	const dependencyIdsByTask = new Map<string, string[]>();
+	for (const dependency of dependencyRows) {
+		if (!activeTaskIds.has(dependency.dependsOnTaskId)) continue;
+		const current = dependencyIdsByTask.get(dependency.taskId) ?? [];
+		current.push(dependency.dependsOnTaskId);
+		dependencyIdsByTask.set(dependency.taskId, current);
+	}
+
 	const tasksByList = new Map<
 		string,
 		ProjectBoardData["lists"][number]["tasks"]
@@ -186,6 +206,7 @@ export async function getProjectBoardData(
 			completedAt: task.completedAt?.toISOString() ?? null,
 			assignees: assigneesByTask.get(task.id) ?? [],
 			labels: labelsByTask.get(task.id) ?? [],
+			dependencyIds: dependencyIdsByTask.get(task.id) ?? [],
 		});
 		tasksByList.set(task.listId, current);
 	}
@@ -205,6 +226,87 @@ export async function getProjectBoardData(
 		),
 		labels: labelRows,
 	};
+}
+
+export type TaskDependencyValidationResult = "valid" | "invalid" | "circular";
+
+// Ensures dependencies belong to the same project and do not create a circular dependency.
+export async function validateTaskDependencies(
+	projectId: string,
+	taskId: string,
+	dependencyIds: string[],
+): Promise<TaskDependencyValidationResult> {
+	if (dependencyIds.length === 0) return "valid";
+	if (dependencyIds.includes(taskId)) return "invalid";
+
+	const matchingTasks = await db
+		.select({ id: tasks.id })
+		.from(tasks)
+		.where(
+			and(
+				eq(tasks.projectId, projectId),
+				inArray(tasks.id, dependencyIds),
+				isNull(tasks.deletedAt),
+			),
+		);
+	if (matchingTasks.length !== dependencyIds.length) return "invalid";
+
+	const dependencyRows = await db
+		.select({
+			taskId: taskDependencies.taskId,
+			dependsOnTaskId: taskDependencies.dependsOnTaskId,
+		})
+		.from(taskDependencies)
+		.where(eq(taskDependencies.projectId, projectId));
+	const dependencyGraph = new Map<string, string[]>();
+	for (const dependency of dependencyRows) {
+		if (dependency.taskId === taskId) continue;
+		const current = dependencyGraph.get(dependency.taskId) ?? [];
+		current.push(dependency.dependsOnTaskId);
+		dependencyGraph.set(dependency.taskId, current);
+	}
+
+	// Checks whether following a candidate's dependencies reaches the edited task.
+	function reachesEditedTask(candidateId: string) {
+		const visited = new Set<string>();
+		const pending = [candidateId];
+		while (pending.length > 0) {
+			const current = pending.pop();
+			if (!current || visited.has(current)) continue;
+			if (current === taskId) return true;
+			visited.add(current);
+			pending.push(...(dependencyGraph.get(current) ?? []));
+		}
+		return false;
+	}
+
+	return dependencyIds.some(reachesEditedTask) ? "circular" : "valid";
+}
+
+// Checks whether a task still has at least one unfinished prerequisite.
+export async function hasIncompleteTaskDependencies(
+	projectId: string,
+	taskId: string,
+) {
+	const dependencyTask = alias(tasks, "dependency_task");
+	const [incompleteDependency] = await db
+		.select({ id: taskDependencies.dependsOnTaskId })
+		.from(taskDependencies)
+		.innerJoin(
+			dependencyTask,
+			eq(taskDependencies.dependsOnTaskId, dependencyTask.id),
+		)
+		.where(
+			and(
+				eq(taskDependencies.projectId, projectId),
+				eq(taskDependencies.taskId, taskId),
+				isNull(dependencyTask.completedAt),
+				isNull(dependencyTask.deletedAt),
+			),
+		)
+		.limit(1);
+
+	return Boolean(incompleteDependency);
 }
 
 // Confirms every requested label belongs to the active project.

@@ -2,7 +2,13 @@ import "server-only";
 
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { lists, taskAssignees, taskLabels, tasks } from "@/lib/db/schema";
+import {
+	lists,
+	taskAssignees,
+	taskDependencies,
+	taskLabels,
+	tasks,
+} from "@/lib/db/schema";
 
 interface InsertBoardListInput {
 	projectId: string;
@@ -26,6 +32,7 @@ interface UpdateBoardTaskInput {
 	completed?: boolean;
 	assigneeIds?: string[];
 	labelIds?: string[];
+	dependencyIds?: string[];
 }
 
 interface InsertBoardTaskInput {
@@ -143,14 +150,14 @@ export async function insertBoardTask(input: InsertBoardTaskInput) {
 	return task ?? null;
 }
 
-// Updates editable task fields and replaces assignees or labels when provided.
+// Updates editable task fields and replaces task relationships when provided.
 export async function updateBoardTask(
 	projectId: string,
 	taskId: string,
 	actorId: string,
 	input: UpdateBoardTaskInput,
 ) {
-	const { assigneeIds, labelIds, completed, ...changes } = input;
+	const { assigneeIds, labelIds, dependencyIds, completed, ...changes } = input;
 	const [task] = await db
 		.update(tasks)
 		.set({
@@ -196,6 +203,27 @@ export async function updateBoardTask(
 			await db
 				.insert(taskLabels)
 				.values(labelIds.map((labelId) => ({ projectId, taskId, labelId })));
+		}
+	}
+
+	if (task && dependencyIds) {
+		await db
+			.delete(taskDependencies)
+			.where(
+				and(
+					eq(taskDependencies.projectId, projectId),
+					eq(taskDependencies.taskId, taskId),
+				),
+			);
+		if (dependencyIds.length > 0) {
+			await db.insert(taskDependencies).values(
+				dependencyIds.map((dependsOnTaskId) => ({
+					projectId,
+					taskId,
+					dependsOnTaskId,
+					createdById: actorId,
+				})),
+			);
 		}
 	}
 

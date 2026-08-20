@@ -147,6 +147,7 @@ export function CreateTaskModal({
 				completedAt: null,
 				assignees: members.filter((member) => assigneeIds.includes(member.id)),
 				labels: labels.filter((label) => labelIds.includes(label.id)),
+				dependencyIds: [],
 			});
 			setDueDate(null);
 			setAssigneeIds([]);
