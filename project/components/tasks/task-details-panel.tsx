@@ -6,9 +6,11 @@ import {
 	CalendarClock,
 	Check,
 	CheckCircle2,
+	CircleMinus,
 	FileText,
 	Gauge,
 	History,
+	Hourglass,
 	type LucideIcon,
 	Pencil,
 	RotateCcw,
@@ -81,6 +83,7 @@ interface TaskDetailsPanelProps {
 	labels: BoardLabelOption[];
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
+	onSelectTask: (taskId: string) => void;
 	comments?: BoardComment[];
 	activity?: BoardActivityItem[];
 	currentUser?: BoardMemberOption | null;
@@ -117,6 +120,15 @@ function formatDueDate(date: CalendarDate | null) {
 		day: "numeric",
 		year: "numeric",
 	}).format(date.toDate("UTC"));
+}
+
+// Formats a stored task due date for the compact dependency list.
+function formatDependencyDueDate(dueDate: string | null) {
+	if (!dueDate) return "No due date";
+	return new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+	}).format(parseDate(dueDate).toDate("UTC"));
 }
 
 // Formats an ISO timestamp as a short relative label ("2h ago", "yesterday").
@@ -206,15 +218,77 @@ function getMemberInitials(name: string) {
 function DetailRow({
 	label,
 	children,
+	align = "center",
 }: {
 	label: string;
 	children: ReactNode;
+	align?: "center" | "start";
 }) {
 	return (
-		<div className="grid min-h-9 grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-3">
+		<div
+			className={cn(
+				"grid min-h-9 grid-cols-1 gap-1 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:gap-3",
+				align === "start" ? "items-start" : "items-center",
+			)}
+		>
 			<span className="text-sm font-medium text-muted-foreground">{label}</span>
 			<div className="min-w-0">{children}</div>
 		</div>
+	);
+}
+
+// Displays one finish-to-start relationship in the task dependency summary.
+function DependencyDisplayRow({
+	task,
+	relationship,
+	onSelectTask,
+}: {
+	task: BoardTask;
+	relationship: "blocked-by" | "blocking";
+	onSelectTask: (taskId: string) => void;
+}) {
+	const isBlockedBy = relationship === "blocked-by";
+	const RelationshipIcon = isBlockedBy ? Hourglass : CircleMinus;
+	return (
+		<TooltipTrigger delay={300}>
+			<Button
+				type="button"
+				variant="ghost"
+				className="grid h-auto w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 text-xs sm:grid-cols-[6.25rem_minmax(0,1fr)_auto]"
+				aria-label={`Open task ${task.title}`}
+				onPress={() => onSelectTask(task.id)}
+			>
+				<span
+					className={cn(
+						"col-span-2 flex items-center gap-1.5 whitespace-nowrap font-medium sm:col-span-1",
+						isBlockedBy
+							? "text-amber-700 dark:text-amber-300"
+							: "text-rose-700 dark:text-rose-300",
+					)}
+				>
+					<RelationshipIcon className="size-3.5 shrink-0" aria-hidden="true" />
+					{isBlockedBy ? "Blocked by" : "Blocking"}
+				</span>
+				<span className="flex min-w-0 items-center gap-1.5">
+					<CheckCircle2
+						className={cn(
+							"size-4 shrink-0",
+							task.completedAt
+								? "text-emerald-600"
+								: "text-muted-foreground",
+						)}
+						aria-hidden="true"
+					/>
+					<span className="truncate font-medium text-foreground">
+						{task.title}
+					</span>
+				</span>
+				<span className="whitespace-nowrap text-muted-foreground">
+					· {formatDependencyDueDate(task.dueDate)}
+				</span>
+			</Button>
+			<Tooltip placement="top">{task.title}</Tooltip>
+		</TooltipTrigger>
 	);
 }
 
@@ -543,6 +617,7 @@ export function TaskDetailsPanel({
 	labels,
 	isOpen,
 	onOpenChange,
+	onSelectTask,
 	comments = [],
 	activity = [],
 	currentUser = null,
@@ -653,6 +728,9 @@ export function TaskDetailsPanel({
 	const selectedDependencies = dependencyCandidates.filter((candidate) =>
 		selectedDependencyIds.includes(candidate.id),
 	);
+	const blockingTasks = dependencyCandidates.filter((candidate) =>
+		candidate.dependencyIds.includes(task.id),
+	);
 	const normalizedDependencyQuery = dependencyQuery.trim().toLowerCase();
 	const filteredDependencyCandidates = dependencyCandidates.filter(
 		(candidate) =>
@@ -708,7 +786,7 @@ export function TaskDetailsPanel({
 			isOpen={isOpen}
 			onOpenChange={onOpenChange}
 			side="right"
-			className="data-[side=right]:w-full sm:data-[side=right]:w-[80vw] sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl"
+			className="data-[side=right]:w-full! sm:data-[side=right]:w-[65vw]! sm:max-w-2xl! lg:max-w-3xl! xl:max-w-4xl!"
 		>
 			<SheetHeader className="pr-14">
 				<div className="flex min-w-0 items-start gap-3">
@@ -744,9 +822,9 @@ export function TaskDetailsPanel({
 				</SheetDescription>
 			</SheetHeader>
 
-			<div className="min-h-0 flex-1 overflow-y-auto bg-muted/20">
-				<form action={formAction} className="flex min-h-full flex-col">
-					<div className="space-y-2 px-6 py-6">
+			<div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-muted/20">
+				<form action={formAction} className="flex min-h-full min-w-0 flex-col">
+					<div className="min-w-0 space-y-2 px-6 py-6">
 						<input type="hidden" name="projectId" value={projectId} />
 						<input type="hidden" name="taskId" value={task.id} />
 						<input type="hidden" name="title" value={title} />
@@ -834,7 +912,7 @@ export function TaskDetailsPanel({
 							)}
 						</DetailRow>
 
-						<DetailRow label="Dependencies">
+						<DetailRow label="Dependencies" align="start">
 							{editingField === "dependencies" ? (
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
@@ -914,11 +992,14 @@ export function TaskDetailsPanel({
 									</div>
 									{selectedDependencies.length > 0 ? (
 										<div className="space-y-1.5">
-											<div className="flex flex-wrap gap-1.5">
+											<div className="divide-y rounded-lg border bg-background px-2">
 												{selectedDependencies.map((dependency) => (
-													<Badge key={dependency.id} variant="outline">
-														{dependency.title}
-													</Badge>
+													<DependencyDisplayRow
+														key={dependency.id}
+														task={dependency}
+														relationship="blocked-by"
+														onSelectTask={onSelectTask}
+													/>
 												))}
 											</div>
 											<p
@@ -938,46 +1019,30 @@ export function TaskDetailsPanel({
 								</div>
 							) : (
 								<div className="space-y-1">
+									{selectedDependencies.map((dependency) => (
+										<DependencyDisplayRow
+											key={`blocked-by-${dependency.id}`}
+											task={dependency}
+											relationship="blocked-by"
+											onSelectTask={onSelectTask}
+										/>
+									))}
+									{blockingTasks.map((dependency) => (
+										<DependencyDisplayRow
+											key={`blocking-${dependency.id}`}
+											task={dependency}
+											relationship="blocking"
+											onSelectTask={onSelectTask}
+										/>
+									))}
 									<Button
 										type="button"
 										variant="ghost"
-										className="h-auto min-h-8 flex-wrap justify-start gap-1.5 px-2"
+										className="h-8 justify-start px-0 text-xs text-muted-foreground"
 										onPress={() => setEditingField("dependencies")}
 									>
-										{selectedDependencies.length > 0 ? (
-											selectedDependencies.map((dependency) => (
-												<Badge
-													key={dependency.id}
-													variant="secondary"
-													className={cn(
-														dependency.completedAt
-															? "text-emerald-700 dark:text-emerald-300"
-															: "text-amber-700 dark:text-amber-300",
-													)}
-												>
-													{dependency.title}
-												</Badge>
-											))
-										) : (
-											<span className="text-muted-foreground">
-												Add dependencies
-											</span>
-										)}
+										Add dependencies
 									</Button>
-									{selectedDependencies.length > 0 ? (
-										<p
-											className={cn(
-												"px-2 text-xs",
-												isBlocked
-													? "text-amber-700 dark:text-amber-300"
-													: "text-emerald-700 dark:text-emerald-300",
-											)}
-										>
-											{isBlocked
-												? `${incompleteDependencies.length} blocking task${incompleteDependencies.length === 1 ? "" : "s"} remaining`
-												: "All dependencies completed"}
-										</p>
-									) : null}
 								</div>
 							)}
 						</DetailRow>
@@ -1081,17 +1146,21 @@ export function TaskDetailsPanel({
 										value={description}
 										onChange={(event) => setDescription(event.target.value)}
 										maxLength={10_000}
-										className="min-h-36 bg-background"
+										className="min-h-36 max-w-full bg-background wrap-anywhere"
 										autoFocus
 									/>
 								) : (
 									<Button
 										type="button"
 										variant="ghost"
-										className="h-auto min-h-24 w-full justify-start whitespace-normal px-3 py-3 text-left font-normal"
+										className="h-auto min-h-24 w-full min-w-0 max-w-full justify-start overflow-hidden whitespace-normal px-3 py-3 text-left font-normal"
 										onPress={() => setEditingField("description")}
 									>
-										{description || (
+										{description ? (
+											<span className="min-w-0 max-w-full whitespace-pre-wrap wrap-anywhere">
+												{description}
+											</span>
+										) : (
 											<span className="text-muted-foreground">
 												Add a description…
 											</span>

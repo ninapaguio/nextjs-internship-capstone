@@ -411,6 +411,7 @@ export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 				onOpenChange={(open) => {
 					if (!open) setSelectedTaskId(null);
 				}}
+				onSelectTask={setSelectedTaskId}
 			/>
 		</section>
 	);

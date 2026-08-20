@@ -108,12 +108,6 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 						</CardDescription>
 						<div className="flex items-center gap-1.5">
 							<Badge
-								variant="secondary"
-								className="h-5 px-2 text-[10px] font-normal"
-							>
-								{project.teamName}
-							</Badge>
-							<Badge
 								variant="outline"
 								className="h-5 px-2 text-[10px] font-normal"
 							>
@@ -137,8 +131,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 					</div>
 
 					<div className="space-y-1.5">
-						<div className="flex items-center justify-between text-xs">
-							<span className="text-muted-foreground">Progress</span>
+						<div className="flex items-center justify-end text-xs">
 							<span className="font-medium tabular-nums">
 								{project.progressPercentage}%
 							</span>
