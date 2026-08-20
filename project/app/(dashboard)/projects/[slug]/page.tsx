@@ -1,15 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { KanbanBoard } from "@/components/kanban-board";
-import { InviteProjectMemberModal } from "@/components/modals/invite-project-member-modal";
-import { ProjectInvitationsManager } from "@/components/project-invitations-manager";
+import { LinkButton } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import { getProjectBoardData } from "@/lib/db/queries/board";
-import { getProjectInvitationsForOwner } from "@/lib/db/queries/project-members";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import {
 	createProjectCompositeSlug,
@@ -47,12 +45,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 		applicationUser.id,
 	);
 	if (!project) notFound();
-	const [boardData, invitations] = await Promise.all([
-		getProjectBoardData(project.id),
-		project.accessRole === "owner"
-			? getProjectInvitationsForOwner(project.id, applicationUser.id)
-			: Promise.resolve([]),
-	]);
+	const boardData = await getProjectBoardData(project.id);
 
 	const canonicalSlug = createProjectCompositeSlug(project.id, project.name);
 	if (slug !== canonicalSlug) redirect(`/projects/${canonicalSlug}`);
@@ -76,14 +69,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 				</div>
 
 				<div className="flex items-center gap-2">
-					{project.accessRole === "owner" ? (
-						<>
-							<ProjectInvitationsManager invitations={invitations} />
-							<InviteProjectMemberModal
-								projectId={project.id}
-								projectName={project.name}
-							/>
-						</>
+					{project.teamId ? (
+						<LinkButton
+							href={`/team/${project.teamId}`}
+							variant="outline"
+							size="sm"
+						>
+							<Users data-icon="inline-start" />
+							Members
+						</LinkButton>
 					) : null}
 				</div>
 			</header>
