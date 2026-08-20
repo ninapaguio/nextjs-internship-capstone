@@ -5,7 +5,6 @@ import {
 	getLocalTimeZone,
 	parseDate,
 } from "@internationalized/date";
-import { CalendarDays } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RangeValue } from "react-aria-components";
 import { changeProjectLifecycle, updateProject } from "@/actions/projects";
@@ -138,7 +137,7 @@ export function ProjectDetailsPanel({
 			</SheetHeader>
 
 			<div className="min-h-0 flex-1 overflow-y-auto">
-				<form action={handleUpdate} className="flex flex-col gap-5 px-6">
+				<form action={handleUpdate} className="flex flex-col gap-5 px-6 py-6">
 					<input type="hidden" name="projectId" value={project.id} />
 					<Field>
 						<FieldLabel htmlFor="edit-project-name">Project title</FieldLabel>
@@ -177,9 +176,8 @@ export function ProjectDetailsPanel({
 						<PopoverTrigger>
 							<Button
 								variant="outline"
-								className="w-full justify-start font-normal"
+								className="h-9 w-full justify-start rounded-md font-normal"
 							>
-								<CalendarDays data-icon="inline-start" />
 								{formatDateRange(dateRange)}
 							</Button>
 							<Popover className="w-auto p-0">
@@ -197,13 +195,13 @@ export function ProjectDetailsPanel({
 							{error}
 						</p>
 					)}
-					<SheetFooter className="border-t px-0 pt-4 pb-0">
+					<SheetFooter className="border-t-0 px-0 pt-4 pb-0">
 						<Button type="submit">Save changes</Button>
 					</SheetFooter>
 				</form>
 
 				<section
-					className="mt-6 space-y-3 border-t p-6 pt-5"
+					className="space-y-3 border-t p-6 pt-5"
 					aria-labelledby="danger-zone-title"
 				>
 					<h3 id="danger-zone-title" className="font-semibold text-destructive">

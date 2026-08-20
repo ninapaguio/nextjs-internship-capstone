@@ -6,7 +6,6 @@ import {
 	today,
 } from "@internationalized/date";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Plus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { RangeValue } from "react-aria-components";
 import { useFormStatus } from "react-dom";
@@ -86,8 +85,7 @@ export function CreateProjectModal() {
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
 			<Button size="sm" className="h-8 rounded-full px-3 text-xs shadow-sm">
-				<Plus data-icon="inline-start" />
-				New project
+			New project
 			</Button>
 			<Dialog className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
 				<DialogHeader className="pr-10">
@@ -144,9 +142,8 @@ export function CreateProjectModal() {
 							<PopoverTrigger>
 								<Button
 									variant="outline"
-									className="w-full justify-start font-normal"
+									className="h-9 w-full justify-start rounded-md font-normal"
 								>
-									<CalendarDays data-icon="inline-start" />
 									{formatDateRange(dateRange)}
 								</Button>
 								<Popover className="w-auto p-0">
@@ -178,7 +175,7 @@ export function CreateProjectModal() {
 						</p>
 					)}
 
-					<DialogFooter className="border-t pt-5">
+					<DialogFooter>
 						<DialogClose variant="ghost">Discard</DialogClose>
 						<CreateProjectSubmit />
 					</DialogFooter>

@@ -42,10 +42,11 @@ function ProgressContent({
 
 	return (
 		<ProgressContext value={context}>
-			{children}
-			<ProgressTrack>
-				<ProgressIndicator />
-			</ProgressTrack>
+			{children ?? (
+				<ProgressTrack>
+					<ProgressIndicator />
+				</ProgressTrack>
+			)}
 		</ProgressContext>
 	);
 }
