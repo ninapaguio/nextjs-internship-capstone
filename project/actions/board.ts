@@ -349,7 +349,7 @@ export async function createBoardTask(
 	}
 }
 
-// Validates and authorizes updates to a task's details, placement, relationships, 
+// Validates and authorizes updates to a task's details, placement, relationships,
 // and completion before saving the changes and refreshing the board pages.
 export async function updateBoardTask(
 	formData: FormData,
@@ -500,7 +500,8 @@ export async function moveBoardTask(
 		return { status: "error", message: "Invalid task movement." };
 
 	try {
-		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		if (!applicationUser) {
 			return { status: "error", message: "You cannot update this board." };
 		}
 
@@ -509,6 +510,7 @@ export async function moveBoardTask(
 			parsed.data.taskId,
 			parsed.data.targetListId,
 			parsed.data.position,
+			applicationUser.id,
 		);
 		if (!task) return { status: "error", message: "The task was not moved." };
 

@@ -10,6 +10,7 @@ import {
 	lists,
 	projectMembers,
 	projects,
+	taskActivities,
 	taskAssignees,
 	taskDependencies,
 	taskLabels,
@@ -17,6 +18,8 @@ import {
 	users,
 } from "@/lib/db/schema";
 import type {
+	BoardActivityItem,
+	BoardActivityType,
 	BoardComment,
 	BoardComplexityOption,
 	BoardLabelOption,
@@ -70,6 +73,98 @@ export async function getTaskComments(
 			imageUrl: comment.imageUrl,
 		},
 	}));
+}
+
+// Converts a JSON activity value into displayable text without exposing objects.
+function getActivityText(value: unknown) {
+	return typeof value === "string" ? value : undefined;
+}
+
+// Translates generic database actions into task-specific activity timeline events.
+function toBoardActivityType(activity: {
+	action: (typeof taskActivities.$inferSelect)["action"];
+	fieldName: string | null;
+	oldValue: unknown;
+	newValue: unknown;
+}): BoardActivityType | null {
+	if (activity.action === "created") return "created";
+	if (activity.action === "moved") return "column_changed";
+	if (activity.action === "assigned") return "assignee_added";
+	if (activity.action === "unassigned") return "assignee_removed";
+	if (activity.action === "completed") return "completed";
+	if (activity.action !== "updated") return null;
+
+	switch (activity.fieldName) {
+		case "title":
+			return "title_changed";
+		case "description":
+			return "description_changed";
+		case "due_date":
+			return "due_date_changed";
+		case "complexity":
+			return "complexity_changed";
+		case "label":
+			return activity.newValue === null ? "label_removed" : "label_added";
+		case "dependency":
+			return activity.newValue === null
+				? "dependency_removed"
+				: "dependency_added";
+		case "completion":
+			return activity.newValue === false ? "reopened" : null;
+		default:
+			return null;
+	}
+}
+
+// Loads system-generated task changes without including comment records.
+export async function getTaskActivities(
+	projectId: string,
+	taskId: string,
+): Promise<BoardActivityItem[]> {
+	const activityRows = await db
+		.select({
+			id: taskActivities.id,
+			action: taskActivities.action,
+			fieldName: taskActivities.fieldName,
+			oldValue: taskActivities.oldValue,
+			newValue: taskActivities.newValue,
+			createdAt: taskActivities.createdAt,
+			actorId: users.id,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email,
+			imageUrl: users.imageUrl,
+		})
+		.from(taskActivities)
+		.innerJoin(tasks, eq(taskActivities.taskId, tasks.id))
+		.innerJoin(users, eq(taskActivities.actorId, users.id))
+		.where(
+			and(
+				eq(taskActivities.taskId, taskId),
+				eq(tasks.projectId, projectId),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.orderBy(asc(taskActivities.createdAt));
+
+	return activityRows.flatMap((activity) => {
+		const type = toBoardActivityType(activity);
+		if (!type) return [];
+		return [
+			{
+				id: activity.id,
+				type,
+				actor: {
+					id: activity.actorId,
+					name: getMemberName(activity),
+					imageUrl: activity.imageUrl,
+				},
+				createdAt: activity.createdAt.toISOString(),
+				detail: getActivityText(activity.newValue),
+				previousDetail: getActivityText(activity.oldValue),
+			},
+		];
+	});
 }
 
 // Produces a readable member name from the synchronized Clerk profile fields.

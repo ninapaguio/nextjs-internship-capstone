@@ -18,6 +18,7 @@ import {
 	Tag,
 	UserMinus,
 	UserPlus,
+	Trash2,
 } from "lucide-react";
 import {
 	type ReactNode,
@@ -58,6 +59,7 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTaskActivity } from "@/hooks/use-task-activity";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
 import type {
@@ -72,7 +74,6 @@ import type {
 	BoardTask,
 	CreateBoardCommentActionState,
 	EditableTaskField,
-	TaskFeedEntry,
 	TaskFeedTab,
 } from "@/types";
 
@@ -89,7 +90,6 @@ interface TaskDetailsPanelProps {
 	comments: BoardComment[];
 	commentsError: string | null;
 	isCommentsLoading: boolean;
-	activity?: BoardActivityItem[];
 	currentUser: BoardMemberOption | null;
 	onCommentCreated: (taskId: string, comment: BoardComment) => void;
 	onRetryComments: () => void;
@@ -163,11 +163,14 @@ function formatRelativeTime(iso: string) {
 
 const activityIcons: Record<BoardActivityType, LucideIcon> = {
 	created: Sparkles,
+	title_changed: Pencil,
 	column_changed: ArrowRightLeft,
 	assignee_added: UserPlus,
 	assignee_removed: UserMinus,
 	label_added: Tag,
 	label_removed: Tag,
+	dependency_added: Hourglass,
+	dependency_removed: Trash2,
 	due_date_changed: CalendarClock,
 	complexity_changed: Gauge,
 	description_changed: FileText,
@@ -180,28 +183,50 @@ function describeActivity(item: BoardActivityItem) {
 	switch (item.type) {
 		case "created":
 			return "created this task";
+		case "title_changed":
+			return item.previousDetail && item.detail
+				? `changed the title from “${item.previousDetail}” to “${item.detail}”`
+				: "changed the title";
 		case "column_changed":
-			return item.detail
-				? `moved this task to ${item.detail}`
-				: "moved this task";
+			return item.previousDetail && item.detail
+				? `moved this task from ${item.previousDetail} to ${item.detail}`
+				: item.detail
+					? `moved this task to ${item.detail}`
+					: "moved this task";
 		case "assignee_added":
 			return item.detail ? `assigned ${item.detail}` : "assigned a member";
 		case "assignee_removed":
-			return item.detail ? `unassigned ${item.detail}` : "removed an assignee";
+			return item.previousDetail
+				? `unassigned ${item.previousDetail}`
+				: "removed an assignee";
 		case "label_added":
 			return item.detail ? `added the ${item.detail} label` : "added a label";
 		case "label_removed":
 			return item.detail
 				? `removed the ${item.detail} label`
-				: "removed a label";
+				: item.previousDetail
+					? `removed the ${item.previousDetail} label`
+					: "removed a label";
+		case "dependency_added":
+			return item.detail
+				? `added ${item.detail} as a dependency`
+				: "added a dependency";
+		case "dependency_removed":
+			return item.previousDetail
+				? `removed ${item.previousDetail} as a dependency`
+				: "removed a dependency";
 		case "due_date_changed":
-			return item.detail
-				? `set the due date to ${item.detail}`
-				: "cleared the due date";
+			return item.previousDetail && item.detail
+				? `changed the due date from ${formatDependencyDueDate(item.previousDetail)} to ${formatDependencyDueDate(item.detail)}`
+				: item.detail
+					? `set the due date to ${formatDependencyDueDate(item.detail)}`
+					: "cleared the due date";
 		case "complexity_changed":
-			return item.detail
-				? `set complexity to ${item.detail}`
-				: "changed the complexity";
+			return item.previousDetail && item.detail
+				? `changed complexity from ${item.previousDetail} to ${item.detail}`
+				: item.detail
+					? `set complexity to ${item.detail}`
+					: "changed the complexity";
 		case "description_changed":
 			return "updated the description";
 		case "completed":
@@ -364,13 +389,13 @@ function FeedTabs({
 			key: "comments",
 			label: commentCount > 0 ? `Comments (${commentCount})` : "Comments",
 		},
-		{ key: "activity", label: "All activity" },
+		{ key: "activity", label: "Activity" },
 	];
 
 	return (
 		<div
 			role="tablist"
-			aria-label="Comments and activity"
+			aria-label="Comments and task activity"
 			className="flex items-center gap-4 border-b px-6"
 		>
 			{tabs.map((tab) => (
@@ -560,29 +585,38 @@ function CommentComposer({
 	);
 }
 
-// Comments/activity section
+// Renders separate comment and system-activity tabs without merging their records.
 function TaskActivitySection({
 	projectId,
 	taskId,
+	tab,
+	onTabChange,
 	comments,
 	commentsError,
 	isCommentsLoading,
 	activity,
+	activityError,
+	isActivityLoading,
 	currentUser,
 	onCommentCreated,
 	onRetryComments,
+	onRetryActivity,
 }: {
 	projectId: string;
 	taskId: string;
+	tab: TaskFeedTab;
+	onTabChange: (tab: TaskFeedTab) => void;
 	comments: BoardComment[];
 	commentsError: string | null;
 	isCommentsLoading: boolean;
 	activity: BoardActivityItem[];
+	activityError: string | null;
+	isActivityLoading: boolean;
 	currentUser: BoardMemberOption | null;
 	onCommentCreated: (taskId: string, comment: BoardComment) => void;
 	onRetryComments: () => void;
+	onRetryActivity: () => void;
 }) {
-	const [tab, setTab] = useState<TaskFeedTab>("comments");
 	const [localComments, setLocalComments] = useState(comments);
 
 	useEffect(() => {
@@ -597,25 +631,6 @@ function TaskActivitySection({
 			),
 		[localComments],
 	);
-
-	const feed = useMemo<TaskFeedEntry[]>(() => {
-		const commentEntries: TaskFeedEntry[] = localComments.map((comment) => ({
-			kind: "comment",
-			id: `comment-${comment.id}`,
-			createdAt: comment.createdAt,
-			comment,
-		}));
-		const activityEntries: TaskFeedEntry[] = activity.map((item) => ({
-			kind: "activity",
-			id: `activity-${item.id}`,
-			createdAt: item.createdAt,
-			activity: item,
-		}));
-		return [...commentEntries, ...activityEntries].sort(
-			(a, b) =>
-				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-		);
-	}, [localComments, activity]);
 
 	// Adds a temporary comment to the active task feed.
 	function addOptimisticComment(body: string) {
@@ -656,13 +671,16 @@ function TaskActivitySection({
 		<div className="flex flex-col border-t bg-background">
 			<FeedTabs
 				active={tab}
-				onChange={setTab}
+				onChange={onTabChange}
 				commentCount={localComments.length}
 			/>
 
 			<div
 				aria-label={tab === "comments" ? "Task comments" : "Task activity"}
-				aria-busy={tab === "comments" && isCommentsLoading}
+				aria-busy={
+					(tab === "comments" && isCommentsLoading) ||
+					(tab === "activity" && isActivityLoading)
+				}
 				className={cn(
 					"space-y-4 px-6 py-5",
 					tab === "comments" &&
@@ -697,14 +715,25 @@ function TaskActivitySection({
 							No comments yet. Start the conversation below.
 						</p>
 					)
-				) : feed.length > 0 ? (
-					feed.map((entry) =>
-						entry.kind === "comment" ? (
-							<CommentRow key={entry.id} comment={entry.comment} />
-						) : (
-							<ActivityRow key={entry.id} item={entry.activity} />
-						),
-					)
+				) : isActivityLoading ? (
+					<p className="py-6 text-center text-sm text-muted-foreground">
+						Loading task activity…
+					</p>
+				) : activityError ? (
+					<div className="py-6 text-center">
+						<p className="text-sm text-destructive">{activityError}</p>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="mt-3"
+							onPress={onRetryActivity}
+						>
+							Try again
+						</Button>
+					</div>
+				) : activity.length > 0 ? (
+					activity.map((item) => <ActivityRow key={item.id} item={item} />)
 				) : (
 					<p className="py-6 text-center text-sm text-muted-foreground">
 						No activity yet.
@@ -739,7 +768,6 @@ export function TaskDetailsPanel({
 	onSelectTask,
 	comments,
 	commentsError,
-	activity = [],
 	currentUser,
 	isCommentsLoading,
 	onCommentCreated,
@@ -761,8 +789,14 @@ export function TaskDetailsPanel({
 		[],
 	);
 	const [dependencyQuery, setDependencyQuery] = useState("");
+	const [feedTab, setFeedTab] = useState<TaskFeedTab>("comments");
 	const [panelError, setPanelError] = useState<string | null>(null);
 	const [localLabels, setLocalLabels] = useState<BoardLabelOption[]>(labels);
+	const taskActivity = useTaskActivity(
+		projectId,
+		task?.id ?? null,
+		isOpen && feedTab === "activity",
+	);
 
 	useEffect(() => {
 		setLocalLabels(labels);
@@ -779,6 +813,7 @@ export function TaskDetailsPanel({
 		setSelectedLabelIds(task?.labels[0] ? [task.labels[0].id] : []);
 		setSelectedDependencyIds(task?.dependencyIds ?? []);
 		setDependencyQuery("");
+		setFeedTab("comments");
 		setPanelError(null);
 	}, [task]);
 
@@ -828,6 +863,7 @@ export function TaskDetailsPanel({
 			else {
 				markPersisted();
 				setEditingField(null);
+				void taskActivity.invalidate();
 			}
 			return result;
 		},
@@ -900,7 +936,10 @@ export function TaskDetailsPanel({
 		if (result.status === "error") {
 			replaceLists(snapshot);
 			setPanelError(result.message);
-		} else markPersisted();
+		} else {
+			markPersisted();
+			void taskActivity.invalidate();
+		}
 	}
 
 	return (
@@ -1327,13 +1366,18 @@ export function TaskDetailsPanel({
 				<TaskActivitySection
 					projectId={projectId}
 					taskId={task.id}
+					tab={feedTab}
+					onTabChange={setFeedTab}
 					comments={comments}
 					commentsError={commentsError}
 					isCommentsLoading={isCommentsLoading}
-					activity={activity}
+					activity={taskActivity.activity}
+					activityError={taskActivity.error}
+					isActivityLoading={taskActivity.isLoading}
 					currentUser={currentUser}
 					onCommentCreated={onCommentCreated}
 					onRetryComments={onRetryComments}
+					onRetryActivity={() => void taskActivity.refetch()}
 				/>
 			</div>
 		</SheetContent>

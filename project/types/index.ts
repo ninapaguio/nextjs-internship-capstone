@@ -27,7 +27,6 @@ export type {
 	ComplexityFilter,
 	EditableTaskField,
 	ProjectBoardData,
-	TaskFeedEntry,
 	TaskFeedTab,
 } from "./board";
 export type {

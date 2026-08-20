@@ -54,11 +54,14 @@ export interface BoardComment {
 
 export type BoardActivityType =
 	| "created"
+	| "title_changed"
 	| "column_changed"
 	| "assignee_added"
 	| "assignee_removed"
 	| "label_added"
 	| "label_removed"
+	| "dependency_added"
+	| "dependency_removed"
 	| "due_date_changed"
 	| "complexity_changed"
 	| "description_changed"
@@ -72,6 +75,7 @@ export interface BoardActivityItem {
 	actor: BoardMemberOption;
 	createdAt: string;
 	detail?: string;
+	previousDetail?: string;
 }
 
 export interface BoardState {
@@ -113,12 +117,3 @@ export type EditableTaskField =
 	| null;
 
 export type TaskFeedTab = "comments" | "activity";
-
-export type TaskFeedEntry =
-	| { kind: "comment"; id: string; createdAt: string; comment: BoardComment }
-	| {
-			kind: "activity";
-			id: string;
-			createdAt: string;
-			activity: BoardActivityItem;
-	  };
