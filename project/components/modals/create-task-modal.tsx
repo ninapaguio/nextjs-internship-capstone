@@ -1,10 +1,10 @@
 "use client";
 
 import type { CalendarDate } from "@internationalized/date";
-import { CalendarDays, Layers3, Tag, UserRound } from "lucide-react";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createBoardTask } from "@/actions/board";
+import { TaskLabelSelect } from "@/components/tasks/task-label-select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -42,6 +42,10 @@ interface CreateTaskModalProps {
 	isOpen: boolean;
 	onOpenChange: (isOpen: boolean) => void;
 	onCreateTask: (task: BoardTask) => void;
+	onCreateLabel: (
+		projectId: string,
+		name: string,
+	) => Promise<BoardLabelOption>;
 }
 
 // TODO: Task 4.4 - Build task creation and editing functionality
@@ -111,13 +115,14 @@ export function CreateTaskModal({
 	isOpen,
 	onOpenChange,
 	onCreateTask,
+	onCreateLabel,
 }: CreateTaskModalProps) {
 	const defaultComplexity =
 		complexityOptions[1] ?? complexityOptions[0] ?? null;
 	const [dueDate, setDueDate] = useState<CalendarDate | null>(null);
 	const [complexityId, setComplexityId] = useState(defaultComplexity?.id ?? "");
 	const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-	const [labelIds, setLabelIds] = useState<string[]>([]);
+	const [labelId, setLabelId] = useState("");
 
 	// Calls the task action and adds the confirmed database record to Zustand.
 	const [state, formAction] = useActionState(
@@ -146,12 +151,12 @@ export function CreateTaskModal({
 				position: list.tasks.length,
 				completedAt: null,
 				assignees: members.filter((member) => assigneeIds.includes(member.id)),
-				labels: labels.filter((label) => labelIds.includes(label.id)),
+				labels: labels.filter((label) => label.id === labelId),
 				dependencyIds: [],
 			});
 			setDueDate(null);
 			setAssigneeIds([]);
-			setLabelIds([]);
+			setLabelId("");
 			onOpenChange(false);
 			return result;
 		},
@@ -168,9 +173,9 @@ export function CreateTaskModal({
 				{assigneeIds.map((id) => (
 					<input key={id} type="hidden" name="assigneeIds" value={id} />
 				))}
-				{labelIds.map((id) => (
-					<input key={id} type="hidden" name="labelIds" value={id} />
-				))}
+				{labelId ? (
+					<input type="hidden" name="labelIds" value={labelId} />
+				) : null}
 				<DialogHeader>
 					<DialogTitle className="text-xl font-semibold">
 						Create a task
@@ -194,6 +199,7 @@ export function CreateTaskModal({
 							required
 							maxLength={200}
 							autoFocus
+							className="rounded-md border-border bg-background shadow-xs"
 						/>
 					</label>
 
@@ -206,7 +212,7 @@ export function CreateTaskModal({
 							id="task-description"
 							name="description"
 							placeholder="What needs to be done?"
-							className="min-h-24"
+							className="min-h-24 rounded-md border-border bg-background shadow-xs"
 							maxLength={10_000}
 						/>
 					</label>
@@ -216,10 +222,9 @@ export function CreateTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="task-complexity"
 						>
-							<span className="flex items-center gap-1.5">
-								<Layers3 className="size-4" /> Complexity
-							</span>
+							<span>Complexity</span>
 							<Select
+								className="w-full"
 								id="task-complexity"
 								aria-label="Complexity"
 								value={complexityId}
@@ -242,15 +247,12 @@ export function CreateTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="task-due-date"
 						>
-							<span className="flex items-center gap-1.5">
-								<CalendarDays className="size-4" /> Due date
-							</span>
+							<span>Due date</span>
 							<PopoverTrigger>
 								<Button
 									variant="outline"
-									className="w-full justify-start font-normal"
+									className="h-9 w-full justify-start rounded-md border-border bg-background font-normal"
 								>
-									<CalendarDays data-icon="inline-start" />
 									{formatDueDate(dueDate)}
 								</Button>
 								<Popover className="w-auto p-0">
@@ -267,10 +269,9 @@ export function CreateTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="task-assignee"
 						>
-							<span className="flex items-center gap-1.5">
-								<UserRound className="size-4" /> Assignee
-							</span>
+							<span>Assignee</span>
 							<Select
+								className="w-full"
 								id="task-assignee"
 								aria-label="Assignees"
 								selectionMode="multiple"
@@ -292,32 +293,15 @@ export function CreateTaskModal({
 							</Select>
 						</label>
 
-						<label
-							className="grid gap-2 text-sm font-medium"
-							htmlFor="task-label"
-						>
-							<span className="flex items-center gap-1.5">
-								<Tag className="size-4" /> Labels
-							</span>
-							<Select
-								id="task-label"
-								aria-label="Labels"
-								selectionMode="multiple"
-								value={labelIds}
-								onChange={(values) => setLabelIds(Array.from(values, String))}
-							>
-								<SelectTrigger className="w-full">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{labels.map((label) => (
-										<SelectItem key={label.id} id={label.id}>
-											{label.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</label>
+						<div className="grid gap-2 text-sm font-medium">
+							<span>Label</span>
+							<TaskLabelSelect
+								labels={labels}
+								value={labelId || null}
+								onChange={(value) => setLabelId(value ?? "")}
+								onCreateLabel={(name) => onCreateLabel(projectId, name)}
+							/>
+						</div>
 					</div>
 				</div>
 

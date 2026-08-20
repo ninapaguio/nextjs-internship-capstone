@@ -7,6 +7,7 @@ import {
 	changeBoardListLifecycle as changeBoardListLifecycleMutation,
 	deleteBoardTask as deleteBoardTaskMutation,
 	insertBoardList,
+	insertBoardLabel,
 	insertBoardTask,
 	moveBoardTask as moveBoardTaskMutation,
 	updateBoardList as updateBoardListMutation,
@@ -22,6 +23,7 @@ import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import {
 	createListSchema,
 	createTaskSchema,
+	labelSchema,
 	listLifecycleSchema,
 	moveTaskSchema,
 	taskLifecycleSchema,
@@ -29,7 +31,9 @@ import {
 	updateListSchema,
 	uuidSchema,
 } from "@/lib/validations";
-import type { BoardActionState } from "@/types";
+import type { BoardActionState, CreateBoardLabelActionState } from "@/types";
+
+const DEFAULT_LABEL_COLOR = "#64748B";
 
 // Authenticates the current Clerk user and verifies access to a project board.
 async function authorizeBoardProject(projectId: string) {
@@ -47,6 +51,45 @@ async function authorizeBoardProject(projectId: string) {
 async function revalidateBoardPages() {
 	revalidatePath("/projects");
 	revalidatePath("/projects/[slug]", "page");
+}
+
+// Validates and creates a reusable label for an authorized project board.
+export async function createBoardLabel(
+	formData: FormData,
+): Promise<CreateBoardLabelActionState> {
+	const parsed = labelSchema.safeParse({
+		projectId: formData.get("projectId"),
+		name: formData.get("name"),
+		color: DEFAULT_LABEL_COLOR,
+	});
+	if (!parsed.success) {
+		return {
+			status: "error",
+			message: "Enter a valid label name.",
+			fieldErrors: parsed.error.flatten().fieldErrors,
+		};
+	}
+
+	try {
+		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+			return { status: "error", message: "You cannot update this board." };
+		}
+
+		const label = await insertBoardLabel(parsed.data);
+		if (!label) return { status: "error", message: "The label was not created." };
+
+		await revalidateBoardPages();
+		return {
+			status: "success",
+			message: "Label created successfully.",
+			data: label,
+		};
+	} catch {
+		return {
+			status: "error",
+			message: "That label may already exist in this project.",
+		};
+	}
 }
 
 // Creates a project list.

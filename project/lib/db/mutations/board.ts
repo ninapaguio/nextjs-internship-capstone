@@ -3,12 +3,19 @@ import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+	labels,
 	lists,
 	taskAssignees,
 	taskDependencies,
 	taskLabels,
 	tasks,
 } from "@/lib/db/schema";
+
+interface InsertBoardLabelInput {
+	projectId: string;
+	name: string;
+	color: string;
+}
 
 interface InsertBoardListInput {
 	projectId: string;
@@ -46,6 +53,16 @@ interface InsertBoardTaskInput {
 	position?: number;
 	assigneeIds: string[];
 	labelIds: string[];
+}
+
+// Creates a reusable label within one project.
+export async function insertBoardLabel(input: InsertBoardLabelInput) {
+	const [label] = await db
+		.insert(labels)
+		.values(input)
+		.returning({ id: labels.id, name: labels.name, color: labels.color });
+
+	return label ?? null;
 }
 
 // Inserts a list at the requested position or at the end of the project board.

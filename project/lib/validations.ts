@@ -66,10 +66,15 @@ function nullableText(maxLength: number, message: string) {
 	);
 }
 
-function uniqueIds(message: string) {
+// Validates a duplicate-free collection of UUIDs within the requested limit.
+function uniqueIds(
+	message: string,
+	maxValues = 100,
+	maxMessage = "Too many values were selected",
+) {
 	return z
 		.array(z.uuid("Each ID must be a valid UUID"))
-		.max(100, "Too many values were selected")
+		.max(maxValues, maxMessage)
 		.refine((ids) => new Set(ids).size === ids.length, message)
 		.default([]);
 }
@@ -332,7 +337,11 @@ const taskFields = {
 		.min(0, "Position cannot be negative")
 		.optional(),
 	assigneeIds: uniqueIds("An assignee cannot be selected twice"),
-	labelIds: uniqueIds("A label cannot be selected twice"),
+	labelIds: uniqueIds(
+		"A label cannot be selected twice",
+		1,
+		"A task can have only one label",
+	),
 };
 
 export const createTaskSchema = z.object(taskFields).strict();

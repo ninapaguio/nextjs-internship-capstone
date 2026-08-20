@@ -3,7 +3,11 @@
 import { DragDropProvider } from "@dnd-kit/react";
 import { ArrowDownAZ, Filter, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { changeBoardListLifecycle, moveBoardTask } from "@/actions/board";
+import {
+	changeBoardListLifecycle,
+	createBoardLabel,
+	moveBoardTask,
+} from "@/actions/board";
 import { KanbanColumn } from "@/components/kanban-column";
 import { CreateListModal } from "@/components/modals/create-list-modal";
 import { CreateTaskModal } from "@/components/modals/create-task-modal";
@@ -18,6 +22,7 @@ import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
 import type {
+	BoardLabelOption,
 	BoardList,
 	BoardTask,
 	ComplexityFilter,
@@ -91,6 +96,26 @@ export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 	const [isListModalOpen, setIsListModalOpen] = useState(false);
 	const [editingList, setEditingList] = useState<BoardList | null>(null);
 	const [boardError, setBoardError] = useState<string | null>(null);
+	const [boardLabels, setBoardLabels] = useState<BoardLabelOption[]>(
+		initialData.labels,
+	);
+
+	// Persists a new project label and makes it available throughout the board.
+	async function addBoardLabel(
+		labelProjectId: string,
+		name: string,
+	): Promise<BoardLabelOption> {
+		const formData = new FormData();
+		formData.set("projectId", labelProjectId);
+		formData.set("name", name);
+		const result = await createBoardLabel(formData);
+		if (result.status === "error" || !result.data) {
+			throw new Error(result.message);
+		}
+		const createdLabel = result.data;
+		setBoardLabels((current) => [...current, createdLabel]);
+		return createdLabel;
+	}
 
 	// Initializes the shared board store from server-loaded database records.
 	useEffect(() => {
@@ -358,12 +383,13 @@ export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 				list={activeList}
 				complexityOptions={initialData.complexityOptions}
 				members={initialData.members}
-				labels={initialData.labels}
+				labels={boardLabels}
 				isOpen={activeListId !== null}
 				onOpenChange={(open) => {
 					if (!open) setActiveListId(null);
 				}}
 				onCreateTask={createTask}
+				onCreateLabel={addBoardLabel}
 			/>
 			<CreateListModal
 				projectId={projectId}
@@ -379,7 +405,8 @@ export function KanbanBoard({ projectId, initialData }: KanbanBoardProps) {
 				lists={columns.filter((list) => !list.archived)}
 				complexityOptions={initialData.complexityOptions}
 				members={initialData.members}
-				labels={initialData.labels}
+				labels={boardLabels}
+				onCreateLabel={addBoardLabel}
 				isOpen={selectedTaskId !== null}
 				onOpenChange={(open) => {
 					if (!open) setSelectedTaskId(null);
