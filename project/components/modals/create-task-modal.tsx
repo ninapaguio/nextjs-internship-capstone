@@ -42,10 +42,7 @@ interface CreateTaskModalProps {
 	isOpen: boolean;
 	onOpenChange: (isOpen: boolean) => void;
 	onCreateTask: (task: BoardTask) => void;
-	onCreateLabel: (
-		projectId: string,
-		name: string,
-	) => Promise<BoardLabelOption>;
+	onCreateLabel: (projectId: string, name: string) => Promise<BoardLabelOption>;
 }
 
 // TODO: Task 4.4 - Build task creation and editing functionality
@@ -122,7 +119,7 @@ export function CreateTaskModal({
 	const [dueDate, setDueDate] = useState<CalendarDate | null>(null);
 	const [complexityId, setComplexityId] = useState(defaultComplexity?.id ?? "");
 	const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-	const [labelId, setLabelId] = useState("");
+	const [labelIds, setLabelIds] = useState<string[]>([]);
 
 	// Calls the task action and adds the confirmed database record to Zustand.
 	const [state, formAction] = useActionState(
@@ -151,12 +148,12 @@ export function CreateTaskModal({
 				position: list.tasks.length,
 				completedAt: null,
 				assignees: members.filter((member) => assigneeIds.includes(member.id)),
-				labels: labels.filter((label) => label.id === labelId),
+				labels: labels.filter((label) => labelIds.includes(label.id)),
 				dependencyIds: [],
 			});
 			setDueDate(null);
 			setAssigneeIds([]);
-			setLabelId("");
+			setLabelIds([]);
 			onOpenChange(false);
 			return result;
 		},
@@ -173,9 +170,9 @@ export function CreateTaskModal({
 				{assigneeIds.map((id) => (
 					<input key={id} type="hidden" name="assigneeIds" value={id} />
 				))}
-				{labelId ? (
-					<input type="hidden" name="labelIds" value={labelId} />
-				) : null}
+				{labelIds.map((id) => (
+					<input key={id} type="hidden" name="labelIds" value={id} />
+				))}
 				<DialogHeader>
 					<DialogTitle className="text-xl font-semibold">
 						Create a task
@@ -297,8 +294,8 @@ export function CreateTaskModal({
 							<span>Label</span>
 							<TaskLabelSelect
 								labels={labels}
-								value={labelId || null}
-								onChange={(value) => setLabelId(value ?? "")}
+								value={labelIds}
+								onChange={setLabelIds}
 								onCreateLabel={(name) => onCreateLabel(projectId, name)}
 							/>
 						</div>
