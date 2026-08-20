@@ -7,6 +7,10 @@ export interface BoardActionState {
 	fieldErrors?: Record<string, string[] | undefined>;
 }
 
+export interface CreateBoardLabelActionState extends BoardActionState {
+	data?: { id: string; name: string; color: string };
+}
+
 export interface CreateProjectActionState {
 	status: ActionStatus;
 	message: string;

@@ -5,6 +5,7 @@ export type {
 	ActionStatus,
 	BoardActionState,
 	CancelProjectInvitationActionState,
+	CreateBoardLabelActionState,
 	CreateProjectActionState,
 	InviteProjectMemberActionState,
 	ProjectInvitationDecisionActionState,

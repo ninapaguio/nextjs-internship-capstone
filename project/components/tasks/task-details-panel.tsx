@@ -9,13 +9,9 @@ import {
 	FileText,
 	Gauge,
 	History,
-	Hourglass,
 	type LucideIcon,
 	Pencil,
-	Plus,
 	RotateCcw,
-	Search,
-	Send,
 	Sparkles,
 	Tag,
 	UserMinus,
@@ -38,6 +34,7 @@ import {
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TaskLabelSelect } from "@/components/tasks/task-label-select";
 import { Calendar } from "@/components/ui/calendar";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -88,7 +85,7 @@ interface TaskDetailsPanelProps {
 	activity?: BoardActivityItem[];
 	currentUser?: BoardMemberOption | null;
 	onAddComment?: (taskId: string, body: string) => Promise<void> | void;
-	onCreateLabel?: (
+	onCreateLabel: (
 		projectId: string,
 		name: string,
 	) => Promise<BoardLabelOption> | BoardLabelOption;
@@ -427,7 +424,6 @@ function CommentComposer({
 						isDisabled={!draft.trim() || isSubmitting}
 						onPress={handleSubmit}
 					>
-						<Send data-icon="inline-start" />
 						{isSubmitting ? "Posting…" : "Comment"}
 					</Button>
 				</div>
@@ -570,8 +566,6 @@ export function TaskDetailsPanel({
 	const [dependencyQuery, setDependencyQuery] = useState("");
 	const [panelError, setPanelError] = useState<string | null>(null);
 	const [localLabels, setLocalLabels] = useState<BoardLabelOption[]>(labels);
-	const [newLabelName, setNewLabelName] = useState("");
-	const [isCreatingLabel, setIsCreatingLabel] = useState(false);
 
 	useEffect(() => {
 		setLocalLabels(labels);
@@ -585,29 +579,21 @@ export function TaskDetailsPanel({
 		setSelectedListId(task?.listId ?? "");
 		setSelectedComplexityId(task?.complexity.id ?? "");
 		setSelectedAssigneeIds(task?.assignees.map((member) => member.id) ?? []);
-		setSelectedLabelIds(task?.labels.map((label) => label.id) ?? []);
+		setSelectedLabelIds(task?.labels[0] ? [task.labels[0].id] : []);
 		setSelectedDependencyIds(task?.dependencyIds ?? []);
 		setDependencyQuery("");
-		setNewLabelName("");
 		setPanelError(null);
 	}, [task]);
 
-	// Creates a label from the current draft name, selects it, and clears the
-	// input. Falls back to a local, unsaved label if `onCreateLabel` is absent.
-	async function handleCreateLabel() {
-		const name = newLabelName.trim();
-		if (!name || isCreatingLabel) return;
-		setIsCreatingLabel(true);
-		try {
-			const created =
-				(await onCreateLabel?.(projectId, name)) ??
-				({ id: `temp-label-${Date.now()}`, name } as BoardLabelOption);
-			setLocalLabels((current) => [...current, created]);
-			setSelectedLabelIds((current) => [...current, created.id]);
-			setNewLabelName("");
-		} finally {
-			setIsCreatingLabel(false);
-		}
+	// Adds a persisted label to the panel's available project labels.
+	async function createPanelLabel(name: string) {
+		const created = await onCreateLabel(projectId, name);
+		setLocalLabels((current) =>
+			current.some((label) => label.id === created.id)
+				? current
+				: [...current, created],
+		);
+		return created;
 	}
 
 	// Optimistically updates the task and restores the board if persistence fails.
@@ -722,9 +708,9 @@ export function TaskDetailsPanel({
 			isOpen={isOpen}
 			onOpenChange={onOpenChange}
 			side="right"
-			className="w-full sm:max-w-xl lg:max-w-2xl"
+			className="data-[side=right]:w-full sm:data-[side=right]:w-[80vw] sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl"
 		>
-			<SheetHeader className="border-b pr-14">
+			<SheetHeader className="pr-14">
 				<div className="flex min-w-0 items-start gap-3">
 					<SheetTitle className="sr-only">Task details</SheetTitle>
 					<div className="min-w-0 flex-1">
@@ -818,55 +804,16 @@ export function TaskDetailsPanel({
 							)}
 						</DetailRow>
 
-						<DetailRow label="Labels">
+						<DetailRow label="Label">
 							{editingField === "labels" ? (
-								<div className="space-y-2">
-									<Select
-										aria-label="Labels"
-										selectionMode="multiple"
-										value={selectedLabelIds}
-										onChange={(values) =>
-											setSelectedLabelIds(Array.from(values, String))
-										}
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{localLabels.map((label) => (
-												<SelectItem key={label.id} id={label.id}>
-													{label.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									<div className="flex items-center gap-2">
-										<Input
-											aria-label="New label name"
-											placeholder="Create a label…"
-											value={newLabelName}
-											onChange={(event) => setNewLabelName(event.target.value)}
-											maxLength={40}
-											className="h-8 flex-1"
-											onKeyDown={(event) => {
-												if (event.key === "Enter") {
-													event.preventDefault();
-													handleCreateLabel();
-												}
-											}}
-										/>
-										<Button
-											type="button"
-											size="sm"
-											variant="outline"
-											isDisabled={!newLabelName.trim() || isCreatingLabel}
-											onPress={handleCreateLabel}
-										>
-											<Plus data-icon="inline-start" />
-											{isCreatingLabel ? "Adding…" : "Add"}
-										</Button>
-									</div>
-								</div>
+								<TaskLabelSelect
+									labels={localLabels}
+									value={selectedLabelIds[0] ?? null}
+									onChange={(value) =>
+										setSelectedLabelIds(value ? [value] : [])
+									}
+									onCreateLabel={createPanelLabel}
+								/>
 							) : (
 								<Button
 									type="button"
@@ -892,7 +839,6 @@ export function TaskDetailsPanel({
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
 										<Badge variant="secondary" className="h-9 shrink-0 px-3">
-											<Hourglass className="size-3.5" />
 											Blocked by
 										</Badge>
 										<PopoverTrigger>
@@ -901,7 +847,6 @@ export function TaskDetailsPanel({
 												variant="outline"
 												className="min-w-0 flex-1 justify-start bg-background font-normal text-muted-foreground"
 											>
-												<Search data-icon="inline-start" />
 												Find a task
 											</Button>
 											<Popover
@@ -1175,14 +1120,13 @@ export function TaskDetailsPanel({
 						)}
 					</div>
 
-					<SheetFooter className="mt-auto flex-row justify-between border-t bg-background px-6 py-4">
+					<SheetFooter className="mt-auto flex-row justify-between px-6 py-4">
 						<Button
 							type="button"
 							variant="outline"
 							isDisabled={!task.completedAt && isBlocked}
 							onPress={handleCompletion}
 						>
-							<Check data-icon="inline-start" />
 							{task.completedAt ? "Reopen task" : "Mark complete"}
 						</Button>
 						<TaskDetailsSubmit />
