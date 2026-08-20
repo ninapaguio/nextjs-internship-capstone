@@ -118,6 +118,47 @@ export const taskLabels = pgTable(
 	],
 );
 
+// Records the tasks that must be completed before another task can proceed.
+export const taskDependencies = pgTable(
+	"task_dependencies",
+	{
+		projectId: uuid("project_id")
+			.notNull()
+			.references(() => projects.id, { onDelete: "cascade" }),
+		taskId: uuid("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		dependsOnTaskId: uuid("depends_on_task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		createdById: uuid("created_by_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.taskId, table.dependsOnTaskId] }),
+		index("task_dependencies_project_id_idx").on(table.projectId),
+		index("task_dependencies_depends_on_task_id_idx").on(table.dependsOnTaskId),
+		foreignKey({
+			columns: [table.projectId, table.taskId],
+			foreignColumns: [tasks.projectId, tasks.id],
+			name: "fk_task_dependencies_task_project",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.projectId, table.dependsOnTaskId],
+			foreignColumns: [tasks.projectId, tasks.id],
+			name: "fk_task_dependencies_dependency_project",
+		}).onDelete("cascade"),
+		check(
+			"task_dependencies_not_self",
+			sql`${table.taskId} <> ${table.dependsOnTaskId}`,
+		),
+	],
+);
+
 export const comments = pgTable(
 	"comments",
 	{

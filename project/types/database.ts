@@ -7,6 +7,7 @@ import type {
 	projects,
 	taskActivities,
 	taskAssignees,
+	taskDependencies,
 	taskLabels,
 	tasks,
 	teamRoles,
@@ -25,6 +26,7 @@ export type Label = typeof labels.$inferSelect;
 export type ComplexityOption = typeof complexityOptions.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type TaskAssignee = typeof taskAssignees.$inferSelect;
+export type TaskDependency = typeof taskDependencies.$inferSelect;
 export type TaskLabel = typeof taskLabels.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type TaskActivity = typeof taskActivities.$inferSelect;
@@ -38,4 +40,5 @@ export type NewProjectMember = typeof projectMembers.$inferInsert;
 export type NewList = typeof lists.$inferInsert;
 export type NewLabel = typeof labels.$inferInsert;
 export type NewTask = typeof tasks.$inferInsert;
+export type NewTaskDependency = typeof taskDependencies.$inferInsert;
 export type NewComment = typeof comments.$inferInsert;

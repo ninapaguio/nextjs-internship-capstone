@@ -24,6 +24,7 @@ export {
 	projectsRelations,
 	taskActivitiesRelations,
 	taskAssigneesRelations,
+	taskDependenciesRelations,
 	taskLabelsRelations,
 	tasksRelations,
 	teamRolesRelations,
@@ -35,6 +36,7 @@ export {
 	comments,
 	taskActivities,
 	taskAssignees,
+	taskDependencies,
 	taskLabels,
 	tasks,
 } from "./tasks";

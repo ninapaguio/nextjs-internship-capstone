@@ -9,10 +9,12 @@ import {
 	FileText,
 	Gauge,
 	History,
+	Hourglass,
 	type LucideIcon,
 	Pencil,
 	Plus,
 	RotateCcw,
+	Search,
 	Send,
 	Sparkles,
 	Tag,
@@ -562,6 +564,10 @@ export function TaskDetailsPanel({
 	const [selectedComplexityId, setSelectedComplexityId] = useState("");
 	const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
 	const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+	const [selectedDependencyIds, setSelectedDependencyIds] = useState<string[]>(
+		[],
+	);
+	const [dependencyQuery, setDependencyQuery] = useState("");
 	const [panelError, setPanelError] = useState<string | null>(null);
 	const [localLabels, setLocalLabels] = useState<BoardLabelOption[]>(labels);
 	const [newLabelName, setNewLabelName] = useState("");
@@ -580,6 +586,8 @@ export function TaskDetailsPanel({
 		setSelectedComplexityId(task?.complexity.id ?? "");
 		setSelectedAssigneeIds(task?.assignees.map((member) => member.id) ?? []);
 		setSelectedLabelIds(task?.labels.map((label) => label.id) ?? []);
+		setSelectedDependencyIds(task?.dependencyIds ?? []);
+		setDependencyQuery("");
 		setNewLabelName("");
 		setPanelError(null);
 	}, [task]);
@@ -628,6 +636,7 @@ export function TaskDetailsPanel({
 				completedAt: task.completedAt,
 				assignees,
 				labels: selectedLabels,
+				dependencyIds: selectedDependencyIds,
 			};
 
 			updateTaskInStore(task.id, changes);
@@ -650,13 +659,48 @@ export function TaskDetailsPanel({
 	const selectedLabels = localLabels.filter((label) =>
 		selectedLabelIds.includes(label.id),
 	);
+	const dependencyCandidates = lists.flatMap((list) =>
+		list.tasks
+			.filter((candidate) => candidate.id !== task.id)
+			.map((candidate) => ({ ...candidate, listTitle: list.title })),
+	);
+	const selectedDependencies = dependencyCandidates.filter((candidate) =>
+		selectedDependencyIds.includes(candidate.id),
+	);
+	const normalizedDependencyQuery = dependencyQuery.trim().toLowerCase();
+	const filteredDependencyCandidates = dependencyCandidates.filter(
+		(candidate) =>
+			!normalizedDependencyQuery ||
+			`${candidate.title} ${candidate.listTitle}`
+				.toLowerCase()
+				.includes(normalizedDependencyQuery),
+	);
+	const incompleteDependencies = selectedDependencies.filter(
+		(dependency) => !dependency.completedAt,
+	);
+	const isBlocked = incompleteDependencies.length > 0;
 	const selectedList = lists.find((list) => list.id === selectedListId);
 	const selectedComplexity =
 		complexityOptions.find((option) => option.id === selectedComplexityId) ??
 		task.complexity;
 
+	// Toggles one prerequisite while allowing several tasks to block the current task.
+	function toggleDependency(dependencyId: string) {
+		setSelectedDependencyIds((current) =>
+			current.includes(dependencyId)
+				? current.filter((id) => id !== dependencyId)
+				: [...current, dependencyId],
+		);
+	}
+
 	// Toggles completion immediately and restores the task if persistence fails.
 	async function handleCompletion() {
+		if (!activeTask.completedAt && isBlocked) {
+			setPanelError(
+				"Complete every blocking task before completing this task.",
+			);
+			return;
+		}
 		const snapshot = useBoardStore.getState().lists;
 		const completed = !activeTask.completedAt;
 		updateTaskInStore(activeTask.id, {
@@ -724,6 +768,7 @@ export function TaskDetailsPanel({
 						<input type="hidden" name="listId" value={selectedListId} />
 						<input type="hidden" name="replaceAssignees" value="true" />
 						<input type="hidden" name="replaceLabels" value="true" />
+						<input type="hidden" name="replaceDependencies" value="true" />
 						<input
 							type="hidden"
 							name="complexityId"
@@ -739,6 +784,9 @@ export function TaskDetailsPanel({
 						))}
 						{selectedLabelIds.map((id) => (
 							<input key={id} type="hidden" name="labelIds" value={id} />
+						))}
+						{selectedDependencyIds.map((id) => (
+							<input key={id} type="hidden" name="dependencyIds" value={id} />
 						))}
 
 						<DetailRow label="Assignees">
@@ -836,6 +884,156 @@ export function TaskDetailsPanel({
 										<span className="text-muted-foreground">No labels</span>
 									)}
 								</Button>
+							)}
+						</DetailRow>
+
+						<DetailRow label="Dependencies">
+							{editingField === "dependencies" ? (
+								<div className="space-y-2">
+									<div className="flex items-center gap-2">
+										<Badge variant="secondary" className="h-9 shrink-0 px-3">
+											<Hourglass className="size-3.5" />
+											Blocked by
+										</Badge>
+										<PopoverTrigger>
+											<Button
+												type="button"
+												variant="outline"
+												className="min-w-0 flex-1 justify-start bg-background font-normal text-muted-foreground"
+											>
+												<Search data-icon="inline-start" />
+												Find a task
+											</Button>
+											<Popover
+												placement="bottom end"
+												className="w-[min(32rem,calc(100vw-2rem))] gap-2 p-2"
+											>
+												<Input
+													aria-label="Find a task dependency"
+													placeholder="Find a task"
+													value={dependencyQuery}
+													onChange={(event) =>
+														setDependencyQuery(event.target.value)
+													}
+													autoFocus
+												/>
+												<fieldset className="max-h-72 space-y-1 overflow-y-auto">
+													<legend className="sr-only">
+														Available task dependencies
+													</legend>
+													{filteredDependencyCandidates.length > 0 ? (
+														filteredDependencyCandidates.map((candidate) => {
+															const isSelected = selectedDependencyIds.includes(
+																candidate.id,
+															);
+															return (
+																<Button
+																	key={candidate.id}
+																	type="button"
+																	aria-label={`${isSelected ? "Remove" : "Add"} ${candidate.title} ${isSelected ? "from" : "as"} a dependency`}
+																	variant="ghost"
+																	className="h-10 w-full justify-start gap-2 rounded-xl px-2 font-normal"
+																	onPress={() => toggleDependency(candidate.id)}
+																>
+																	<CheckCircle2
+																		className={cn(
+																			"size-4 shrink-0",
+																			candidate.completedAt
+																				? "text-emerald-600"
+																				: "text-muted-foreground",
+																		)}
+																	/>
+																	<span className="min-w-0 flex-1 truncate text-left">
+																		{candidate.title}
+																	</span>
+																	<span className="max-w-36 truncate text-xs text-muted-foreground">
+																		{candidate.listTitle}
+																	</span>
+																	<Check
+																		className={cn(
+																			"size-4 shrink-0",
+																			!isSelected && "invisible",
+																		)}
+																	/>
+																</Button>
+															);
+														})
+													) : (
+														<p className="px-3 py-6 text-center text-sm text-muted-foreground">
+															No matching tasks
+														</p>
+													)}
+												</fieldset>
+											</Popover>
+										</PopoverTrigger>
+									</div>
+									{selectedDependencies.length > 0 ? (
+										<div className="space-y-1.5">
+											<div className="flex flex-wrap gap-1.5">
+												{selectedDependencies.map((dependency) => (
+													<Badge key={dependency.id} variant="outline">
+														{dependency.title}
+													</Badge>
+												))}
+											</div>
+											<p
+												className={cn(
+													"text-xs",
+													isBlocked
+														? "text-amber-700 dark:text-amber-300"
+														: "text-emerald-700 dark:text-emerald-300",
+												)}
+											>
+												{isBlocked
+													? `${incompleteDependencies.length} blocking task${incompleteDependencies.length === 1 ? "" : "s"} remaining`
+													: "All dependencies completed"}
+											</p>
+										</div>
+									) : null}
+								</div>
+							) : (
+								<div className="space-y-1">
+									<Button
+										type="button"
+										variant="ghost"
+										className="h-auto min-h-8 flex-wrap justify-start gap-1.5 px-2"
+										onPress={() => setEditingField("dependencies")}
+									>
+										{selectedDependencies.length > 0 ? (
+											selectedDependencies.map((dependency) => (
+												<Badge
+													key={dependency.id}
+													variant="secondary"
+													className={cn(
+														dependency.completedAt
+															? "text-emerald-700 dark:text-emerald-300"
+															: "text-amber-700 dark:text-amber-300",
+													)}
+												>
+													{dependency.title}
+												</Badge>
+											))
+										) : (
+											<span className="text-muted-foreground">
+												Add dependencies
+											</span>
+										)}
+									</Button>
+									{selectedDependencies.length > 0 ? (
+										<p
+											className={cn(
+												"px-2 text-xs",
+												isBlocked
+													? "text-amber-700 dark:text-amber-300"
+													: "text-emerald-700 dark:text-emerald-300",
+											)}
+										>
+											{isBlocked
+												? `${incompleteDependencies.length} blocking task${incompleteDependencies.length === 1 ? "" : "s"} remaining`
+												: "All dependencies completed"}
+										</p>
+									) : null}
+								</div>
 							)}
 						</DetailRow>
 
@@ -978,7 +1176,12 @@ export function TaskDetailsPanel({
 					</div>
 
 					<SheetFooter className="mt-auto flex-row justify-between border-t bg-background px-6 py-4">
-						<Button type="button" variant="outline" onPress={handleCompletion}>
+						<Button
+							type="button"
+							variant="outline"
+							isDisabled={!task.completedAt && isBlocked}
+							onPress={handleCompletion}
+						>
 							<Check data-icon="inline-start" />
 							{task.completedAt ? "Reopen task" : "Mark complete"}
 						</Button>

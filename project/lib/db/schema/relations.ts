@@ -4,6 +4,7 @@ import {
 	comments,
 	taskActivities,
 	taskAssignees,
+	taskDependencies,
 	taskLabels,
 	tasks,
 } from "./tasks";
@@ -130,6 +131,12 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
 	}),
 	assignees: many(taskAssignees),
 	labels: many(taskLabels),
+	dependencies: many(taskDependencies, {
+		relationName: "taskDependencySource",
+	}),
+	dependents: many(taskDependencies, {
+		relationName: "taskDependencyTarget",
+	}),
 	comments: many(comments),
 	activities: many(taskActivities),
 }));
@@ -155,6 +162,26 @@ export const taskLabelsRelations = relations(taskLabels, ({ one }) => ({
 		references: [labels.id],
 	}),
 }));
+
+export const taskDependenciesRelations = relations(
+	taskDependencies,
+	({ one }) => ({
+		task: one(tasks, {
+			fields: [taskDependencies.taskId],
+			references: [tasks.id],
+			relationName: "taskDependencySource",
+		}),
+		dependsOnTask: one(tasks, {
+			fields: [taskDependencies.dependsOnTaskId],
+			references: [tasks.id],
+			relationName: "taskDependencyTarget",
+		}),
+		createdBy: one(users, {
+			fields: [taskDependencies.createdById],
+			references: [users.id],
+		}),
+	}),
+);
 
 export const commentsRelations = relations(comments, ({ one }) => ({
 	task: one(tasks, {

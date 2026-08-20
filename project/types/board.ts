@@ -27,6 +27,7 @@ export interface BoardTask {
 	completedAt: string | null;
 	assignees: BoardMemberOption[];
 	labels: BoardLabelOption[];
+	dependencyIds: string[];
 }
 
 export interface BoardList {
@@ -105,6 +106,7 @@ export type EditableTaskField =
 	| "title"
 	| "assignees"
 	| "labels"
+	| "dependencies"
 	| "column"
 	| "complexity"
 	| "description"
@@ -115,8 +117,8 @@ export type TaskFeedTab = "comments" | "activity";
 export type TaskFeedEntry =
 	| { kind: "comment"; id: string; createdAt: string; comment: BoardComment }
 	| {
-		kind: "activity";
-		id: string;
-		createdAt: string;
-		activity: BoardActivityItem;
-	};
+			kind: "activity";
+			id: string;
+			createdAt: string;
+			activity: BoardActivityItem;
+	  };

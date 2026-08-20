@@ -348,6 +348,9 @@ export const updateTaskSchema = z
 		dueDate: nullableDateSchema,
 		assigneeIds: taskFields.assigneeIds.optional(),
 		labelIds: taskFields.labelIds.optional(),
+		dependencyIds: uniqueIds(
+			"A dependency cannot be selected twice",
+		).optional(),
 	})
 	.strict()
 	.refine(
@@ -372,6 +375,9 @@ export const updateBoardTaskSchema = z
 		completed: z.union([z.boolean(), z.stringbool()]).optional(),
 		assigneeIds: taskFields.assigneeIds.optional(),
 		labelIds: taskFields.labelIds.optional(),
+		dependencyIds: uniqueIds(
+			"A dependency cannot be selected twice",
+		).optional(),
 	})
 	.strict()
 	.refine(
