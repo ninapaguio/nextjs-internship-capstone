@@ -90,7 +90,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
 			{/* Interactive Kanban board */}
 			<div className="flex-1 py-5">
-				<KanbanBoard projectId={project.id} initialData={boardData} />
+				<KanbanBoard
+					projectId={project.id}
+					currentUserId={applicationUser.id}
+					initialData={boardData}
+				/>
 			</div>
 		</section>
 	);

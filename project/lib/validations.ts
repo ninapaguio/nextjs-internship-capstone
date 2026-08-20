@@ -460,6 +460,10 @@ export const commentSchema = z
 	})
 	.strict();
 
+export const boardCommentSchema = commentSchema
+	.extend({ projectId: uuidSchema })
+	.strict();
+
 export const updateCommentSchema = z
 	.object({
 		commentId: uuidSchema,

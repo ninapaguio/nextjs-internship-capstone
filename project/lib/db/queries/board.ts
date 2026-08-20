@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
+	comments,
 	complexityOptions,
 	labels,
 	lists,
@@ -16,6 +17,7 @@ import {
 	users,
 } from "@/lib/db/schema";
 import type {
+	BoardComment,
 	BoardComplexityOption,
 	BoardLabelOption,
 	BoardMemberOption,
@@ -28,15 +30,57 @@ function toComplexityKey(key: string): BoardComplexityOption["key"] {
 	return "medium";
 }
 
+// Loads active comments and synchronized author profiles for one task on demand.
+export async function getTaskComments(
+	projectId: string,
+	taskId: string,
+): Promise<BoardComment[]> {
+	const commentRows = await db
+		.select({
+			id: comments.id,
+			body: comments.content,
+			createdAt: comments.createdAt,
+			authorId: users.id,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email,
+			imageUrl: users.imageUrl,
+		})
+		.from(comments)
+		.innerJoin(tasks, eq(comments.taskId, tasks.id))
+		.innerJoin(users, eq(comments.authorId, users.id))
+		.where(
+			and(
+				eq(comments.taskId, taskId),
+				eq(tasks.projectId, projectId),
+				isNull(comments.deletedAt),
+				isNull(tasks.deletedAt),
+				isNull(users.deletedAt),
+			),
+		)
+		.orderBy(asc(comments.createdAt));
+
+	return commentRows.map((comment) => ({
+		id: comment.id,
+		body: comment.body,
+		createdAt: comment.createdAt.toISOString(),
+		author: {
+			id: comment.authorId,
+			name: getMemberName(comment),
+			imageUrl: comment.imageUrl,
+		},
+	}));
+}
+
 // Produces a readable member name from the synchronized Clerk profile fields.
 function getMemberName(member: {
 	firstName: string | null;
 	lastName: string | null;
-	username: string;
+	email: string;
 }) {
 	return (
 		[member.firstName, member.lastName].filter(Boolean).join(" ") ||
-		member.username
+		member.email
 	);
 }
 
@@ -101,7 +145,7 @@ export async function getProjectBoardData(
 					id: users.id,
 					firstName: users.firstName,
 					lastName: users.lastName,
-					username: users.username,
+					email: users.email,
 					imageUrl: users.imageUrl,
 				})
 				.from(projectMembers)
@@ -119,7 +163,7 @@ export async function getProjectBoardData(
 				id: users.id,
 				firstName: users.firstName,
 				lastName: users.lastName,
-				username: users.username,
+				email: users.email,
 				imageUrl: users.imageUrl,
 			})
 			.from(taskAssignees)
@@ -184,7 +228,6 @@ export async function getProjectBoardData(
 		current.push(dependency.dependsOnTaskId);
 		dependencyIdsByTask.set(dependency.taskId, current);
 	}
-
 	const tasksByList = new Map<
 		string,
 		ProjectBoardData["lists"][number]["tasks"]
@@ -226,6 +269,23 @@ export async function getProjectBoardData(
 		),
 		labels: labelRows,
 	};
+}
+
+// Checks that an active task belongs to the authorized project.
+export async function isActiveTaskInProject(projectId: string, taskId: string) {
+	const [task] = await db
+		.select({ id: tasks.id })
+		.from(tasks)
+		.where(
+			and(
+				eq(tasks.id, taskId),
+				eq(tasks.projectId, projectId),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.limit(1);
+
+	return Boolean(task);
 }
 
 export type TaskDependencyValidationResult = "valid" | "invalid" | "circular";

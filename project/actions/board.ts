@@ -6,6 +6,7 @@ import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import {
 	changeBoardListLifecycle as changeBoardListLifecycleMutation,
 	deleteBoardTask as deleteBoardTaskMutation,
+	insertBoardComment,
 	insertBoardList,
 	insertBoardLabel,
 	insertBoardTask,
@@ -17,10 +18,14 @@ import {
 	canAssignUsersToProject,
 	canUseLabelsInProject,
 	hasIncompleteTaskDependencies,
+	isActiveTaskInProject,
 	validateTaskDependencies,
 } from "@/lib/db/queries/board";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
+import { getBoardMemberOptionByUserId } from "@/lib/db/queries/users";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
+	boardCommentSchema,
 	createListSchema,
 	createTaskSchema,
 	labelSchema,
@@ -31,7 +36,11 @@ import {
 	updateListSchema,
 	uuidSchema,
 } from "@/lib/validations";
-import type { BoardActionState, CreateBoardLabelActionState } from "@/types";
+import type {
+	BoardActionState,
+	CreateBoardCommentActionState,
+	CreateBoardLabelActionState,
+} from "@/types";
 
 const DEFAULT_LABEL_COLOR = "#64748B";
 
@@ -51,6 +60,81 @@ async function authorizeBoardProject(projectId: string) {
 async function revalidateBoardPages() {
 	revalidatePath("/projects");
 	revalidatePath("/projects/[slug]", "page");
+}
+
+// Validates and creates a task comment for an authorized project member.
+export async function createBoardComment(
+	_previousState: CreateBoardCommentActionState,
+	formData: FormData,
+): Promise<CreateBoardCommentActionState> {
+	const parsed = boardCommentSchema.safeParse({
+		projectId: formData.get("projectId"),
+		taskId: formData.get("taskId"),
+		content: formData.get("content"),
+	});
+	if (!parsed.success) {
+		return {
+			status: "error",
+			message: "Enter a valid comment and try again.",
+			fieldErrors: parsed.error.flatten().fieldErrors,
+		};
+	}
+
+	try {
+		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		if (!applicationUser) {
+			return { status: "error", message: "You cannot comment on this board." };
+		}
+		const rateLimit = await checkRateLimit(
+			"add-comment",
+			applicationUser.id,
+		);
+		if (!rateLimit.allowed) {
+			const retryAfterSeconds = Math.max(
+				1,
+				Math.ceil(((rateLimit.resetAt ?? Date.now()) - Date.now()) / 1_000),
+			);
+			return {
+				status: "error",
+				message: `Too many comments. Try again in ${retryAfterSeconds} seconds.`,
+			};
+		}
+		if (
+			!(await isActiveTaskInProject(
+				parsed.data.projectId,
+				parsed.data.taskId,
+			))
+		) {
+			return { status: "error", message: "This task is not available." };
+		}
+
+		const author = await getBoardMemberOptionByUserId(applicationUser.id);
+		if (!author) {
+			return { status: "error", message: "Your profile is not available." };
+		}
+		const comment = await insertBoardComment(
+			parsed.data.taskId,
+			applicationUser.id,
+			parsed.data.content,
+		);
+		if (!comment) {
+			return { status: "error", message: "The comment was not created." };
+		}
+
+		await revalidateBoardPages();
+		return {
+			status: "success",
+			message: "Comment posted.",
+			data: {
+				id: comment.id,
+				body: comment.body,
+				createdAt: comment.createdAt.toISOString(),
+				author,
+			},
+		};
+	} catch {
+		return { status: "error", message: "We could not post the comment." };
+	}
 }
 
 // Validates and creates a reusable label for an authorized project board.

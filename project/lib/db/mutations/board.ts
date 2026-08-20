@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+	comments,
 	labels,
 	lists,
 	taskAssignees,
@@ -15,6 +16,24 @@ interface InsertBoardLabelInput {
 	projectId: string;
 	name: string;
 	color: string;
+}
+
+// Inserts a comment written by an authorized project member.
+export async function insertBoardComment(
+	taskId: string,
+	authorId: string,
+	content: string,
+) {
+	const [comment] = await db
+		.insert(comments)
+		.values({ taskId, authorId, content })
+		.returning({
+			id: comments.id,
+			body: comments.content,
+			createdAt: comments.createdAt,
+		});
+
+	return comment ?? null;
 }
 
 interface InsertBoardListInput {
