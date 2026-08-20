@@ -848,7 +848,9 @@ export function TaskDetailsPanel({
 		setSelectedListId(task?.listId ?? "");
 		setSelectedComplexityId(task?.complexity.id ?? "");
 		setSelectedAssigneeIds(task?.assignees.map((member) => member.id) ?? []);
-		setSelectedLabelIds(task?.labels[0] ? [task.labels[0].id] : []);
+		setSelectedLabelIds(
+			task?.labels.slice(0, 3).map((label) => label.id) ?? [],
+		);
 		setSelectedDependencyIds(task?.dependencyIds ?? []);
 		setSelectedBlockingTaskIds(
 			task
@@ -1216,10 +1218,8 @@ export function TaskDetailsPanel({
 							{editingField === "labels" ? (
 								<TaskLabelSelect
 									labels={localLabels}
-									value={selectedLabelIds[0] ?? null}
-									onChange={(value) =>
-										setSelectedLabelIds(value ? [value] : [])
-									}
+									value={selectedLabelIds}
+									onChange={setSelectedLabelIds}
 									onCreateLabel={createPanelLabel}
 								/>
 							) : (

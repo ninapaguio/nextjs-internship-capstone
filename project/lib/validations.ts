@@ -339,8 +339,8 @@ const taskFields = {
 	assigneeIds: uniqueIds("An assignee cannot be selected twice"),
 	labelIds: uniqueIds(
 		"A label cannot be selected twice",
-		1,
-		"A task can have only one label",
+		3,
+		"A task can have at most three labels",
 	),
 };
 

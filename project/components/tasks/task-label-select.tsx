@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -14,12 +15,14 @@ import type { BoardLabelOption } from "@/types";
 
 interface TaskLabelSelectProps {
 	labels: BoardLabelOption[];
-	value: string | null;
-	onChange: (labelId: string | null) => void;
+	value: string[];
+	onChange: (labelIds: string[]) => void;
 	onCreateLabel: (name: string) => Promise<BoardLabelOption>;
 }
 
-// Provides one consistent selector for choosing, clearing, or creating a task label.
+const maximumTaskLabels = 3;
+
+// Provides one selector for choosing up to three labels or creating a reusable label.
 export function TaskLabelSelect({
 	labels,
 	value,
@@ -39,7 +42,7 @@ export function TaskLabelSelect({
 		setError(null);
 		try {
 			const label = await onCreateLabel(name);
-			onChange(label.id);
+			onChange([...value, label.id].slice(0, maximumTaskLabels));
 			setNewLabelName("");
 			setIsCreatorOpen(false);
 		} catch (createError) {
@@ -63,54 +66,85 @@ export function TaskLabelSelect({
 	return (
 		<div className="grid gap-2">
 			{isCreatorOpen ? (
-				<Input
-					aria-label="New label name"
-					placeholder={
-						isCreating ? "Creating label…" : "Type a label and press Enter"
-					}
-					value={newLabelName}
-					onChange={(event) => setNewLabelName(event.target.value)}
-					maxLength={40}
-					disabled={isCreating}
-					autoFocus
-					onKeyDown={(event) => {
-						if (event.key === "Enter") {
-							event.preventDefault();
-							handleCreateLabel();
+				<div className="flex min-w-0 gap-2">
+					<Input
+						aria-label="New label name"
+						placeholder={
+							isCreating ? "Creating label…" : "Type a label and press Enter"
 						}
-						if (event.key === "Escape") {
-							event.preventDefault();
-							event.stopPropagation();
-							cancelCreateLabel();
-						}
-					}}
-				/>
+						value={newLabelName}
+						onChange={(event) => setNewLabelName(event.target.value)}
+						maxLength={40}
+						disabled={isCreating}
+						autoFocus
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								handleCreateLabel();
+							}
+							if (event.key === "Escape") {
+								event.preventDefault();
+								event.stopPropagation();
+								cancelCreateLabel();
+							}
+						}}
+					/>
+					<Button
+						type="button"
+						variant="outline"
+						isDisabled={isCreating}
+						onPress={cancelCreateLabel}
+					>
+						Cancel
+					</Button>
+				</div>
 			) : (
 				<Select
 					className="w-full"
 					aria-label="Label"
-					value={value ?? "no-label"}
-					onChange={(selectedValue) => {
-						if (selectedValue === "create-label") {
+					selectionMode="multiple"
+					value={value}
+					onChange={(selectedValues) => {
+						const nextValues = Array.from(selectedValues, String);
+						if (nextValues.includes("create-label")) {
 							setIsCreatorOpen(true);
 							return;
 						}
-						onChange(
-							selectedValue === "no-label" ? null : String(selectedValue),
-						);
+						if (nextValues.includes("no-label")) {
+							onChange([]);
+							return;
+						}
+						if (nextValues.length > maximumTaskLabels) {
+							setError("A task can have at most three labels.");
+							return;
+						}
+						setError(null);
+						onChange(nextValues);
 					}}
 				>
 					<SelectTrigger className="w-full">
-						<SelectValue />
+						<SelectValue>
+							{({ selectedText }) => selectedText || "No labels"}
+						</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem id="create-label" textValue="Create tag">
+						<SelectItem
+							id="create-label"
+							textValue="Create tag"
+							isDisabled={value.length >= maximumTaskLabels}
+						>
 							Create tag
 						</SelectItem>
 						<SelectSeparator />
 						<SelectItem id="no-label">No label</SelectItem>
 						{labels.map((label) => (
-							<SelectItem key={label.id} id={label.id}>
+							<SelectItem
+								key={label.id}
+								id={label.id}
+								isDisabled={
+									value.length >= maximumTaskLabels && !value.includes(label.id)
+								}
+							>
 								{label.name}
 							</SelectItem>
 						))}
