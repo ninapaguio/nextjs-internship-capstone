@@ -21,6 +21,7 @@ interface KanbanColumnProps {
 	onArchive: (listId: string) => void;
 	onDelete: (listId: string) => void;
 	onOpenTask: (taskId: string) => void;
+	openingTaskId?: string | null;
 }
 
 // Renders one board list as a droppable column in the Kanban interface.
@@ -32,6 +33,7 @@ export function KanbanColumn({
 	onArchive,
 	onDelete,
 	onOpenTask,
+	openingTaskId = null,
 }: KanbanColumnProps) {
 	const { ref, isDropTarget } = useDroppable({
 		id: `column:${list.id}`,
@@ -119,6 +121,7 @@ export function KanbanColumn({
 						key={task.id}
 						task={task}
 						listId={list.id}
+						isOpening={openingTaskId === task.id}
 						onOpen={onOpenTask}
 					/>
 				))}

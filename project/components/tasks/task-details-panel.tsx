@@ -70,6 +70,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTaskActivity } from "@/hooks/use-task-activity";
@@ -719,9 +720,21 @@ function TaskActivitySection({
 				)}
 			>
 				{tab === "comments" && isCommentsLoading ? (
-					<p className="py-6 text-center text-sm text-muted-foreground">
-						Loading comments…
-					</p>
+					<div
+						className="space-y-4 py-1"
+						role="status"
+						aria-label="Loading comments"
+					>
+						{["first", "second", "third"].map((row) => (
+							<div key={row} className="flex items-start gap-3">
+								<Skeleton className="size-8 shrink-0 rounded-full" />
+								<div className="flex-1 space-y-2">
+									<Skeleton className="h-3 w-28 rounded-md" />
+									<Skeleton className="h-4 w-full rounded-md" />
+								</div>
+							</div>
+						))}
+					</div>
 				) : tab === "comments" && commentsError ? (
 					<div className="py-6 text-center">
 						<p className="text-sm text-destructive">{commentsError}</p>

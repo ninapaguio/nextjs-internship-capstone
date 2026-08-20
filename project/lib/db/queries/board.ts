@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
@@ -215,6 +215,11 @@ export async function getProjectBoardData(
 					complexityId: complexityOptions.id,
 					complexityKey: complexityOptions.key,
 					complexityLabel: complexityOptions.label,
+					commentsCount: sql<number>`(
+						select count(*)::int from ${comments}
+						where ${comments.taskId} = ${tasks.id}
+						and ${comments.deletedAt} is null
+					)`,
 				})
 				.from(tasks)
 				.innerJoin(
@@ -353,6 +358,7 @@ export async function getProjectBoardData(
 			assignees: assigneesByTask.get(task.id) ?? [],
 			labels: labelsByTask.get(task.id) ?? [],
 			dependencyIds: dependencyIdsByTask.get(task.id) ?? [],
+			commentsCount: task.commentsCount,
 		});
 		tasksByList.set(task.listId, current);
 	}
