@@ -46,6 +46,7 @@ export const tasks = pgTable(
 			.defaultNow()
 			.notNull(),
 		completedAt: timestamp("completed_at", { withTimezone: true }),
+		archivedAt: timestamp("archived_at", { withTimezone: true }),
 		deletedAt: timestamp("deleted_at", { withTimezone: true }),
 	},
 	(table) => [
@@ -56,7 +57,7 @@ export const tasks = pgTable(
 		index("tasks_due_date_idx").on(table.dueDate),
 		index("tasks_active_idx")
 			.on(table.projectId)
-			.where(sql`${table.deletedAt} is null`),
+			.where(sql`${table.archivedAt} is null and ${table.deletedAt} is null`),
 		unique("tasks_project_id_id_unique").on(table.projectId, table.id),
 		check("tasks_position_nonnegative", sql`${table.position} >= 0`),
 		foreignKey({
