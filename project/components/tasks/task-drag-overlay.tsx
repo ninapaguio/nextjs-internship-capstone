@@ -11,9 +11,9 @@ interface TaskDragOverlayProps {
 }
 
 const priorityStyles: Record<BoardTask["priority"]["key"], string> = {
-	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-	medium: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-	high: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+	low: "bg-brand_mint-50 text-brand_mint-800 border border-brand_mint-200 dark:bg-brand_mint-950/40 dark:text-brand_mint-300",
+	medium: "bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300",
+	high: "bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300",
 };
 
 // Formats the due date shown in the visual drag preview.
@@ -37,8 +37,8 @@ function getMemberInitials(name: string) {
 
 // Selects the same compact status marker used by regular task cards.
 function TaskStatusMarker({ task }: { task: BoardTask }) {
-	if (task.completedAt) return <CheckCircle2 className="size-4" />;
-	if (task.assignees.length > 0) return <Clock3 className="size-4" />;
+	if (task.completedAt) return <CheckCircle2 className="size-4 text-brand_mint-600 dark:text-brand_mint-400" />;
+	if (task.assignees.length > 0) return <Clock3 className="size-4 text-brand_teal-600 dark:text-brand_teal-400" />;
 	return <Circle className="size-4" />;
 }
 

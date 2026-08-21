@@ -58,7 +58,7 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 					<Link
 						href="/dashboard"
 						aria-label="Back to dashboard"
-						className="inline-flex items-center gap-1.5 text-sm font-semibold hover:text-muted-foreground"
+						className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
 					>
 						<ArrowLeft className="size-3.5" aria-hidden="true" />
 						<span>Teams</span>
@@ -66,14 +66,14 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 					<Tooltip placement="bottom start">Back to dashboard</Tooltip>
 				</TooltipTrigger>
 
-				<InputGroup className="h-8 w-48 bg-muted/70 sm:w-56">
+				<InputGroup className="h-8.5 w-48 bg-card border-border shadow-2xs sm:w-56">
 					<InputGroupAddon>
-						<Search aria-hidden="true" />
+						<Search aria-hidden="true" className="text-muted-foreground" />
 					</InputGroupAddon>
 					<InputGroupInput
 						value={search}
 						onChange={(event) => setSearch(event.target.value)}
-						placeholder="Search teams"
+						placeholder="Search teams…"
 						aria-label="Search teams"
 					/>
 				</InputGroup>
@@ -85,7 +85,7 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 						{visibleTeams.map((team) => (
 							<div
 								key={team.id}
-								className="group relative rounded-2xl outline-none focus-within:ring-3 focus-within:ring-ring/30"
+								className="group relative rounded-2xl outline-none focus-within:ring-3 focus-within:ring-ring/40"
 							>
 								<Link
 									href={`/team/${team.id}`}
@@ -95,23 +95,23 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 								</Link>
 								<Card
 									size="sm"
-									className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-muted/55 py-0 shadow-none ring-1 ring-border transition duration-200 group-hover:-translate-y-0.5 group-hover:bg-muted/75 group-hover:shadow-md"
+									className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-card py-0 shadow-2xs ring-1 ring-border transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand_teal-500/40 group-hover:shadow-md dark:group-hover:ring-brand_teal-500/30"
 								>
 									<CardHeader className="gap-3 px-4 pt-4 pb-3">
 										<div className="flex items-center justify-between gap-3">
 											<div className="flex min-w-0 items-center gap-2.5">
 												<Avatar size="sm">
-													<AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+													<AvatarFallback className="bg-brand_navy-500/10 text-brand_navy-700 dark:bg-brand_mint-500/15 dark:text-brand_mint-300 text-[10px] font-semibold">
 														{teamInitials(team.name)}
 													</AvatarFallback>
 												</Avatar>
-												<CardTitle className="line-clamp-1 text-sm font-semibold transition-colors group-hover:text-primary">
+												<CardTitle className="line-clamp-1 text-sm font-semibold tracking-tight transition-colors group-hover:text-brand_teal-600 dark:group-hover:text-brand_mint-400">
 													{team.name}
 												</CardTitle>
 											</div>
 											<Badge
 												variant="secondary"
-												className="h-5 px-2 text-[10px]"
+												className="h-5 px-2 text-[10px] font-medium border-border/50"
 											>
 												{team.isOwner ? "Owner" : "Member"}
 											</Badge>
@@ -119,12 +119,12 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 									</CardHeader>
 									<CardContent className="px-4 pb-4">
 										<div className="flex items-center justify-between text-xs text-muted-foreground">
-											<span className="inline-flex items-center gap-1.5">
-												<UsersRound className="size-3.5" aria-hidden="true" />
+											<span className="inline-flex items-center gap-1.5 font-medium">
+												<UsersRound className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400" aria-hidden="true" />
 												{team.memberCount}{" "}
 												{team.memberCount === 1 ? "member" : "members"}
 											</span>
-											<span>Active team</span>
+											<span className="text-[11px]">Active team</span>
 										</div>
 									</CardContent>
 								</Card>

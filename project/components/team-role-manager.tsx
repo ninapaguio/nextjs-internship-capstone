@@ -209,7 +209,7 @@ function MemberRoleAssignment({
 	return (
 		<form
 			action={formAction}
-			className="grid gap-3 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-center"
+			className="grid gap-3 rounded-2xl border border-border bg-card p-3 shadow-2xs sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-center"
 		>
 			<input type="hidden" name="teamId" value={teamId} />
 			<input type="hidden" name="projectId" value={projectId} />
@@ -224,7 +224,7 @@ function MemberRoleAssignment({
 					{member.imageUrl ? (
 						<AvatarImage src={member.imageUrl} alt={member.name} />
 					) : null}
-					<AvatarFallback>{memberInitials(member.name)}</AvatarFallback>
+					<AvatarFallback className="bg-brand_navy-500/10 text-brand_navy-700 dark:bg-brand_mint-500/15 dark:text-brand_mint-300 font-semibold text-xs">{memberInitials(member.name)}</AvatarFallback>
 				</Avatar>
 				<div className="min-w-0">
 					<p className="truncate font-medium">{member.name}</p>
@@ -266,7 +266,7 @@ export function TeamRoleManager({
 }: TeamRoleManagerProps) {
 	return (
 		<DialogTrigger>
-			<Button size="sm" variant="outline">
+			<Button size="sm">
 				<ShieldCheck data-icon="inline-start" /> Roles & permissions
 			</Button>
 			<Dialog className="max-h-[90dvh] overflow-hidden sm:max-w-3xl">

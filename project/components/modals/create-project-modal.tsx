@@ -6,6 +6,7 @@ import {
 	today,
 } from "@internationalized/date";
 import { useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import type { RangeValue } from "react-aria-components";
 import { useFormStatus } from "react-dom";
@@ -84,8 +85,8 @@ export function CreateProjectModal() {
 
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-			<Button size="sm" className="h-8 rounded-full px-3 text-xs shadow-sm">
-			New project
+			<Button size="sm">
+				<Plus data-icon="inline-start" /> New project
 			</Button>
 			<Dialog className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
 				<DialogHeader className="pr-10">

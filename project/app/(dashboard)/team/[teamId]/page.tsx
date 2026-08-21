@@ -49,7 +49,7 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
 						<Link
 							href="/team"
 							aria-label="Back to teams"
-							className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold hover:text-muted-foreground"
+							className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
 						>
 							<ArrowLeft className="size-3.5 shrink-0" aria-hidden="true" />
 							<h1 className="truncate text-sm font-semibold">{team.name}</h1>
@@ -58,7 +58,7 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
 					</TooltipTrigger>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<LinkButton href="/projects" size="sm" variant="outline">
+					<LinkButton href="/projects" size="sm">
 						<FolderKanban data-icon="inline-start" /> Projects
 					</LinkButton>
 					{team.isOwner ? (

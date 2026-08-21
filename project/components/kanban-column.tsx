@@ -54,8 +54,8 @@ export function KanbanColumn({
 			ref={ref}
 			aria-labelledby={`column-${list.id}`}
 			className={cn(
-				"group/column flex h-[clamp(28rem,calc(100dvh-17rem),46rem)] min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-100/80 p-2.5 transition-colors dark:border-zinc-800 dark:bg-zinc-900/60",
-				isDropTarget && "bg-sky-50 ring-2 ring-sky-500/50 dark:bg-sky-950/30",
+				"group/column flex h-[clamp(28rem,calc(100dvh-17rem),46rem)] min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/70 p-2.5 transition-colors dark:border-border dark:bg-muted/60",
+				isDropTarget && "bg-brand_teal-50/30 ring-2 ring-brand_teal-500/60 dark:bg-brand_teal-950/30",
 			)}
 		>
 			<header className="px-1.5 pt-1.5 pb-3">
@@ -63,11 +63,11 @@ export function KanbanColumn({
 					<div className="flex items-center gap-2">
 						<h2
 							id={`column-${list.id}`}
-							className="text-sm font-semibold text-zinc-950 dark:text-zinc-50"
+							className="text-sm font-semibold text-foreground tracking-tight"
 						>
 							{list.title}
 						</h2>
-						<span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-500 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+						<span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold text-muted-foreground shadow-2xs border border-border">
 							{list.tasks.length}
 						</span>
 					</div>
@@ -78,7 +78,7 @@ export function KanbanColumn({
 									size="icon-sm"
 									variant="ghost"
 									aria-label={`Options for ${list.title}`}
-									className="rounded-xl text-zinc-500 hover:bg-white hover:text-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-white"
+									className="rounded-xl text-muted-foreground hover:bg-card hover:text-foreground"
 								>
 									<Ellipsis className="size-4" />
 								</Button>
@@ -108,7 +108,7 @@ export function KanbanColumn({
 								variant="ghost"
 								onPress={() => onAddTask(list.id)}
 								aria-label={`Add task to ${list.title}`}
-								className="rounded-xl text-zinc-500 hover:bg-white hover:text-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-white"
+								className="rounded-xl text-muted-foreground hover:bg-card hover:text-foreground"
 							>
 								<Plus className="size-4" />
 							</Button>
@@ -117,7 +117,7 @@ export function KanbanColumn({
 					</div>
 				</div>
 				{list.description ? (
-					<p className="mt-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+					<p className="mt-1.5 text-xs leading-5 text-muted-foreground">
 						{list.description}
 					</p>
 				) : null}
@@ -141,7 +141,7 @@ export function KanbanColumn({
 					/>
 				))}
 				{list.tasks.length === 0 ? (
-					<div className="flex min-h-28 items-center justify-center rounded-2xl border border-dashed border-zinc-300 px-4 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+					<div className="flex min-h-28 items-center justify-center rounded-2xl border border-dashed border-border px-4 text-center text-xs text-muted-foreground">
 						Drop a task here or add a new one.
 					</div>
 				) : null}
@@ -149,10 +149,10 @@ export function KanbanColumn({
 
 			<Button
 				type="button"
-				variant="outline"
-				size="lg"
+				variant="default"
+				size="sm"
 				onPress={() => onAddTask(list.id)}
-				className="pointer-events-none mt-3 w-full translate-y-1 rounded-2xl text-xs text-zinc-600 opacity-0 shadow-sm transition-[opacity,transform] focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100 group-focus-within/column:pointer-events-auto group-focus-within/column:translate-y-0 group-focus-within/column:opacity-100 group-hover/column:pointer-events-auto group-hover/column:translate-y-0 group-hover/column:opacity-100 dark:text-zinc-300"
+				className="pointer-events-none mt-3 w-full translate-y-1 rounded-xl text-xs opacity-0 shadow-xs transition-[opacity,transform] focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100 group-focus-within/column:pointer-events-auto group-focus-within/column:translate-y-0 group-focus-within/column:opacity-100 group-hover/column:pointer-events-auto group-hover/column:translate-y-0 group-hover/column:opacity-100"
 			>
 				<Plus data-icon="inline-start" /> Add task
 			</Button>

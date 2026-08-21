@@ -5,16 +5,24 @@ import {
 	getLocalTimeZone,
 	parseDate,
 } from "@internationalized/date";
+import { Archive, Ellipsis, FolderKanban, Pencil, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RangeValue } from "react-aria-components";
 import { changeProjectLifecycle, updateProject } from "@/actions/projects";
 import { ConfirmLifecycleDialog } from "@/components/modals/confirm-lifecycle-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RangeCalendar } from "@/components/ui/calendar";
+import {
+	DropdownMenu,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import {
+	SheetClose,
 	SheetContent,
 	SheetDescription,
 	SheetFooter,
@@ -22,6 +30,7 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ProjectCardData, ProjectMutationResult } from "@/types";
 
 interface ProjectDetailsPanelProps {
@@ -74,9 +83,13 @@ export function ProjectDetailsPanel({
 	const [dateRange, setDateRange] = useState<RangeValue<CalendarDate> | null>(
 		() => createSavedDateRange(project),
 	);
+	const [editingTitle, setEditingTitle] = useState(false);
+	const [name, setName] = useState(project?.name ?? "");
 
 	useEffect(() => {
 		setDateRange(createSavedDateRange(project));
+		setName(project?.name ?? "");
+		setEditingTitle(false);
 		setError(null);
 		setLifecycleAction(null);
 	}, [project]);
@@ -87,7 +100,7 @@ export function ProjectDetailsPanel({
 	// Submits edited fields through the project Server Action and optimistic cache.
 	function handleUpdate(formData: FormData) {
 		setError(null);
-		const name = String(formData.get("name") ?? "");
+		const updatedName = String(formData.get("name") ?? "");
 		const description = String(formData.get("description") ?? "") || null;
 		const startDate = dateRange?.start.toString() ?? null;
 		const endDate = dateRange?.end.toString() ?? null;
@@ -95,7 +108,7 @@ export function ProjectDetailsPanel({
 		onUpdate(
 			activeProject.id,
 			{
-				name,
+				name: updatedName,
 				description,
 				startDate,
 				endDate,
@@ -130,28 +143,99 @@ export function ProjectDetailsPanel({
 			isOpen={isOpen}
 			onOpenChange={onOpenChange}
 			side="right"
-			className="w-full sm:max-w-md"
+			showCloseButton={false}
+			className="data-[side=right]:w-full! sm:data-[side=right]:w-[65vw]! sm:max-w-2xl! lg:max-w-3xl!"
 		>
-			<SheetHeader className="pr-14">
-				<SheetTitle className="text-xl">Project details</SheetTitle>
-				<SheetDescription>
+			<SheetHeader className="border-b pb-4">
+				<div className="flex items-center justify-between gap-3">
+					<div className="flex items-center gap-2">
+						<Badge variant="secondary" className="gap-1 px-2.5 py-1 text-xs capitalize">
+							<FolderKanban className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400" />
+							{project.status}
+						</Badge>
+					</div>
+
+					<div className="flex items-center gap-1">
+						<DropdownMenuTrigger>
+							<TooltipTrigger delay={400}>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									aria-label="Project options"
+								>
+									<Ellipsis />
+								</Button>
+								<Tooltip placement="bottom">Project options</Tooltip>
+							</TooltipTrigger>
+							<DropdownMenu placement="bottom end">
+								<DropdownMenuItem onAction={() => setLifecycleAction("archive")}>
+									<Archive /> Archive project
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="text-destructive"
+									onAction={() => setLifecycleAction("delete")}
+								>
+									<Trash2 /> Delete project
+								</DropdownMenuItem>
+							</DropdownMenu>
+						</DropdownMenuTrigger>
+
+						<TooltipTrigger delay={400}>
+							<SheetClose
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label="Close panel"
+							>
+								<X />
+							</SheetClose>
+							<Tooltip placement="bottom end">Close panel</Tooltip>
+						</TooltipTrigger>
+					</div>
+				</div>
+
+				<div className="mt-3 flex min-w-0 items-start gap-3">
+					<SheetTitle className="sr-only">Project details</SheetTitle>
+					<div className="min-w-0 flex-1">
+						{editingTitle ? (
+							<Input
+								aria-label="Project name"
+								value={name}
+								onChange={(event) => setName(event.target.value)}
+								maxLength={160}
+								autoFocus
+								className="h-10 w-full text-lg font-semibold"
+							/>
+						) : (
+							<div className="max-w-full whitespace-normal py-1 text-left text-xl font-bold tracking-tight text-foreground wrap-anywhere">
+								<span>{name}</span>{" "}
+								<TooltipTrigger delay={400}>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-xs"
+										className="inline-flex align-text-bottom"
+										aria-label="Edit project name"
+										onPress={() => setEditingTitle(true)}
+									>
+										<Pencil />
+									</Button>
+									<Tooltip placement="bottom start">Edit project title</Tooltip>
+								</TooltipTrigger>
+							</div>
+						)}
+					</div>
+				</div>
+				<SheetDescription className="text-xs text-muted-foreground">
 					Edit project information or manage its lifecycle.
 				</SheetDescription>
 			</SheetHeader>
-
-			<div className="min-h-0 flex-1 overflow-y-auto">
-				<form action={handleUpdate} className="flex flex-col gap-5 px-6 py-6">
+			<form action={handleUpdate} className="flex flex-1 flex-col min-h-0">
+				<div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 space-y-6">
 					<input type="hidden" name="projectId" value={project.id} />
-					<Field>
-						<FieldLabel htmlFor="edit-project-name">Project title</FieldLabel>
-						<Input
-							id="edit-project-name"
-							name="name"
-							defaultValue={project.name}
-							required
-							maxLength={160}
-						/>
-					</Field>
+					<input type="hidden" name="name" value={name} />
+
 					<Field>
 						<FieldLabel htmlFor="edit-project-description">
 							Description
@@ -160,10 +244,12 @@ export function ProjectDetailsPanel({
 							id="edit-project-description"
 							name="description"
 							defaultValue={project.description ?? ""}
+							placeholder="What is this project trying to achieve?"
 							maxLength={5000}
 							className="min-h-28"
 						/>
 					</Field>
+
 					<Field>
 						<FieldLabel>Project timeline</FieldLabel>
 						<input
@@ -179,11 +265,11 @@ export function ProjectDetailsPanel({
 						<PopoverTrigger>
 							<Button
 								variant="outline"
-								className="h-9 w-full justify-start rounded-md font-normal"
+								className="h-9 w-full justify-start rounded-xl font-normal shadow-2xs"
 							>
 								{formatDateRange(dateRange)}
 							</Button>
-							<Popover className="w-auto p-0">
+							<Popover className="w-auto p-0 shadow-md">
 								<RangeCalendar
 									aria-label="Project timeline"
 									value={dateRange}
@@ -193,45 +279,21 @@ export function ProjectDetailsPanel({
 							</Popover>
 						</PopoverTrigger>
 					</Field>
+
 					{error && (
-						<p className="text-sm text-destructive" role="alert">
+						<p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive" role="alert">
 							{error}
 						</p>
 					)}
-					<SheetFooter className="border-t-0 px-0 pt-4 pb-0">
-						<Button type="submit">Save changes</Button>
-					</SheetFooter>
-				</form>
+				</div>
 
-				<section
-					className="space-y-3 border-t p-6 pt-5"
-					aria-labelledby="danger-zone-title"
-				>
-					<h3 id="danger-zone-title" className="font-semibold text-destructive">
-						Danger zone
-					</h3>
-					<div className="flex gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							onPress={() => setLifecycleAction("archive")}
-						>
-							Archive
-						</Button>
-						<Button
-							type="button"
-							variant="destructive"
-							onPress={() => setLifecycleAction("delete")}
-						>
-							Delete
-						</Button>
-					</div>
-					<p className="text-xs text-muted-foreground">
-						Archive hides the project and allows future restoration. <br />
-						Delete performs a recoverable soft deletion.
-					</p>
-				</section>
-			</div>
+				<SheetFooter className="border-t bg-card p-4 sm:justify-end">
+					<Button type="submit" size="default">
+						Save changes
+					</Button>
+				</SheetFooter>
+			</form>
+
 			{lifecycleAction && (
 				<ConfirmLifecycleDialog
 					action={lifecycleAction}

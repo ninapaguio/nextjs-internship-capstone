@@ -59,7 +59,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 					<TooltipTrigger delay={400}>
 						<Link
 							href="/projects"
-							className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold hover:text-muted-foreground"
+							className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
 							aria-label="Back to projects"
 						>
 							<ArrowLeft className="size-3.5 shrink-0" aria-hidden="true" />
@@ -79,7 +79,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 					{project.teamId ? (
 						<LinkButton
 							href={`/team/${project.teamId}`}
-							variant="outline"
 							size="sm"
 						>
 							<Users data-icon="inline-start" />

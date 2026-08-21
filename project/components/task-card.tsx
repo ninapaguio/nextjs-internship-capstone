@@ -79,15 +79,15 @@ Features to implement:
 */
 
 const priorityStyles: Record<BoardTask["priority"]["key"], string> = {
-	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-	medium: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
-	high: "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
+	low: "bg-brand_mint-50 text-brand_mint-800 border border-brand_mint-200/80 dark:bg-brand_mint-950/40 dark:text-brand_mint-300 dark:border-brand_mint-800/50",
+	medium: "bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
+	high: "bg-rose-50 text-rose-800 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50",
 };
 
 // Returns the status icon used in the leading task marker.
 function TaskStatusIcon({ task }: Pick<TaskCardProps, "task">) {
-	if (task.completedAt) return <CheckCircle2 className="size-4" />;
-	if (task.assignees.length > 0) return <Clock3 className="size-4" />;
+	if (task.completedAt) return <CheckCircle2 className="size-4 text-brand_mint-600 dark:text-brand_mint-400" />;
+	if (task.assignees.length > 0) return <Clock3 className="size-4 text-brand_teal-600 dark:text-brand_teal-400" />;
 	return <Circle className="size-4" />;
 }
 
@@ -158,13 +158,13 @@ function TaskCardComponent({
 			ref={setCardRef}
 			aria-busy={isOpening}
 			className={cn(
-				"relative isolate flex w-full flex-col overflow-hidden rounded-2xl border border-black/5 bg-white p-3.5 text-left shadow-sm transition-[box-shadow,opacity,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/8 dark:bg-zinc-900",
+				"relative isolate flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-3.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand_teal-500/50 hover:shadow-md",
 				overdue &&
 					"border-rose-300 bg-rose-50/60 shadow-rose-100 dark:border-rose-900 dark:bg-rose-950/20 dark:shadow-none",
 				isGroupDragging && "scale-[0.98] opacity-35 shadow-none",
 				isDragSource && "opacity-25",
-				isDropTarget && "ring-2 ring-sky-500/60 ring-offset-2",
-				isSelected && "ring-2 ring-primary ring-inset",
+				isDropTarget && "ring-2 ring-brand_teal-500/60 ring-offset-2",
+				isSelected && "ring-2 ring-brand_navy-500 dark:ring-brand_mint-500 ring-inset",
 			)}
 		>
 			<Button
@@ -180,20 +180,20 @@ function TaskCardComponent({
 			</Button>
 
 			<div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 pr-7">
-				<div className="flex min-w-0 items-center gap-2 text-zinc-500">
+				<div className="flex min-w-0 items-center gap-2 text-muted-foreground">
 					{onToggleSelection ? (
 						<Button
 							type="button"
 							variant="ghost"
 							size="icon-xs"
-							className="pointer-events-auto -ml-1 rounded-md"
+							className="pointer-events-auto -ml-1 rounded-md text-muted-foreground hover:text-foreground"
 							aria-label={
 								isSelected ? `Deselect ${task.title}` : `Select ${task.title}`
 							}
 							aria-pressed={isSelected}
 							onPress={() => onToggleSelection(task.id)}
 						>
-							{isSelected ? <SquareCheckBig /> : <Square />}
+							{isSelected ? <SquareCheckBig className="text-brand_navy-500 dark:text-brand_mint-400" /> : <Square />}
 						</Button>
 					) : null}
 					<span aria-hidden="true">
@@ -201,7 +201,7 @@ function TaskCardComponent({
 					</span>
 					<span
 						className={cn(
-							"truncate text-[11px] text-zinc-600 dark:text-zinc-300",
+							"truncate text-[11px] font-medium text-muted-foreground",
 							overdue && "font-semibold text-rose-700 dark:text-rose-300",
 						)}
 					>
@@ -230,7 +230,7 @@ function TaskCardComponent({
 								type="button"
 								variant="ghost"
 								size="icon-xs"
-								className="pointer-events-auto relative z-20 rounded-lg"
+								className="pointer-events-auto relative z-20 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
 								aria-label={`Actions for ${task.title}`}
 							>
 								<MoreHorizontal />
@@ -258,7 +258,7 @@ function TaskCardComponent({
 							type="button"
 							variant="ghost"
 							size="icon-xs"
-							className="cursor-grab rounded-lg text-muted-foreground active:cursor-grabbing"
+							className="cursor-grab rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
 							aria-label={
 								isSelected && selectedDragCount > 1
 									? `Drag ${selectedDragCount} selected tasks`
@@ -278,11 +278,11 @@ function TaskCardComponent({
 
 			<div className="pointer-events-none relative z-10 mt-3 flex flex-col pr-5">
 				{task.archivedAt ? (
-					<Badge variant="outline" className="mb-2 w-fit">
+					<Badge variant="outline" className="mb-2 w-fit text-[10px]">
 						Archived
 					</Badge>
 				) : null}
-				<h3 className="w-full text-left text-sm font-semibold leading-5 text-zinc-950 wrap-anywhere dark:text-zinc-50">
+				<h3 className="w-full text-left text-sm font-semibold leading-5 text-foreground tracking-tight wrap-anywhere">
 					{task.title}
 				</h3>
 				{task.description ? (
@@ -293,7 +293,7 @@ function TaskCardComponent({
 				{task.labels.length > 0 ? (
 					<div className="mt-3 flex flex-wrap gap-1">
 						{task.labels.slice(0, 3).map((label) => (
-							<Badge key={label.id} variant="secondary" className="max-w-full">
+							<Badge key={label.id} variant="secondary" className="max-w-full text-[10px] border-border/50">
 								<span className="truncate">{label.name}</span>
 							</Badge>
 						))}
@@ -304,14 +304,14 @@ function TaskCardComponent({
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span
 							className={cn(
-								"rounded-full px-2 py-1 text-[10px] font-semibold tracking-wide",
+								"rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide",
 								priorityStyles[task.priority.key],
 							)}
 						>
 							{task.priority.label}
 						</span>
 						{task.commentsCount > 0 ? (
-							<span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+							<span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
 								<MessageSquare className="size-3.5" aria-hidden="true" />
 								{task.commentsCount}
 							</span>
@@ -325,7 +325,7 @@ function TaskCardComponent({
 										type="button"
 										variant="ghost"
 										size="icon-xs"
-										className="rounded-full p-0 ring-2 ring-background"
+										className="rounded-full p-0 ring-2 ring-card"
 										aria-label={`Assigned to ${member.name}`}
 										onPress={() => onOpen(task.id)}
 									>
@@ -333,7 +333,7 @@ function TaskCardComponent({
 											{member.imageUrl ? (
 												<AvatarImage src={member.imageUrl} alt={member.name} />
 											) : null}
-											<AvatarFallback>
+											<AvatarFallback className="text-[10px]">
 												{getMemberInitials(member.name)}
 											</AvatarFallback>
 										</Avatar>
@@ -342,7 +342,7 @@ function TaskCardComponent({
 								</TooltipTrigger>
 							))}
 							{task.assignees.length > 3 ? (
-								<span className="grid size-6 place-items-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground ring-2 ring-background">
+								<span className="grid size-6 place-items-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground ring-2 ring-card">
 									+{task.assignees.length - 3}
 								</span>
 							) : null}

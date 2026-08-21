@@ -130,10 +130,10 @@ export function ProjectInvitationsManager({
 
 	return (
 		<DialogTrigger>
-			<Button size="sm" variant="outline">
+			<Button size="sm">
 				<Mail data-icon="inline-start" /> Invitations
 				{pendingCount > 0 ? (
-					<Badge className="ml-1 h-4 min-w-4 px-1 text-[10px]">
+					<Badge className="ml-1 h-4 min-w-4 px-1 text-[10px] bg-brand_mint-500 text-brand_navy-950 font-bold dark:bg-brand_navy-900 dark:text-brand_mint-300">
 						{pendingCount}
 					</Badge>
 				) : null}
@@ -145,7 +145,7 @@ export function ProjectInvitationsManager({
 						Only pending invitations can be canceled.
 					</DialogDescription>
 				</DialogHeader>
-				<fieldset className="grid grid-cols-3 rounded-xl bg-muted p-1">
+				<fieldset className="grid grid-cols-3 rounded-2xl bg-muted/60 p-1 border border-border/40">
 					<legend className="sr-only">Invitation status</legend>
 					{invitationStates.map((state) => {
 						const count = invitations.filter(
@@ -160,13 +160,13 @@ export function ProjectInvitationsManager({
 								aria-pressed={selectedState === state.id}
 								onPress={() => setSelectedState(state.id)}
 								className={cn(
-									"rounded-lg",
+									"rounded-xl font-medium transition-all",
 									selectedState === state.id &&
-									"bg-background shadow-sm hover:bg-background",
+									"bg-card text-foreground shadow-xs hover:bg-card font-semibold",
 								)}
 							>
 								{state.label}
-								<span className="text-muted-foreground">{count}</span>
+								<span className="text-muted-foreground text-xs">{count}</span>
 							</Button>
 						);
 					})}
@@ -176,12 +176,12 @@ export function ProjectInvitationsManager({
 						visibleInvitations.map((invitation) => (
 							<div
 								key={invitation.id}
-								className="flex items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3"
+								className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-2xs"
 							>
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
-										<p className="truncate font-medium">{invitation.email}</p>
-										<Badge variant="secondary" className="capitalize">
+										<p className="truncate font-semibold text-sm text-foreground">{invitation.email}</p>
+										<Badge variant="secondary" className="capitalize text-[10px]">
 											{invitation.status}
 										</Badge>
 									</div>

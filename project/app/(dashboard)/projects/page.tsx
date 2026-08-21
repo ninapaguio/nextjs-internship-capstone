@@ -93,7 +93,7 @@ export default async function ProjectsPage({
 					<Link
 						href="/dashboard"
 						aria-label="Back to dashboard"
-						className="inline-flex items-center gap-1.5 text-sm font-semibold hover:text-muted-foreground"
+						className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
 					>
 						<ArrowLeft className="size-3.5" aria-hidden="true" />
 						<span>Projects</span>
@@ -103,14 +103,14 @@ export default async function ProjectsPage({
 
 				<div className="flex items-center gap-2.5">
 					<form action="/projects">
-						<InputGroup className="h-8 w-48 bg-muted/70 sm:w-56">
+						<InputGroup className="h-8.5 w-48 bg-card border-border shadow-2xs sm:w-56">
 							<InputGroupAddon>
-								<Search aria-hidden="true" />
+								<Search aria-hidden="true" className="text-muted-foreground" />
 							</InputGroupAddon>
 							<InputGroupInput
 								name="search"
 								defaultValue={search}
-								placeholder="Search projects"
+								placeholder="Search projects…"
 								aria-label="Search projects"
 							/>
 						</InputGroup>
