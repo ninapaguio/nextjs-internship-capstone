@@ -1,5 +1,6 @@
 "use client";
 
+import { UserPlus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { inviteProjectMember } from "@/actions/project-invitations";
@@ -53,8 +54,8 @@ export function InviteProjectMemberModal({
 
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-			<Button size="sm" variant="outline">
-				Invite member
+			<Button size="sm">
+				<UserPlus data-icon="inline-start" /> Invite member
 			</Button>
 			<Dialog className="sm:max-w-md">
 				<DialogHeader className="pr-10">

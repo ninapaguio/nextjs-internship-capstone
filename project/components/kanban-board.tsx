@@ -463,15 +463,15 @@ export function KanbanBoard({
 
 	return (
 		<section aria-label="Project Kanban board" data-project-id={projectId}>
-			<div className="mb-5 flex w-full items-center justify-end gap-2">
-				<InputGroup className="h-8 min-w-0 flex-1 bg-muted/70 sm:max-w-56">
+			<div className="mb-5 flex w-full items-center justify-end gap-2.5">
+				<InputGroup className="h-9 min-w-0 flex-1 bg-card border-border shadow-2xs sm:max-w-64">
 					<InputGroupAddon>
-						<Search aria-hidden="true" />
+						<Search aria-hidden="true" className="text-muted-foreground" />
 					</InputGroupAddon>
 					<InputGroupInput
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
-						placeholder="Search tasks"
+						placeholder="Search tasks…"
 						aria-label="Search tasks"
 					/>
 				</InputGroup>
@@ -479,23 +479,23 @@ export function KanbanBoard({
 					<Button
 						variant="outline"
 						size="icon-sm"
-						className="relative shrink-0 rounded-full"
+						className="relative shrink-0 rounded-xl shadow-2xs hover:border-brand_teal-500/50"
 						aria-label={
 							activeFilterCount > 0
 								? `Task filters, ${activeFilterCount} active`
 								: "Task filters"
 						}
 					>
-						<Filter />
+						<Filter className="size-4" />
 						{activeFilterCount > 0 ? (
-							<span className="absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+							<span className="absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-brand_navy-500 dark:bg-brand_mint-500 text-[9px] font-semibold text-white dark:text-brand_navy-950 shadow-xs">
 								{activeFilterCount}
 							</span>
 						) : null}
 					</Button>
 					<Popover
 						placement="bottom end"
-						className="w-[min(20rem,calc(100vw-2rem))] gap-3"
+						className="w-[min(20rem,calc(100vw-2rem))] gap-3 shadow-md"
 					>
 						<PopoverHeader className="flex-row items-center justify-between">
 							<PopoverTitle>Filter tasks</PopoverTitle>
@@ -649,8 +649,8 @@ export function KanbanBoard({
 			</div>
 
 			{selectedTaskIds.size > 0 ? (
-				<div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-3 py-2">
-					<p className="text-sm font-medium">{selectedTaskIds.size} selected</p>
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-brand_teal-500/30 bg-card p-3 shadow-sm">
+					<p className="text-sm font-semibold text-foreground">{selectedTaskIds.size} selected</p>
 					<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
 						<Select
 							aria-label="Move selected tasks to column"
@@ -672,7 +672,7 @@ export function KanbanBoard({
 							</SelectContent>
 						</Select>
 						<Button
-							variant="outline"
+							variant="default"
 							size="sm"
 							isDisabled={isBulkPending || !bulkTargetListId}
 							onPress={() => void moveSelectedTasks()}
@@ -723,7 +723,7 @@ export function KanbanBoard({
 				}}
 			>
 				{displayedColumns.length ? (
-					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(16rem,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80 lg:auto-cols-76 xl:auto-cols-80">
+					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(16rem,86vw)] gap-3.5 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80 lg:auto-cols-76 xl:auto-cols-80">
 						{displayedColumns.map((column) => (
 							<KanbanColumn
 								key={column.id}
@@ -745,9 +745,9 @@ export function KanbanBoard({
 						))}
 					</div>
 				) : (
-					<div className="grid min-h-72 place-items-center rounded-3xl border border-dashed bg-muted/20 p-8 text-center">
+					<div className="grid min-h-72 place-items-center rounded-3xl border border-dashed border-border bg-card/40 p-8 text-center shadow-2xs">
 						<div>
-							<p className="font-semibold">No columns yet</p>
+							<p className="font-semibold text-foreground">No columns yet</p>
 							<p className="mt-1 text-sm text-muted-foreground">
 								Add the first workflow stage to begin planning tasks.
 							</p>

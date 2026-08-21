@@ -121,9 +121,9 @@ const initialCommentState: CreateBoardCommentActionState = {
 };
 
 const priorityStyles: Record<BoardPriorityOption["key"], string> = {
-	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-	medium: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
-	high: "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
+	low: "bg-brand_mint-50 text-brand_mint-800 border border-brand_mint-200/80 dark:bg-brand_mint-950/40 dark:text-brand_mint-300 dark:border-brand_mint-800/50",
+	medium: "bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
+	high: "bg-rose-50 text-rose-800 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50",
 };
 
 // Shows pending feedback for task detail submissions.

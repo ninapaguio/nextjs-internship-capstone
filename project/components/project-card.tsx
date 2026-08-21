@@ -62,21 +62,21 @@ function formatProjectDeadline(date: string | null) {
 // Displays project accessible link to its board.
 export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 	return (
-		<div className="group relative rounded-2xl outline-none focus-within:ring-3 focus-within:ring-ring/30">
+		<div className="group relative rounded-2xl outline-none focus-within:ring-3 focus-within:ring-ring/40">
 			<Link href={project.href} className="absolute inset-0 z-10 rounded-2xl">
 				<span className="sr-only">Open {project.name}</span>
 			</Link>
 			<Card
 				size="sm"
-				className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-muted/55 py-0 shadow-none ring-1 ring-border transition duration-200 group-hover:-translate-y-0.5 group-hover:bg-muted/75 group-hover:shadow-md"
+				className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-card py-0 shadow-2xs ring-1 ring-border transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand_teal-500/40 group-hover:shadow-md dark:group-hover:ring-brand_teal-500/30"
 			>
 				<CardHeader className="gap-3 px-4 pt-4 pb-3">
 					<div className="relative flex items-center justify-between gap-3 pointer-events-none">
-						<CardTitle className="line-clamp-1 text-sm font-semibold transition-colors group-hover:text-primary">
+						<CardTitle className="line-clamp-1 text-sm font-semibold tracking-tight transition-colors group-hover:text-brand_teal-600 dark:group-hover:text-brand_mint-400">
 							{project.name}
 						</CardTitle>
 						<div className="relative z-20 flex items-center gap-1 pointer-events-auto">
-							<span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+							<span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-muted-foreground">
 								<Clock3 className="size-3" aria-hidden="true" />
 								{formatProjectDeadline(project.endDate)}
 							</span>
@@ -87,6 +87,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 											size="icon-xs"
 											variant="ghost"
 											aria-label={`Actions for ${project.name}`}
+											className="rounded-lg hover:bg-accent"
 										>
 											<MoreHorizontal />
 										</Button>
@@ -103,13 +104,13 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 						</div>
 					</div>
 					<div className="space-y-2">
-						<CardDescription className="line-clamp-2 min-h-9 text-xs leading-4.5">
+						<CardDescription className="line-clamp-2 min-h-9 text-xs leading-4.5 text-muted-foreground">
 							{project.description || "No description added yet."}
 						</CardDescription>
 						<div className="flex items-center gap-1.5">
 							<Badge
-								variant="outline"
-								className="h-5 px-2 text-[10px] font-normal"
+								variant="secondary"
+								className="h-5 px-2 text-[10px] font-medium border-border/50"
 							>
 								{statusLabels[project.status]}
 							</Badge>
@@ -120,19 +121,20 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 				<CardContent className="space-y-3 px-4 pb-4">
 					<div className="flex items-center justify-between text-xs text-muted-foreground">
 						<span className="inline-flex items-center gap-1.5">
-							<Users className="size-3.5" aria-hidden="true" />
+							<Users className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400" aria-hidden="true" />
 							{project.totalMembers}{" "}
 							{project.totalMembers === 1 ? "member" : "members"}
 						</span>
 						<span className="inline-flex items-center gap-1.5">
-							<CheckCircle2 className="size-3.5" aria-hidden="true" />
+							<CheckCircle2 className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400" aria-hidden="true" />
 							{project.totalTasks} {project.totalTasks === 1 ? "task" : "tasks"}
 						</span>
 					</div>
 
 					<div className="space-y-1.5">
-						<div className="flex items-center justify-end text-xs">
-							<span className="font-medium tabular-nums">
+						<div className="flex items-center justify-between text-xs">
+							<span className="text-[11px] font-medium text-muted-foreground">Progress</span>
+							<span className="font-semibold text-foreground tabular-nums">
 								{project.progressPercentage}%
 							</span>
 						</div>
@@ -140,8 +142,8 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 							value={project.progressPercentage}
 							aria-label={`${project.name} progress`}
 						>
-							<ProgressTrack className="h-1.5 bg-background/80">
-								<ProgressIndicator className="bg-emerald-500" />
+							<ProgressTrack className="h-2 bg-muted/80 rounded-full overflow-hidden">
+								<ProgressIndicator className="bg-gradient-to-r from-brand_teal-500 to-brand_mint-500 transition-all duration-300" />
 							</ProgressTrack>
 						</Progress>
 					</div>
