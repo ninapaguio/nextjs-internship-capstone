@@ -11,6 +11,7 @@ import {
 	insertBoardList,
 	insertBoardTask,
 	moveBoardTask as moveBoardTaskMutation,
+	moveBoardTasks as moveBoardTasksMutation,
 	updateBoardList as updateBoardListMutation,
 	updateBoardTask as updateBoardTaskMutation,
 } from "@/lib/db/mutations/board";
@@ -31,6 +32,7 @@ import {
 	labelSchema,
 	listLifecycleSchema,
 	moveTaskSchema,
+	moveTasksSchema,
 	taskLifecycleSchema,
 	updateBoardTaskSchema,
 	updateListSchema,
@@ -62,6 +64,11 @@ async function revalidateBoardPages() {
 	revalidatePath("/projects/[slug]", "page");
 }
 
+// Refreshes project-card task totals without rerendering the open Zustand board.
+function revalidateProjectList() {
+	revalidatePath("/projects");
+}
+
 // Validates and creates a task comment for an authorized project member.
 export async function createBoardComment(
 	_previousState: CreateBoardCommentActionState,
@@ -85,10 +92,7 @@ export async function createBoardComment(
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot comment on this board." };
 		}
-		const rateLimit = await checkRateLimit(
-			"add-comment",
-			applicationUser.id,
-		);
+		const rateLimit = await checkRateLimit("add-comment", applicationUser.id);
 		if (!rateLimit.allowed) {
 			const retryAfterSeconds = Math.max(
 				1,
@@ -100,10 +104,7 @@ export async function createBoardComment(
 			};
 		}
 		if (
-			!(await isActiveTaskInProject(
-				parsed.data.projectId,
-				parsed.data.taskId,
-			))
+			!(await isActiveTaskInProject(parsed.data.projectId, parsed.data.taskId))
 		) {
 			return { status: "error", message: "This task is not available." };
 		}
@@ -133,7 +134,7 @@ export async function createBoardComment(
 			},
 		};
 	} catch {
-		return { status: "error", message: "We could not post the comment." };
+		return { status: "error", message: "Could not post the comment." };
 	}
 }
 
@@ -212,7 +213,7 @@ export async function createBoardList(
 			data: { id: list.id },
 		};
 	} catch {
-		return { status: "error", message: "We could not create the column." };
+		return { status: "error", message: "Could not create the column." };
 	}
 }
 
@@ -250,7 +251,7 @@ export async function updateBoardList(
 		await revalidateBoardPages();
 		return { status: "success", message: "Column updated successfully." };
 	} catch {
-		return { status: "error", message: "We could not update the column." };
+		return { status: "error", message: "Could not update the column." };
 	}
 }
 
@@ -282,7 +283,7 @@ export async function changeBoardListLifecycle(
 		await revalidateBoardPages();
 		return { status: "success", message: "Column updated successfully." };
 	} catch {
-		return { status: "error", message: "We could not change the column." };
+		return { status: "error", message: "Could not change the column." };
 	}
 }
 
@@ -296,7 +297,7 @@ export async function createBoardTask(
 		listId: formData.get("listId"),
 		title: formData.get("title"),
 		description: formData.get("description"),
-		complexityId: formData.get("complexityId"),
+		priorityId: formData.get("priorityId"),
 		dueDate: formData.get("dueDate"),
 		position: formData.get("position") || undefined,
 		assigneeIds: formData.getAll("assigneeIds"),
@@ -346,7 +347,7 @@ export async function createBoardTask(
 			data: { id: task.id },
 		};
 	} catch {
-		return { status: "error", message: "We could not create the task." };
+		return { status: "error", message: "Could not create the task." };
 	}
 }
 
@@ -363,7 +364,7 @@ export async function updateBoardTask(
 		description: formData.has("description")
 			? formData.get("description")
 			: undefined,
-		complexityId: formData.get("complexityId") || undefined,
+		priorityId: formData.get("priorityId") || undefined,
 		dueDate: formData.has("dueDate") ? formData.get("dueDate") : undefined,
 		completed: formData.get("completed") || undefined,
 		assigneeIds:
@@ -459,11 +460,11 @@ export async function updateBoardTask(
 		await revalidateBoardPages();
 		return { status: "success", message: "Task updated successfully." };
 	} catch {
-		return { status: "error", message: "We could not update the task." };
+		return { status: "error", message: "Could not update the task." };
 	}
 }
 
-// Archives or soft-deletes one task after validating project access.
+// Archives, restores, or soft-deletes one task after validating project access.
 export async function changeBoardTaskLifecycle(
 	formData: FormData,
 ): Promise<BoardActionState> {
@@ -492,10 +493,12 @@ export async function changeBoardTaskLifecycle(
 			message:
 				parsed.data.action === "archive"
 					? "Task archived successfully."
-					: "Task deleted successfully.",
+					: parsed.data.action === "restore"
+						? "Task restored successfully."
+						: "Task deleted successfully.",
 		};
 	} catch {
-		return { status: "error", message: "We could not change the task." };
+		return { status: "error", message: "Could not change the task." };
 	}
 }
 
@@ -527,9 +530,53 @@ export async function moveBoardTask(
 		);
 		if (!task) return { status: "error", message: "The task was not moved." };
 
-		await revalidateBoardPages();
+		revalidateProjectList();
 		return { status: "success", message: "Task moved successfully." };
 	} catch {
-		return { status: "error", message: "We could not move the task." };
+		return { status: "error", message: "Could not move the task." };
+	}
+}
+
+// Persists one validated group move after confirming access to the project board.
+export async function moveBoardTasks(
+	formData: FormData,
+): Promise<BoardActionState> {
+	const parsed = moveTasksSchema.safeParse({
+		projectId: formData.get("projectId"),
+		taskIds: formData.getAll("taskIds"),
+		targetListId: formData.get("targetListId"),
+		position: formData.get("position"),
+	});
+	if (!parsed.success) {
+		return { status: "error", message: "Invalid task movement." };
+	}
+
+	try {
+		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		if (!applicationUser) {
+			return { status: "error", message: "You cannot update this board." };
+		}
+
+		const result = await moveBoardTasksMutation(
+			parsed.data.projectId,
+			parsed.data.taskIds,
+			parsed.data.targetListId,
+			parsed.data.position,
+			applicationUser.id,
+		);
+		if (!result) {
+			return { status: "error", message: "The selected tasks were not moved." };
+		}
+
+		revalidateProjectList();
+		return {
+			status: "success",
+			message: `${result.movedCount} ${result.movedCount === 1 ? "task" : "tasks"} moved successfully.`,
+		};
+	} catch {
+		return {
+			status: "error",
+			message: "Could not move the selected tasks.",
+		};
 	}
 }

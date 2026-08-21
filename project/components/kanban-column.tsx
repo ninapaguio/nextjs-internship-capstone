@@ -22,6 +22,10 @@ interface KanbanColumnProps {
 	onDelete: (listId: string) => void;
 	onOpenTask: (taskId: string) => void;
 	openingTaskId?: string | null;
+	selectedTaskIds?: ReadonlySet<string>;
+	draggedTaskIds?: ReadonlySet<string>;
+	onToggleTaskSelection?: (taskId: string) => void;
+	onRestoreTask?: (taskId: string) => void;
 }
 
 // Renders one board list as a droppable column in the Kanban interface.
@@ -34,6 +38,10 @@ export function KanbanColumn({
 	onDelete,
 	onOpenTask,
 	openingTaskId = null,
+	selectedTaskIds = new Set<string>(),
+	draggedTaskIds = new Set<string>(),
+	onToggleTaskSelection,
+	onRestoreTask,
 }: KanbanColumnProps) {
 	const { ref, isDropTarget } = useDroppable({
 		id: `column:${list.id}`,
@@ -122,6 +130,13 @@ export function KanbanColumn({
 						task={task}
 						listId={list.id}
 						isOpening={openingTaskId === task.id}
+						isSelected={selectedTaskIds.has(task.id)}
+						selectedDragCount={
+							selectedTaskIds.has(task.id) ? selectedTaskIds.size : 1
+						}
+						isGroupDragging={draggedTaskIds.has(task.id)}
+						onToggleSelection={onToggleTaskSelection}
+						onRestore={onRestoreTask}
 						onOpen={onOpenTask}
 					/>
 				))}

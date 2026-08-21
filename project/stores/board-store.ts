@@ -8,62 +8,49 @@ function findTaskList(lists: BoardList[], taskId: string) {
 	return lists.find((list) => list.tasks.some((task) => task.id === taskId));
 }
 
-// Produces an immutable task move for immediate optimistic board feedback.
-function moveTask(lists: BoardList[], taskId: string, targetId: string) {
-	if (taskId === targetId) return lists;
+// Produces an immutable group move while preserving the selected tasks' board order.
+function moveTasks(lists: BoardList[], taskIds: string[], targetId: string) {
+	const movingIds = new Set(taskIds);
+	if (movingIds.size === 0) return lists;
 
-	const sourceList = findTaskList(lists, taskId);
 	const targetList = targetId.startsWith("column:")
 		? lists.find((list) => list.id === targetId.slice("column:".length))
 		: findTaskList(lists, targetId);
-	if (!sourceList || !targetList) return lists;
+	if (!targetList) return lists;
 
-	const sourceIndex = sourceList.tasks.findIndex((task) => task.id === taskId);
+	const movingTasks = lists.flatMap((list) =>
+		list.tasks.filter((task) => movingIds.has(task.id)),
+	);
+	if (movingTasks.length !== movingIds.size) return lists;
+
 	const rawTargetIndex = targetId.startsWith("column:")
 		? targetList.tasks.length
 		: targetList.tasks.findIndex((task) => task.id === targetId);
-	if (sourceIndex < 0 || rawTargetIndex < 0) return lists;
-
-	let targetIndex = rawTargetIndex;
-	if (sourceList.id === targetList.id && sourceIndex < targetIndex) {
-		targetIndex -= 1;
-	}
-	if (sourceList.id === targetList.id && sourceIndex === targetIndex) {
-		return lists;
-	}
-
-	const task = sourceList.tasks[sourceIndex];
-	if (!task) return lists;
-
-	if (sourceList.id === targetList.id) {
-		const tasks = [...sourceList.tasks];
-		tasks.splice(sourceIndex, 1);
-		tasks.splice(targetIndex, 0, task);
-		const positionedTasks = tasks.map((item, position) =>
-			item.position === position ? item : { ...item, position },
-		);
-		return lists.map((list) =>
-			list.id === sourceList.id ? { ...list, tasks: positionedTasks } : list,
-		);
-	}
-
-	const sourceTasks = sourceList.tasks
-		.filter((item) => item.id !== taskId)
-		.map((item, position) =>
-			item.position === position ? item : { ...item, position },
-		);
-	const targetTasks = [...targetList.tasks];
-	targetTasks.splice(targetIndex, 0, { ...task, listId: targetList.id });
-	const positionedTargetTasks = targetTasks.map((item, position) =>
-		item.position === position ? item : { ...item, position },
-	);
+	if (rawTargetIndex < 0) return lists;
+	const removedBeforeTarget = targetList.tasks
+		.slice(0, rawTargetIndex)
+		.filter((task) => movingIds.has(task.id)).length;
+	const targetIndex = Math.max(0, rawTargetIndex - removedBeforeTarget);
 
 	return lists.map((list) => {
-		if (list.id === sourceList.id) return { ...list, tasks: sourceTasks };
-		if (list.id === targetList.id) {
-			return { ...list, tasks: positionedTargetTasks };
+		const remainingTasks = list.tasks.filter((task) => !movingIds.has(task.id));
+		const nextTasks =
+			list.id === targetList.id
+				? [
+						...remainingTasks.slice(0, targetIndex),
+						...movingTasks.map((task) => ({ ...task, listId: targetList.id })),
+						...remainingTasks.slice(targetIndex),
+					]
+				: remainingTasks;
+		if (nextTasks.length === list.tasks.length && list.id !== targetList.id) {
+			return list;
 		}
-		return list;
+		return {
+			...list,
+			tasks: nextTasks.map((task, position) =>
+				task.position === position ? task : { ...task, position },
+			),
+		};
 	});
 }
 
@@ -72,6 +59,7 @@ export const useBoardStore = create<BoardState>((set) => ({
 	projectId: null,
 	lists: [],
 	draggedTaskId: null,
+	draggedTaskIds: [],
 	dragTargetId: null,
 	dragSnapshot: null,
 	dragSnapshotHadPendingChanges: false,
@@ -84,6 +72,7 @@ export const useBoardStore = create<BoardState>((set) => ({
 						projectId,
 						lists,
 						draggedTaskId: null,
+						draggedTaskIds: [],
 						dragTargetId: null,
 						dragSnapshot: null,
 						dragSnapshotHadPendingChanges: false,
@@ -163,17 +152,17 @@ export const useBoardStore = create<BoardState>((set) => ({
 		})),
 	replaceLists: (lists) => set({ lists, hasPendingChanges: false }),
 	markPersisted: () => set({ hasPendingChanges: false }),
-	beginTaskDrag: (taskId) =>
+	beginTaskDrag: (taskId, taskIds) =>
 		set((state) => ({
 			draggedTaskId: taskId,
+			draggedTaskIds: taskIds,
 			dragTargetId: null,
 			dragSnapshot: state.lists,
 			dragSnapshotHadPendingChanges: state.hasPendingChanges,
 		})),
-	moveTaskOptimistically: (taskId, targetId) =>
+	moveTasksOptimistically: (taskIds, targetId) =>
 		set((state) => {
-			if (state.dragTargetId === targetId) return state;
-			const lists = moveTask(state.lists, taskId, targetId);
+			const lists = moveTasks(state.lists, taskIds, targetId);
 			return lists === state.lists
 				? { dragTargetId: targetId }
 				: { lists, dragTargetId: targetId, hasPendingChanges: true };
@@ -182,6 +171,7 @@ export const useBoardStore = create<BoardState>((set) => ({
 		set((state) => ({
 			lists: canceled && state.dragSnapshot ? state.dragSnapshot : state.lists,
 			draggedTaskId: null,
+			draggedTaskIds: [],
 			dragTargetId: null,
 			dragSnapshot: null,
 			dragSnapshotHadPendingChanges: false,

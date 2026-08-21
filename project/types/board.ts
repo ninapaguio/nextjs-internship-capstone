@@ -4,7 +4,7 @@ export interface BoardMemberOption {
 	imageUrl: string | null;
 }
 
-export interface BoardComplexityOption {
+export interface BoardPriorityOption {
 	id: string;
 	key: "low" | "medium" | "high";
 	label: string;
@@ -21,10 +21,11 @@ export interface BoardTask {
 	listId: string;
 	title: string;
 	description: string | null;
-	complexity: BoardComplexityOption;
+	priority: BoardPriorityOption;
 	dueDate: string | null;
 	position: number;
 	completedAt: string | null;
+	archivedAt: string | null;
 	assignees: BoardMemberOption[];
 	labels: BoardLabelOption[];
 	dependencyIds: string[];
@@ -42,7 +43,7 @@ export interface BoardList {
 
 export interface ProjectBoardData {
 	lists: BoardList[];
-	complexityOptions: BoardComplexityOption[];
+	priorityOptions: BoardPriorityOption[];
 	members: BoardMemberOption[];
 	labels: BoardLabelOption[];
 }
@@ -64,7 +65,7 @@ export type BoardActivityType =
 	| "dependency_added"
 	| "dependency_removed"
 	| "due_date_changed"
-	| "complexity_changed"
+	| "priority_changed"
 	| "description_changed"
 	| "completed"
 	| "reopened";
@@ -83,6 +84,7 @@ export interface BoardState {
 	projectId: string | null;
 	lists: BoardList[];
 	draggedTaskId: string | null;
+	draggedTaskIds: string[];
 	dragTargetId: string | null;
 	dragSnapshot: BoardList[] | null;
 	dragSnapshotHadPendingChanges: boolean;
@@ -100,12 +102,19 @@ export interface BoardState {
 	deleteTask: (taskId: string) => void;
 	replaceLists: (lists: BoardList[]) => void;
 	markPersisted: () => void;
-	beginTaskDrag: (taskId: string) => void;
-	moveTaskOptimistically: (taskId: string, targetId: string) => void;
+	beginTaskDrag: (taskId: string, taskIds: string[]) => void;
+	moveTasksOptimistically: (taskIds: string[], targetId: string) => void;
 	finishTaskDrag: (canceled: boolean) => void;
 }
 
-export type ComplexityFilter = BoardTask["complexity"]["key"] | "all";
+export type PriorityFilter = BoardTask["priority"]["key"] | "all";
+
+export type TaskStatusFilter =
+	| "all"
+	| "open"
+	| "completed"
+	| "overdue"
+	| "archived";
 
 export type EditableTaskField =
 	| "title"
@@ -113,7 +122,7 @@ export type EditableTaskField =
 	| "labels"
 	| "dependencies"
 	| "column"
-	| "complexity"
+	| "priority"
 	| "description"
 	| null;
 

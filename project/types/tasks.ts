@@ -1,7 +1,7 @@
 import type {
 	Comment,
-	ComplexityOption,
 	Label,
+	PriorityOption,
 	Task,
 	TaskActivity,
 	User,
@@ -19,7 +19,7 @@ export interface TaskActivityWithActor extends TaskActivity {
 export interface TaskDetails extends Task {
 	assignees: User[];
 	labels: Label[];
-	complexity: ComplexityOption;
+	priority: PriorityOption;
 	comments: CommentWithAuthor[];
 	activities: TaskActivityWithActor[];
 }

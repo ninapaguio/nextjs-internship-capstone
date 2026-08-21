@@ -11,6 +11,8 @@ import {
 	MessageSquare,
 	MoreHorizontal,
 	PanelRightOpen,
+	Square,
+	SquareCheckBig,
 } from "lucide-react";
 import { memo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,6 +31,11 @@ interface TaskCardProps {
 	task: BoardTask;
 	listId: string;
 	isOpening?: boolean;
+	isSelected?: boolean;
+	isGroupDragging?: boolean;
+	selectedDragCount?: number;
+	onToggleSelection?: (taskId: string) => void;
+	onRestore?: (taskId: string) => void;
 	onOpen: (taskId: string) => void;
 }
 
@@ -71,7 +78,7 @@ Features to implement:
 - Responsive design
 */
 
-const complexityStyles: Record<BoardTask["complexity"]["key"], string> = {
+const priorityStyles: Record<BoardTask["priority"]["key"], string> = {
 	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
 	medium: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
 	high: "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
@@ -117,6 +124,11 @@ function TaskCardComponent({
 	task,
 	listId,
 	isOpening = false,
+	isSelected = false,
+	isGroupDragging = false,
+	selectedDragCount = 1,
+	onToggleSelection,
+	onRestore,
 	onOpen,
 }: TaskCardProps) {
 	const {
@@ -149,8 +161,10 @@ function TaskCardComponent({
 				"relative isolate flex w-full flex-col overflow-hidden rounded-2xl border border-black/5 bg-white p-3.5 text-left shadow-sm transition-[box-shadow,opacity,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/8 dark:bg-zinc-900",
 				overdue &&
 					"border-rose-300 bg-rose-50/60 shadow-rose-100 dark:border-rose-900 dark:bg-rose-950/20 dark:shadow-none",
-				isDragSource && "opacity-45 shadow-lg",
+				isGroupDragging && "scale-[0.98] opacity-35 shadow-none",
+				isDragSource && "opacity-25",
 				isDropTarget && "ring-2 ring-sky-500/60 ring-offset-2",
+				isSelected && "ring-2 ring-primary ring-inset",
 			)}
 		>
 			<Button
@@ -158,13 +172,30 @@ function TaskCardComponent({
 				variant="ghost"
 				aria-label={`Open task ${task.title}`}
 				className="absolute inset-0 z-0 h-auto w-full rounded-2xl p-0 hover:bg-transparent dark:hover:bg-transparent"
-				onPress={() => onOpen(task.id)}
+				onPress={() => {
+					if (!task.archivedAt) onOpen(task.id);
+				}}
 			>
 				<span className="sr-only">Open task {task.title}</span>
 			</Button>
 
 			<div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 pr-7">
 				<div className="flex min-w-0 items-center gap-2 text-zinc-500">
+					{onToggleSelection ? (
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							className="pointer-events-auto -ml-1 rounded-md"
+							aria-label={
+								isSelected ? `Deselect ${task.title}` : `Select ${task.title}`
+							}
+							aria-pressed={isSelected}
+							onPress={() => onToggleSelection(task.id)}
+						>
+							{isSelected ? <SquareCheckBig /> : <Square />}
+						</Button>
+					) : null}
 					<span aria-hidden="true">
 						<TaskStatusIcon task={task} />
 					</span>
@@ -207,29 +238,50 @@ function TaskCardComponent({
 							<Tooltip placement="bottom end">Task actions</Tooltip>
 						</TooltipTrigger>
 						<DropdownMenu placement="bottom end">
-							<DropdownMenuItem onAction={() => onOpen(task.id)}>
-								<PanelRightOpen />
-								View task details
-							</DropdownMenuItem>
+							{task.archivedAt ? (
+								<DropdownMenuItem onAction={() => onRestore?.(task.id)}>
+									Restore task
+								</DropdownMenuItem>
+							) : (
+								<DropdownMenuItem onAction={() => onOpen(task.id)}>
+									<PanelRightOpen />
+									View task details
+								</DropdownMenuItem>
+							)}
 						</DropdownMenu>
 					</DropdownMenuTrigger>
 				)}
-				<TooltipTrigger delay={400}>
-					<Button
-						ref={handleRef}
-						type="button"
-						variant="ghost"
-						size="icon-xs"
-						className="cursor-grab rounded-lg text-muted-foreground active:cursor-grabbing"
-						aria-label={`Drag ${task.title}`}
-					>
-						<GripVertical />
-					</Button>
-					<Tooltip placement="right">Drag task</Tooltip>
-				</TooltipTrigger>
+				{!task.archivedAt ? (
+					<TooltipTrigger delay={400}>
+						<Button
+							ref={handleRef}
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							className="cursor-grab rounded-lg text-muted-foreground active:cursor-grabbing"
+							aria-label={
+								isSelected && selectedDragCount > 1
+									? `Drag ${selectedDragCount} selected tasks`
+									: `Drag ${task.title}`
+							}
+						>
+							<GripVertical />
+						</Button>
+						<Tooltip placement="right">
+							{isSelected && selectedDragCount > 1
+								? `Drag ${selectedDragCount} selected tasks`
+								: "Drag task"}
+						</Tooltip>
+					</TooltipTrigger>
+				) : null}
 			</div>
 
 			<div className="pointer-events-none relative z-10 mt-3 flex flex-col pr-5">
+				{task.archivedAt ? (
+					<Badge variant="outline" className="mb-2 w-fit">
+						Archived
+					</Badge>
+				) : null}
 				<h3 className="w-full text-left text-sm font-semibold leading-5 text-zinc-950 wrap-anywhere dark:text-zinc-50">
 					{task.title}
 				</h3>
@@ -253,10 +305,10 @@ function TaskCardComponent({
 						<span
 							className={cn(
 								"rounded-full px-2 py-1 text-[10px] font-semibold tracking-wide",
-								complexityStyles[task.complexity.key],
+								priorityStyles[task.priority.key],
 							)}
 						>
-							{task.complexity.label}
+							{task.priority.label}
 						</span>
 						{task.commentsCount > 0 ? (
 							<span className="flex items-center gap-1 text-[11px] text-muted-foreground">

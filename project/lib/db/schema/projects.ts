@@ -123,9 +123,9 @@ export const labels = pgTable(
 	],
 );
 
-// Static reference data rendered as the task form's complexity options
-export const complexityOptions = pgTable(
-	"complexity_options",
+// Static reference data rendered as the task form's priority options
+export const priorityOptions = pgTable(
+	"priority_options",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		key: varchar("key", { length: 30 }).notNull(),
@@ -134,11 +134,8 @@ export const complexityOptions = pgTable(
 		isActive: boolean("is_active").default(true).notNull(),
 	},
 	(table) => [
-		uniqueIndex("complexity_options_key_unique").on(table.key),
-		uniqueIndex("complexity_options_sort_order_unique").on(table.sortOrder),
-		check(
-			"complexity_options_sort_order_positive",
-			sql`${table.sortOrder} > 0`,
-		),
+		uniqueIndex("priority_options_key_unique").on(table.key),
+		uniqueIndex("priority_options_sort_order_unique").on(table.sortOrder),
+		check("priority_options_sort_order_positive", sql`${table.sortOrder} > 0`),
 	],
 );

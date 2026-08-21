@@ -1,12 +1,12 @@
 import "server-only";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
 	comments,
-	complexityOptions,
 	labels,
 	lists,
+	priorityOptions,
 	taskActivities,
 	taskAssignees,
 	taskDependencies,
@@ -56,7 +56,7 @@ interface UpdateBoardTaskInput {
 	listId?: string;
 	title?: string;
 	description?: string | null;
-	complexityId?: string;
+	priorityId?: string;
 	dueDate?: string | null;
 	completed?: boolean;
 	assigneeIds?: string[];
@@ -71,7 +71,7 @@ interface InsertBoardTaskInput {
 	createdById: string;
 	title: string;
 	description?: string;
-	complexityId: string;
+	priorityId: string;
 	dueDate?: string;
 	position?: number;
 	assigneeIds: string[];
@@ -89,7 +89,7 @@ interface TaskActivitySnapshot {
 	dueDate: string | null;
 	completed: boolean;
 	list: ActivityEntity;
-	complexity: ActivityEntity;
+	priority: ActivityEntity;
 	assignees: ActivityEntity[];
 	labels: ActivityEntity[];
 	dependencies: ActivityEntity[];
@@ -108,12 +108,12 @@ async function getTaskActivitySnapshot(
 			completedAt: tasks.completedAt,
 			listId: lists.id,
 			listName: lists.name,
-			complexityId: complexityOptions.id,
-			complexityName: complexityOptions.label,
+			priorityId: priorityOptions.id,
+			priorityName: priorityOptions.label,
 		})
 		.from(tasks)
 		.innerJoin(lists, eq(tasks.listId, lists.id))
-		.innerJoin(complexityOptions, eq(tasks.complexityId, complexityOptions.id))
+		.innerJoin(priorityOptions, eq(tasks.priorityId, priorityOptions.id))
 		.where(
 			and(
 				eq(tasks.id, taskId),
@@ -159,7 +159,7 @@ async function getTaskActivitySnapshot(
 		dueDate: task.dueDate,
 		completed: Boolean(task.completedAt),
 		list: { id: task.listId, name: task.listName },
-		complexity: { id: task.complexityId, name: task.complexityName },
+		priority: { id: task.priorityId, name: task.priorityName },
 		assignees: assigneeRows.map((member) => ({
 			id: member.id,
 			name:
@@ -213,7 +213,7 @@ async function insertTaskSnapshotActivities(
 	addUpdate("title", previous.title, next.title);
 	addUpdate("description", previous.description, next.description);
 	addUpdate("due_date", previous.dueDate, next.dueDate);
-	addUpdate("complexity", previous.complexity.name, next.complexity.name);
+	addUpdate("priority", previous.priority.name, next.priority.name);
 
 	if (previous.list.id !== next.list.id) {
 		activityRows.push({
@@ -423,14 +423,14 @@ export async function updateBoardTask(
 
 	const previousBlockingRows = input.blockingTaskIds
 		? await db
-				.select({ taskId: taskDependencies.taskId })
-				.from(taskDependencies)
-				.where(
-					and(
-						eq(taskDependencies.projectId, projectId),
-						eq(taskDependencies.dependsOnTaskId, taskId),
-					),
-				)
+			.select({ taskId: taskDependencies.taskId })
+			.from(taskDependencies)
+			.where(
+				and(
+					eq(taskDependencies.projectId, projectId),
+					eq(taskDependencies.dependsOnTaskId, taskId),
+				),
+			)
 		: [];
 	const affectedBlockingTaskIds = [
 		...new Set([
@@ -572,17 +572,17 @@ export async function updateBoardTask(
 	return task ?? null;
 }
 
-// Archives or soft-deletes one task from an authorized project board.
+// Archives, restores, or soft-deletes one task from an authorized project board.
 export async function changeBoardTaskLifecycle(
 	projectId: string,
 	taskId: string,
-	action: "archive" | "delete",
+	action: "archive" | "restore" | "delete",
 ) {
 	const now = new Date();
 	const [task] = await db
 		.update(tasks)
 		.set({
-			archivedAt: action === "archive" ? now : undefined,
+			archivedAt: action === "restore" ? null : now,
 			deletedAt: action === "delete" ? now : undefined,
 			updatedAt: now,
 		})
@@ -590,8 +590,10 @@ export async function changeBoardTaskLifecycle(
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
-				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				action === "restore"
+					? sql`${tasks.archivedAt} is not null`
+					: isNull(tasks.archivedAt),
 			),
 		)
 		.returning({ id: tasks.id });
@@ -643,4 +645,135 @@ export async function moveBoardTask(
 	}
 
 	return task ?? null;
+}
+
+// Moves up to 10 active tasks together and normalizes every affected column in one update.
+export async function moveBoardTasks(
+	projectId: string,
+	taskIds: string[],
+	targetListId: string,
+	position: number,
+	actorId: string,
+) {
+	const [targetList] = await db
+		.select({ id: lists.id, name: lists.name })
+		.from(lists)
+		.where(
+			and(
+				eq(lists.id, targetListId),
+				eq(lists.projectId, projectId),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
+			),
+		)
+		.limit(1);
+	if (!targetList) return null;
+
+	const movingTasks = await db
+		.select({
+			id: tasks.id,
+			listId: tasks.listId,
+			listName: lists.name,
+		})
+		.from(tasks)
+		.innerJoin(lists, eq(tasks.listId, lists.id))
+		.where(
+			and(
+				eq(tasks.projectId, projectId),
+				inArray(tasks.id, taskIds),
+				isNull(tasks.archivedAt),
+				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
+			),
+		);
+	if (movingTasks.length !== taskIds.length) return null;
+
+	const affectedListIds = Array.from(
+		new Set([...movingTasks.map((task) => task.listId), targetListId]),
+	);
+	const affectedTasks = await db
+		.select({ id: tasks.id, listId: tasks.listId })
+		.from(tasks)
+		.where(
+			and(
+				eq(tasks.projectId, projectId),
+				inArray(tasks.listId, affectedListIds),
+				isNull(tasks.archivedAt),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.orderBy(asc(tasks.position), asc(tasks.createdAt));
+
+	const movingIds = new Set(taskIds);
+	const tasksByList = new Map<string, string[]>();
+	for (const listId of affectedListIds) tasksByList.set(listId, []);
+	for (const task of affectedTasks) {
+		if (!movingIds.has(task.id)) tasksByList.get(task.listId)?.push(task.id);
+	}
+	const targetTasks = tasksByList.get(targetListId) ?? [];
+	const targetPosition = Math.min(position, targetTasks.length);
+	targetTasks.splice(targetPosition, 0, ...taskIds);
+	tasksByList.set(targetListId, targetTasks);
+
+	const placements = Array.from(tasksByList.entries()).flatMap(
+		([listId, listTaskIds]) =>
+			listTaskIds.map((taskId, taskPosition) => ({
+				taskId,
+				listId,
+				position: taskPosition,
+			})),
+	);
+	if (placements.length === 0) return null;
+
+	const listCase = sql.join(
+		placements.map(
+			(placement) =>
+				sql`when ${placement.taskId} then ${placement.listId}::uuid`,
+		),
+		sql` `,
+	);
+	const positionCase = sql.join(
+		placements.map(
+			(placement) =>
+				sql`when ${placement.taskId} then ${placement.position}::integer`,
+		),
+		sql` `,
+	);
+	const updatedTasks = await db
+		.update(tasks)
+		.set({
+			listId: sql`case ${tasks.id} ${listCase} else ${tasks.listId} end`,
+			position: sql`case ${tasks.id} ${positionCase} else ${tasks.position} end`,
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(tasks.projectId, projectId),
+				inArray(
+					tasks.id,
+					placements.map((placement) => placement.taskId),
+				),
+				isNull(tasks.archivedAt),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.returning({ id: tasks.id });
+	if (updatedTasks.length !== placements.length) return null;
+
+	const activityRows = movingTasks
+		.filter((task) => task.listId !== targetListId)
+		.map((task) => ({
+			taskId: task.id,
+			actorId,
+			action: "moved" as const,
+			fieldName: "column",
+			oldValue: task.listName,
+			newValue: targetList.name,
+		}));
+	if (activityRows.length > 0) {
+		await db.insert(taskActivities).values(activityRows);
+	}
+
+	return { movedCount: movingTasks.length };
 }

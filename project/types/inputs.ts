@@ -6,6 +6,7 @@ import type {
 	createTaskSchema,
 	labelSchema,
 	moveTaskSchema,
+	moveTasksSchema,
 	projectFilterSchema,
 	taskAssignmentSchema,
 	taskFilterSchema,
@@ -32,6 +33,7 @@ export type UpdateListInput = z.infer<typeof updateListSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type MoveTaskInput = z.infer<typeof moveTaskSchema>;
+export type MoveTasksInput = z.infer<typeof moveTasksSchema>;
 export type TaskAssignmentInput = z.infer<typeof taskAssignmentSchema>;
 export type LabelInput = z.infer<typeof labelSchema>;
 export type CommentInput = z.infer<typeof commentSchema>;

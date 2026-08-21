@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { complexityOptions, labels, lists, projects } from "./projects";
+import { labels, lists, priorityOptions, projects } from "./projects";
 import {
 	comments,
 	taskActivities,
@@ -107,8 +107,8 @@ export const labelsRelations = relations(labels, ({ one, many }) => ({
 	tasks: many(taskLabels),
 }));
 
-export const complexityOptionsRelations = relations(
-	complexityOptions,
+export const priorityOptionsRelations = relations(
+	priorityOptions,
 	({ many }) => ({ tasks: many(tasks) }),
 );
 
@@ -125,9 +125,9 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
 		fields: [tasks.createdById],
 		references: [users.id],
 	}),
-	complexity: one(complexityOptions, {
-		fields: [tasks.complexityId],
-		references: [complexityOptions.id],
+	priority: one(priorityOptions, {
+		fields: [tasks.priorityId],
+		references: [priorityOptions.id],
 	}),
 	assignees: many(taskAssignees),
 	labels: many(taskLabels),
