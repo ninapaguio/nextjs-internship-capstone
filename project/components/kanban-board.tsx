@@ -1,23 +1,39 @@
 "use client";
 
-import { DragDropProvider } from "@dnd-kit/react";
-import { ArrowDownAZ, Filter, Plus, Search } from "lucide-react";
+import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import { ArrowDownAZ, Filter, MoveRight, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
 	changeBoardListLifecycle,
+	changeBoardTaskLifecycle,
 	createBoardLabel,
-	moveBoardTask,
+	moveBoardTasks,
 } from "@/actions/board";
 import { KanbanColumn } from "@/components/kanban-column";
+import { ConfirmLifecycleDialog } from "@/components/modals/confirm-lifecycle-dialog";
 import { CreateListModal } from "@/components/modals/create-list-modal";
 import { CreateTaskModal } from "@/components/modals/create-task-modal";
 import { TaskDetailsPanel } from "@/components/tasks/task-details-panel";
+import { TaskDragOverlay } from "@/components/tasks/task-drag-overlay";
 import { Button } from "@/components/ui/button";
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+	Popover,
+	PopoverHeader,
+	PopoverTitle,
+	PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTaskComments } from "@/hooks/use-task-comments";
 import { cn } from "@/lib/utils";
@@ -26,8 +42,9 @@ import type {
 	BoardLabelOption,
 	BoardList,
 	BoardTask,
-	ComplexityFilter,
+	PriorityFilter,
 	ProjectBoardData,
+	TaskStatusFilter,
 } from "@/types";
 
 interface KanbanBoardProps {
@@ -78,6 +95,7 @@ export function KanbanBoard({
 	initialData,
 }: KanbanBoardProps) {
 	const columns = useBoardStore((state) => state.lists);
+	const draggedTaskIds = useBoardStore((state) => state.draggedTaskIds);
 	const hydrate = useBoardStore((state) => state.hydrate);
 	const addList = useBoardStore((state) => state.addList);
 	const updateList = useBoardStore((state) => state.updateList);
@@ -86,15 +104,27 @@ export function KanbanBoard({
 	const addTask = useBoardStore((state) => state.addTask);
 	const updateTask = useBoardStore((state) => state.updateTask);
 	const beginTaskDrag = useBoardStore((state) => state.beginTaskDrag);
-	const moveTaskOptimistically = useBoardStore(
-		(state) => state.moveTaskOptimistically,
+	const moveTasksOptimistically = useBoardStore(
+		(state) => state.moveTasksOptimistically,
 	);
 	const finishTaskDrag = useBoardStore((state) => state.finishTaskDrag);
 	const replaceLists = useBoardStore((state) => state.replaceLists);
 	const markPersisted = useBoardStore((state) => state.markPersisted);
 	const [query, setQuery] = useState("");
-	const [complexityFilter, setComplexityFilter] =
-		useState<ComplexityFilter>("all");
+	const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+	const [assigneeFilter, setAssigneeFilter] = useState("all");
+	const [labelFilter, setLabelFilter] = useState("all");
+	const [dueDateFilter, setDueDateFilter] = useState("all");
+	const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
+	const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(
+		new Set(),
+	);
+	const [bulkTargetListId, setBulkTargetListId] = useState("");
+	const [isBulkPending, setIsBulkPending] = useState(false);
+	const [pendingListLifecycle, setPendingListLifecycle] = useState<{
+		list: BoardList;
+		action: "archive" | "delete";
+	} | null>(null);
 	const [sortDirection, setSortDirection] = useState<"none" | "asc" | "desc">(
 		"none",
 	);
@@ -109,6 +139,17 @@ export function KanbanBoard({
 	const currentUser =
 		initialData.members.find((member) => member.id === currentUserId) ?? null;
 	const taskComments = useTaskComments(projectId, selectedTaskId);
+	const draggedTaskIdSet = useMemo(
+		() => new Set(draggedTaskIds),
+		[draggedTaskIds],
+	);
+	const draggedTasks = useMemo(
+		() =>
+			columns
+				.flatMap((list) => list.tasks)
+				.filter((task) => draggedTaskIdSet.has(task.id)),
+		[columns, draggedTaskIdSet],
+	);
 
 	// Persists a new project label and makes it available throughout the board.
 	async function addBoardLabel(
@@ -132,15 +173,19 @@ export function KanbanBoard({
 		hydrate(projectId, initialData.lists);
 	}, [hydrate, initialData.lists, projectId]);
 
+	// Clears active-task selection when entering the archived search view.
+	useEffect(() => {
+		if (statusFilter !== "archived") return;
+		setSelectedTaskIds(new Set());
+		setBulkTargetListId("");
+	}, [statusFilter]);
+
 	const displayedColumns = useMemo(() => {
 		const normalizedQuery = query.trim().toLowerCase();
-		if (
-			!normalizedQuery &&
-			complexityFilter === "all" &&
-			sortDirection === "none"
-		) {
-			return columns.filter((column) => !column.archived);
-		}
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const nextWeek = new Date(today);
+		nextWeek.setDate(today.getDate() + 7);
 
 		return columns
 			.filter((column) => !column.archived)
@@ -151,22 +196,153 @@ export function KanbanBoard({
 						`${task.title} ${task.description ?? ""} ${task.assignees.map((member) => member.name).join(" ")}`
 							.toLowerCase()
 							.includes(normalizedQuery);
-					const matchesComplexity =
-						complexityFilter === "all" ||
-						task.complexity.key === complexityFilter;
-					return matchesSearch && matchesComplexity;
+					const isArchived = Boolean(task.archivedAt);
+					const matchesStatus =
+						statusFilter === "archived"
+							? isArchived
+							: !isArchived &&
+							(statusFilter === "all" ||
+								(statusFilter === "open" && !task.completedAt) ||
+								(statusFilter === "completed" && Boolean(task.completedAt)));
+					const matchesPriority =
+						priorityFilter === "all" || task.priority.key === priorityFilter;
+					const matchesAssignee =
+						assigneeFilter === "all" ||
+						(assigneeFilter === "unassigned"
+							? task.assignees.length === 0
+							: task.assignees.some((member) => member.id === assigneeFilter));
+					const matchesLabel =
+						labelFilter === "all" ||
+						(labelFilter === "unlabeled"
+							? task.labels.length === 0
+							: task.labels.some((label) => label.id === labelFilter));
+					const dueDate = task.dueDate
+						? new Date(`${task.dueDate}T00:00:00`)
+						: null;
+					const matchesDueDate =
+						dueDateFilter === "all" ||
+						(dueDateFilter === "none" && !dueDate) ||
+						(dueDateFilter === "overdue" &&
+							Boolean(dueDate && dueDate < today && !task.completedAt)) ||
+						(dueDateFilter === "today" &&
+							Boolean(dueDate && dueDate.getTime() === today.getTime())) ||
+						(dueDateFilter === "week" &&
+							Boolean(dueDate && dueDate >= today && dueDate <= nextWeek));
+					return (
+						matchesSearch &&
+						matchesStatus &&
+						matchesPriority &&
+						matchesAssignee &&
+						matchesLabel &&
+						matchesDueDate
+					);
 				});
 				const tasks =
 					sortDirection === "none"
 						? matchingTasks
 						: [...matchingTasks].sort((left, right) =>
-								sortDirection === "asc"
-									? left.title.localeCompare(right.title)
-									: right.title.localeCompare(left.title),
-							);
+							sortDirection === "asc"
+								? left.title.localeCompare(right.title)
+								: right.title.localeCompare(left.title),
+						);
 				return { ...column, tasks };
 			});
-	}, [columns, complexityFilter, query, sortDirection]);
+	}, [
+		assigneeFilter,
+		columns,
+		dueDateFilter,
+		labelFilter,
+		priorityFilter,
+		query,
+		sortDirection,
+		statusFilter,
+	]);
+
+	// Adds or removes one task from the current bulk selection.
+	function toggleTaskSelection(taskId: string) {
+		setSelectedTaskIds((current) => {
+			const next = new Set(current);
+			if (next.has(taskId)) next.delete(taskId);
+			else next.add(taskId);
+			return next;
+		});
+	}
+
+	// Returns selected task IDs in stable board order for group movement.
+	function orderTaskIds(taskIds: ReadonlySet<string>) {
+		return columns
+			.flatMap((list) => list.tasks)
+			.filter((task) => taskIds.has(task.id))
+			.map((task) => task.id);
+	}
+
+	// Persists the current optimistic placement of a task group in one request.
+	async function persistTaskGroup(taskIds: string[], snapshot: BoardList[]) {
+		const currentLists = useBoardStore.getState().lists;
+		const taskIdSet = new Set(taskIds);
+		const targetList = currentLists.find((list) =>
+			taskIds.every((taskId) => list.tasks.some((task) => task.id === taskId)),
+		);
+		const orderedTasks = targetList?.tasks.filter((task) =>
+			taskIdSet.has(task.id),
+		);
+		const position = orderedTasks?.[0]?.position ?? -1;
+		if (
+			!targetList ||
+			!orderedTasks ||
+			orderedTasks.length !== taskIds.length ||
+			position < 0
+		) {
+			replaceLists(snapshot);
+			setBoardError("The selected tasks could not be positioned.");
+			return false;
+		}
+
+		const formData = new FormData();
+		formData.set("projectId", projectId);
+		for (const task of orderedTasks) formData.append("taskIds", task.id);
+		formData.set("targetListId", targetList.id);
+		formData.set("position", String(position));
+		const result = await moveBoardTasks(formData);
+		if (result.status === "error") {
+			replaceLists(snapshot);
+			setBoardError(result.message);
+			return false;
+		}
+		markPersisted();
+		return true;
+	}
+
+	// Moves selected tasks optimistically and persists them as one group.
+	async function moveSelectedTasks() {
+		if (selectedTaskIds.size === 0 || !bulkTargetListId) return;
+		setIsBulkPending(true);
+		setBoardError(null);
+		const snapshot = useBoardStore.getState().lists;
+		const taskIds = orderTaskIds(selectedTaskIds);
+		moveTasksOptimistically(taskIds, `column:${bulkTargetListId}`);
+		const succeeded = await persistTaskGroup(taskIds, snapshot);
+		setIsBulkPending(false);
+		if (succeeded) {
+			setSelectedTaskIds(new Set());
+			setBulkTargetListId("");
+		}
+	}
+
+	// Restores one archived task from its card action.
+	async function restoreTask(taskId: string) {
+		setSelectedTaskIds(new Set());
+		const formData = new FormData();
+		formData.set("projectId", projectId);
+		formData.set("taskId", taskId);
+		formData.set("action", "restore");
+		const result = await changeBoardTaskLifecycle(formData);
+		if (result.status === "error") setBoardError(result.message);
+		else {
+			updateTask(taskId, { archivedAt: null });
+			markPersisted();
+		}
+	}
 
 	const activeList = columns.find((list) => list.id === activeListId) ?? null;
 	const selectedTask =
@@ -220,12 +396,10 @@ export function KanbanBoard({
 		markPersisted();
 	}
 
-	// Confirms destructive removal before deleting a column and its tasks.
-	function deleteBoardList(listId: string) {
+	// Opens a confirmation dialog before changing a column's lifecycle.
+	function confirmListLifecycle(listId: string, action: "archive" | "delete") {
 		const list = columns.find((item) => item.id === listId);
-		if (!list || !window.confirm(`Delete "${list.title}" and its tasks?`))
-			return;
-		void changeListLifecycle(listId, "delete");
+		if (list) setPendingListLifecycle({ list, action });
 	}
 
 	// Adds a server-confirmed task to the selected workflow column.
@@ -252,47 +426,45 @@ export function KanbanBoard({
 	// Persists the final optimistic task position and rolls back failed moves.
 	async function persistDraggedTask() {
 		const state = useBoardStore.getState();
-		const taskId = state.draggedTaskId;
+		const taskIds = state.draggedTaskIds;
 		const snapshot = state.dragSnapshot;
-		const targetList = state.lists.find((list) =>
-			list.tasks.some((task) => task.id === taskId),
-		);
-		const position =
-			targetList?.tasks.findIndex((task) => task.id === taskId) ?? -1;
-		if (!taskId || !targetList || position < 0) {
+		if (taskIds.length === 0 || !snapshot) {
 			finishTaskDrag(true);
 			return;
 		}
 
 		// Clears the dragging appearance immediately; persistence continues remotely.
 		finishTaskDrag(false);
-		const formData = new FormData();
-		formData.set("projectId", projectId);
-		formData.set("taskId", taskId);
-		formData.set("targetListId", targetList.id);
-		formData.set("position", String(position));
-		const result = await moveBoardTask(formData);
-		if (result.status === "error") {
-			if (snapshot) replaceLists(snapshot);
-			setBoardError(result.message);
-		} else markPersisted();
+		await persistTaskGroup(taskIds, snapshot);
 	}
 
-	const complexityLabel =
-		complexityFilter === "all"
-			? "All"
-			: complexityFilter[0].toUpperCase() + complexityFilter.slice(1);
 	const sortActionLabel =
 		sortDirection === "none"
 			? "Sort task titles ascending"
 			: sortDirection === "asc"
 				? "Sort task titles descending"
 				: "Use manual task order";
+	const activeFilterCount = [
+		priorityFilter,
+		assigneeFilter,
+		labelFilter,
+		dueDateFilter,
+		statusFilter,
+	].filter((value) => value !== "all").length;
+
+	// Restores every task filter to its default active-board view.
+	function clearTaskFilters() {
+		setPriorityFilter("all");
+		setAssigneeFilter("all");
+		setLabelFilter("all");
+		setDueDateFilter("all");
+		setStatusFilter("all");
+	}
 
 	return (
 		<section aria-label="Project Kanban board" data-project-id={projectId}>
-			<div className="mb-5 flex flex-wrap items-center justify-end gap-2">
-				<InputGroup className="h-8 w-48 bg-muted/70 sm:w-56">
+			<div className="mb-5 flex w-full items-center justify-end gap-2">
+				<InputGroup className="h-8 min-w-0 flex-1 bg-muted/70 sm:max-w-56">
 					<InputGroupAddon>
 						<Search aria-hidden="true" />
 					</InputGroupAddon>
@@ -303,25 +475,151 @@ export function KanbanBoard({
 						aria-label="Search tasks"
 					/>
 				</InputGroup>
-				<Button
-					variant="outline"
-					size="sm"
-					className="rounded-full text-xs"
-					onPress={() =>
-						setComplexityFilter((current) =>
-							current === "all"
-								? "high"
-								: current === "high"
-									? "medium"
-									: current === "medium"
-										? "low"
-										: "all",
-						)
-					}
-					aria-label="Filter tasks by complexity"
-				>
-					<Filter data-icon="inline-start" /> {complexityLabel}
-				</Button>
+				<PopoverTrigger>
+					<Button
+						variant="outline"
+						size="icon-sm"
+						className="relative shrink-0 rounded-full"
+						aria-label={
+							activeFilterCount > 0
+								? `Task filters, ${activeFilterCount} active`
+								: "Task filters"
+						}
+					>
+						<Filter />
+						{activeFilterCount > 0 ? (
+							<span className="absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+								{activeFilterCount}
+							</span>
+						) : null}
+					</Button>
+					<Popover
+						placement="bottom end"
+						className="w-[min(20rem,calc(100vw-2rem))] gap-3"
+					>
+						<PopoverHeader className="flex-row items-center justify-between">
+							<PopoverTitle>Filter tasks</PopoverTitle>
+							{activeFilterCount > 0 ? (
+								<Button variant="ghost" size="sm" onPress={clearTaskFilters}>
+									Clear
+								</Button>
+							) : null}
+						</PopoverHeader>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<div className="grid gap-1.5">
+								<p className="text-xs font-medium text-muted-foreground">
+									Priority
+								</p>
+								<Select
+									aria-label="Filter by priority"
+									value={priorityFilter}
+									onChange={(value) =>
+										setPriorityFilter(String(value) as PriorityFilter)
+									}
+								>
+									<SelectTrigger size="sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem id="all">All priorities</SelectItem>
+										<SelectItem id="high">High</SelectItem>
+										<SelectItem id="medium">Medium</SelectItem>
+										<SelectItem id="low">Low</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="grid gap-1.5">
+								<p className="text-xs font-medium text-muted-foreground">
+									Assignee
+								</p>
+								<Select
+									aria-label="Filter by assignee"
+									value={assigneeFilter}
+									onChange={(value) => setAssigneeFilter(String(value))}
+								>
+									<SelectTrigger size="sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem id="all">All assignees</SelectItem>
+										<SelectItem id="unassigned">Unassigned</SelectItem>
+										{initialData.members.map((member) => (
+											<SelectItem key={member.id} id={member.id}>
+												{member.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="grid gap-1.5">
+								<p className="text-xs font-medium text-muted-foreground">
+									Label
+								</p>
+								<Select
+									aria-label="Filter by label"
+									value={labelFilter}
+									onChange={(value) => setLabelFilter(String(value))}
+								>
+									<SelectTrigger size="sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem id="all">All labels</SelectItem>
+										<SelectItem id="unlabeled">No labels</SelectItem>
+										{boardLabels.map((label) => (
+											<SelectItem key={label.id} id={label.id}>
+												{label.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="grid gap-1.5">
+								<p className="text-xs font-medium text-muted-foreground">
+									Due date
+								</p>
+								<Select
+									aria-label="Filter by due date"
+									value={dueDateFilter}
+									onChange={(value) => setDueDateFilter(String(value))}
+								>
+									<SelectTrigger size="sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem id="all">Any due date</SelectItem>
+										<SelectItem id="overdue">Overdue</SelectItem>
+										<SelectItem id="today">Due today</SelectItem>
+										<SelectItem id="week">Next 7 days</SelectItem>
+										<SelectItem id="none">No due date</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="grid gap-1.5 sm:col-span-2">
+								<p className="text-xs font-medium text-muted-foreground">
+									Status
+								</p>
+								<Select
+									aria-label="Filter by task status"
+									value={statusFilter}
+									onChange={(value) =>
+										setStatusFilter(String(value) as TaskStatusFilter)
+									}
+								>
+									<SelectTrigger size="sm">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem id="all">All active</SelectItem>
+										<SelectItem id="open">Open</SelectItem>
+										<SelectItem id="completed">Completed</SelectItem>
+										<SelectItem id="archived">Archived</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+					</Popover>
+				</PopoverTrigger>
 				<TooltipTrigger delay={400}>
 					<Button
 						variant="outline"
@@ -350,6 +648,53 @@ export function KanbanBoard({
 				</TooltipTrigger>
 			</div>
 
+			{selectedTaskIds.size > 0 ? (
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-3 py-2">
+					<p className="text-sm font-medium">{selectedTaskIds.size} selected</p>
+					<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+						<Select
+							aria-label="Move selected tasks to column"
+							value={bulkTargetListId || null}
+							onChange={(value) => setBulkTargetListId(String(value))}
+							className="min-w-40 max-w-56 flex-1"
+						>
+							<SelectTrigger size="sm">
+								<SelectValue>Select a column</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{columns
+									.filter((list) => !list.archived)
+									.map((list) => (
+										<SelectItem key={list.id} id={list.id}>
+											{list.title}
+										</SelectItem>
+									))}
+							</SelectContent>
+						</Select>
+						<Button
+							variant="outline"
+							size="sm"
+							isDisabled={isBulkPending || !bulkTargetListId}
+							onPress={() => void moveSelectedTasks()}
+						>
+							<MoveRight data-icon="inline-start" />
+							{isBulkPending ? "Moving…" : "Move selected"}
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label="Clear task selection"
+							onPress={() => {
+								setSelectedTaskIds(new Set());
+								setBulkTargetListId("");
+							}}
+						>
+							<X />
+						</Button>
+					</div>
+				</div>
+			) : null}
+
 			{boardError ? (
 				<p className="mb-4 text-sm text-destructive" role="alert">
 					{boardError}
@@ -358,7 +703,12 @@ export function KanbanBoard({
 
 			<DragDropProvider
 				onDragStart={({ operation }) => {
-					if (operation.source) beginTaskDrag(String(operation.source.id));
+					if (!operation.source) return;
+					const taskId = String(operation.source.id);
+					const taskIds = selectedTaskIds.has(taskId)
+						? orderTaskIds(selectedTaskIds)
+						: [taskId];
+					beginTaskDrag(taskId, taskIds);
 				}}
 				onDragEnd={({ canceled, operation }) => {
 					if (canceled || !operation.source || !operation.target) {
@@ -367,15 +717,13 @@ export function KanbanBoard({
 					}
 
 					// Reorders once on drop to avoid layout-measurement loops while dragging.
-					moveTaskOptimistically(
-						String(operation.source.id),
-						String(operation.target.id),
-					);
+					const taskIds = useBoardStore.getState().draggedTaskIds;
+					moveTasksOptimistically(taskIds, String(operation.target.id));
 					void persistDraggedTask();
 				}}
 			>
 				{displayedColumns.length ? (
-					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(16rem,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80 lg:auto-cols-[19rem] xl:auto-cols-80">
+					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(16rem,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80 lg:auto-cols-76 xl:auto-cols-80">
 						{displayedColumns.map((column) => (
 							<KanbanColumn
 								key={column.id}
@@ -383,10 +731,16 @@ export function KanbanBoard({
 								onAddTask={openCreateTask}
 								onAddList={openAddList}
 								onEdit={openEditList}
-								onArchive={(id) => void changeListLifecycle(id, "archive")}
-								onDelete={deleteBoardList}
+								onArchive={(id) => confirmListLifecycle(id, "archive")}
+								onDelete={(id) => confirmListLifecycle(id, "delete")}
 								onOpenTask={setSelectedTaskId}
 								openingTaskId={openingTaskId}
+								selectedTaskIds={selectedTaskIds}
+								draggedTaskIds={draggedTaskIdSet}
+								onToggleTaskSelection={
+									statusFilter === "archived" ? undefined : toggleTaskSelection
+								}
+								onRestoreTask={(id) => void restoreTask(id)}
 							/>
 						))}
 					</div>
@@ -403,12 +757,15 @@ export function KanbanBoard({
 						</div>
 					</div>
 				)}
+				<DragOverlay>
+					<TaskDragOverlay tasks={draggedTasks} />
+				</DragOverlay>
 			</DragDropProvider>
 
 			<CreateTaskModal
 				projectId={projectId}
 				list={activeList}
-				complexityOptions={initialData.complexityOptions}
+				priorityOptions={initialData.priorityOptions}
 				members={initialData.members}
 				labels={boardLabels}
 				isOpen={activeListId !== null}
@@ -430,7 +787,7 @@ export function KanbanBoard({
 				projectId={projectId}
 				task={selectedTask}
 				lists={columns.filter((list) => !list.archived)}
-				complexityOptions={initialData.complexityOptions}
+				priorityOptions={initialData.priorityOptions}
 				members={initialData.members}
 				labels={boardLabels}
 				comments={taskComments.comments}
@@ -446,6 +803,24 @@ export function KanbanBoard({
 				}}
 				onSelectTask={setSelectedTaskId}
 			/>
+			{pendingListLifecycle && (
+				<ConfirmLifecycleDialog
+					action={pendingListLifecycle.action}
+					itemName={pendingListLifecycle.list.title}
+					itemType="column"
+					isOpen
+					onOpenChange={(open) => {
+						if (!open) setPendingListLifecycle(null);
+					}}
+					onConfirm={() => {
+						void changeListLifecycle(
+							pendingListLifecycle.list.id,
+							pendingListLifecycle.action,
+						);
+						setPendingListLifecycle(null);
+					}}
+				/>
+			)}
 		</section>
 	);
 }

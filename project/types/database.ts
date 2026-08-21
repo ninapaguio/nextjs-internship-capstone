@@ -1,8 +1,8 @@
 import type {
 	comments,
-	complexityOptions,
 	labels,
 	lists,
+	priorityOptions,
 	projectMembers,
 	projects,
 	taskActivities,
@@ -23,7 +23,7 @@ export type Project = typeof projects.$inferSelect;
 export type ProjectMember = typeof projectMembers.$inferSelect;
 export type List = typeof lists.$inferSelect;
 export type Label = typeof labels.$inferSelect;
-export type ComplexityOption = typeof complexityOptions.$inferSelect;
+export type PriorityOption = typeof priorityOptions.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type TaskAssignee = typeof taskAssignees.$inferSelect;
 export type TaskDependency = typeof taskDependencies.$inferSelect;

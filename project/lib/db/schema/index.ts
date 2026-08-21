@@ -8,17 +8,17 @@ export {
 } from "./enums";
 
 export {
-	complexityOptions,
 	labels,
 	lists,
+	priorityOptions,
 	projects,
 } from "./projects";
 
 export {
 	commentsRelations,
-	complexityOptionsRelations,
 	labelsRelations,
 	listsRelations,
+	priorityOptionsRelations,
 	projectInvitationsRelations,
 	projectMembersRelations,
 	projectsRelations,

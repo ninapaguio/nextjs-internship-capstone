@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { KanbanBoard } from "@/components/kanban-board";
+import { InviteProjectMemberModal } from "@/components/modals/invite-project-member-modal";
 import { LinkButton } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
@@ -53,7 +54,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 	return (
 		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
 			{/* Project Header */}
-			<header className="flex min-h-14 items-center justify-between gap-4 border-b py-3">
+			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex min-w-0 items-center gap-3">
 					<TooltipTrigger delay={400}>
 						<Link
@@ -68,7 +69,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 					</TooltipTrigger>
 				</div>
 
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
+					{project.accessRole === "owner" ? (
+						<InviteProjectMemberModal
+							projectId={project.id}
+							projectName={project.name}
+						/>
+					) : null}
 					{project.teamId ? (
 						<LinkButton
 							href={`/team/${project.teamId}`}

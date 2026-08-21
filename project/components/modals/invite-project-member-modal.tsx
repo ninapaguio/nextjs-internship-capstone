@@ -54,15 +54,13 @@ export function InviteProjectMemberModal({
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
 			<Button size="sm" variant="outline">
-				Add member
+				Invite member
 			</Button>
 			<Dialog className="sm:max-w-md">
 				<DialogHeader className="pr-10">
 					<DialogTitle>Add a project member</DialogTitle>
 					<DialogDescription>
-						Send an invitation to {projectName}. The invitee must join before
-						they receive access; the first accepted member automatically turns
-						this into a team project.
+						Send an invitation to {projectName}.
 					</DialogDescription>
 				</DialogHeader>
 				<form ref={formRef} action={formAction} className="space-y-5">

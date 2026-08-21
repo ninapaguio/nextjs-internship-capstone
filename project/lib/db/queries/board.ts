@@ -5,9 +5,9 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
 	comments,
-	complexityOptions,
 	labels,
 	lists,
+	priorityOptions,
 	projectMembers,
 	projects,
 	taskActivities,
@@ -21,14 +21,14 @@ import type {
 	BoardActivityItem,
 	BoardActivityType,
 	BoardComment,
-	BoardComplexityOption,
 	BoardLabelOption,
 	BoardMemberOption,
+	BoardPriorityOption,
 	ProjectBoardData,
 } from "@/types";
 
-// Narrows database complexity keys to the three supported board values.
-function toComplexityKey(key: string): BoardComplexityOption["key"] {
+// Narrows database priority keys to the three supported board values.
+function toPriorityKey(key: string): BoardPriorityOption["key"] {
 	if (key === "low" || key === "high") return key;
 	return "medium";
 }
@@ -102,8 +102,8 @@ function toBoardActivityType(activity: {
 			return "description_changed";
 		case "due_date":
 			return "due_date_changed";
-		case "complexity":
-			return "complexity_changed";
+		case "priority":
+			return "priority_changed";
 		case "label":
 			return activity.newValue === null ? "label_removed" : "label_added";
 		case "dependency":
@@ -181,11 +181,11 @@ function getMemberName(member: {
 	);
 }
 
-// Loads active lists, tasks, labels, complexity options, and project members.
+// Loads active lists, tasks, labels, priority options, and project members.
 export async function getProjectBoardData(
 	projectId: string,
 ): Promise<ProjectBoardData> {
-	const [listRows, taskRows, complexityRows, labelRows, projectMemberRows] =
+	const [listRows, taskRows, priorityRows, labelRows, projectMemberRows] =
 		await Promise.all([
 			db
 				.select({
@@ -212,9 +212,10 @@ export async function getProjectBoardData(
 					dueDate: tasks.dueDate,
 					position: tasks.position,
 					completedAt: tasks.completedAt,
-					complexityId: complexityOptions.id,
-					complexityKey: complexityOptions.key,
-					complexityLabel: complexityOptions.label,
+					archivedAt: tasks.archivedAt,
+					priorityId: priorityOptions.id,
+					priorityKey: priorityOptions.key,
+					priorityLabel: priorityOptions.label,
 					commentsCount: sql<number>`(
 						select count(*)::int from ${comments}
 						where ${comments.taskId} = ${tasks.id}
@@ -222,27 +223,18 @@ export async function getProjectBoardData(
 					)`,
 				})
 				.from(tasks)
-				.innerJoin(
-					complexityOptions,
-					eq(tasks.complexityId, complexityOptions.id),
-				)
-				.where(
-					and(
-						eq(tasks.projectId, projectId),
-						isNull(tasks.archivedAt),
-						isNull(tasks.deletedAt),
-					),
-				)
+				.innerJoin(priorityOptions, eq(tasks.priorityId, priorityOptions.id))
+				.where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
 				.orderBy(asc(tasks.position)),
 			db
 				.select({
-					id: complexityOptions.id,
-					key: complexityOptions.key,
-					label: complexityOptions.label,
+					id: priorityOptions.id,
+					key: priorityOptions.key,
+					label: priorityOptions.label,
 				})
-				.from(complexityOptions)
-				.where(eq(complexityOptions.isActive, true))
-				.orderBy(asc(complexityOptions.sortOrder)),
+				.from(priorityOptions)
+				.where(eq(priorityOptions.isActive, true))
+				.orderBy(asc(priorityOptions.sortOrder)),
 			db
 				.select({ id: labels.id, name: labels.name, color: labels.color })
 				.from(labels)
@@ -347,14 +339,15 @@ export async function getProjectBoardData(
 			listId: task.listId,
 			title: task.title,
 			description: task.description,
-			complexity: {
-				id: task.complexityId,
-				key: toComplexityKey(task.complexityKey),
-				label: task.complexityLabel,
+			priority: {
+				id: task.priorityId,
+				key: toPriorityKey(task.priorityKey),
+				label: task.priorityLabel,
 			},
 			dueDate: task.dueDate,
 			position: task.position,
 			completedAt: task.completedAt?.toISOString() ?? null,
+			archivedAt: task.archivedAt?.toISOString() ?? null,
 			assignees: assigneesByTask.get(task.id) ?? [],
 			labels: labelsByTask.get(task.id) ?? [],
 			dependencyIds: dependencyIdsByTask.get(task.id) ?? [],
@@ -368,9 +361,9 @@ export async function getProjectBoardData(
 			...list,
 			tasks: tasksByList.get(list.id) ?? [],
 		})),
-		complexityOptions: complexityRows.map((option) => ({
+		priorityOptions: priorityRows.map((option) => ({
 			id: option.id,
-			key: toComplexityKey(option.key),
+			key: toPriorityKey(option.key),
 			label: option.label,
 		})),
 		members: [...membersById.values()].sort((left, right) =>

@@ -37,6 +37,7 @@ import {
 	createBoardComment,
 	updateBoardTask,
 } from "@/actions/board";
+import { ConfirmLifecycleDialog } from "@/components/modals/confirm-lifecycle-dialog";
 import { TaskLabelSelect } from "@/components/tasks/task-label-select";
 import {
 	Avatar,
@@ -81,10 +82,10 @@ import type {
 	BoardActivityItem,
 	BoardActivityType,
 	BoardComment,
-	BoardComplexityOption,
 	BoardLabelOption,
 	BoardList,
 	BoardMemberOption,
+	BoardPriorityOption,
 	BoardTask,
 	CreateBoardCommentActionState,
 	EditableTaskField,
@@ -95,7 +96,7 @@ interface TaskDetailsPanelProps {
 	projectId: string;
 	task: BoardTask | null;
 	lists: BoardList[];
-	complexityOptions: BoardComplexityOption[];
+	priorityOptions: BoardPriorityOption[];
 	members: BoardMemberOption[];
 	labels: BoardLabelOption[];
 	isOpen: boolean;
@@ -119,7 +120,7 @@ const initialCommentState: CreateBoardCommentActionState = {
 	message: "",
 };
 
-const complexityStyles: Record<BoardComplexityOption["key"], string> = {
+const priorityStyles: Record<BoardPriorityOption["key"], string> = {
 	low: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
 	medium: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
 	high: "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
@@ -186,7 +187,7 @@ const activityIcons: Record<BoardActivityType, LucideIcon> = {
 	dependency_added: Hourglass,
 	dependency_removed: Trash2,
 	due_date_changed: CalendarClock,
-	complexity_changed: Gauge,
+	priority_changed: Gauge,
 	description_changed: FileText,
 	completed: CheckCircle2,
 	reopened: RotateCcw,
@@ -235,12 +236,12 @@ function describeActivity(item: BoardActivityItem) {
 				: item.detail
 					? `set the due date to ${formatDependencyDueDate(item.detail)}`
 					: "cleared the due date";
-		case "complexity_changed":
+		case "priority_changed":
 			return item.previousDetail && item.detail
-				? `changed complexity from ${item.previousDetail} to ${item.detail}`
+				? `changed priority from ${item.previousDetail} to ${item.detail}`
 				: item.detail
-					? `set complexity to ${item.detail}`
-					: "changed the complexity";
+					? `set priority to ${item.detail}`
+					: "changed the priority";
 		case "description_changed":
 			return "updated the description";
 		case "completed":
@@ -803,7 +804,7 @@ export function TaskDetailsPanel({
 	projectId,
 	task,
 	lists,
-	complexityOptions,
+	priorityOptions,
 	members,
 	labels,
 	isOpen,
@@ -826,7 +827,7 @@ export function TaskDetailsPanel({
 	const [description, setDescription] = useState("");
 	const [dueDate, setDueDate] = useState<CalendarDate | null>(null);
 	const [selectedListId, setSelectedListId] = useState("");
-	const [selectedComplexityId, setSelectedComplexityId] = useState("");
+	const [selectedPriorityId, setSelectedPriorityId] = useState("");
 	const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
 	const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
 	const [selectedDependencyIds, setSelectedDependencyIds] = useState<string[]>(
@@ -842,6 +843,9 @@ export function TaskDetailsPanel({
 	const [feedTab, setFeedTab] = useState<TaskFeedTab>("comments");
 	const [panelError, setPanelError] = useState<string | null>(null);
 	const [isLifecyclePending, setIsLifecyclePending] = useState(false);
+	const [lifecycleAction, setLifecycleAction] = useState<
+		"archive" | "delete" | null
+	>(null);
 	const [localLabels, setLocalLabels] = useState<BoardLabelOption[]>(labels);
 	const taskActivity = useTaskActivity(
 		projectId,
@@ -859,7 +863,7 @@ export function TaskDetailsPanel({
 		setDescription(task?.description ?? "");
 		setDueDate(task?.dueDate ? parseDate(task.dueDate) : null);
 		setSelectedListId(task?.listId ?? "");
-		setSelectedComplexityId(task?.complexity.id ?? "");
+		setSelectedPriorityId(task?.priority.id ?? "");
 		setSelectedAssigneeIds(task?.assignees.map((member) => member.id) ?? []);
 		setSelectedLabelIds(
 			task?.labels.slice(0, 3).map((label) => label.id) ?? [],
@@ -898,8 +902,8 @@ export function TaskDetailsPanel({
 		): Promise<BoardActionState> => {
 			if (!task) return { status: "error", message: "No task is selected." };
 			const snapshot = useBoardStore.getState().lists;
-			const complexity = complexityOptions.find(
-				(option) => option.id === selectedComplexityId,
+			const priority = priorityOptions.find(
+				(option) => option.id === selectedPriorityId,
 			);
 			const assignees = members.filter((member) =>
 				selectedAssigneeIds.includes(member.id),
@@ -911,7 +915,7 @@ export function TaskDetailsPanel({
 				listId: selectedListId,
 				title,
 				description: description || null,
-				complexity: complexity ?? task.complexity,
+				priority: priority ?? task.priority,
 				dueDate: dueDate?.toString() ?? null,
 				completedAt: task.completedAt,
 				assignees,
@@ -987,9 +991,9 @@ export function TaskDetailsPanel({
 	);
 	const isBlocked = incompleteDependencies.length > 0;
 	const selectedList = lists.find((list) => list.id === selectedListId);
-	const selectedComplexity =
-		complexityOptions.find((option) => option.id === selectedComplexityId) ??
-		task.complexity;
+	const selectedPriority =
+		priorityOptions.find((option) => option.id === selectedPriorityId) ??
+		task.priority;
 
 	// Toggles a dependency in the direction selected by the user.
 	function toggleDependency(dependencyId: string) {
@@ -1042,12 +1046,8 @@ export function TaskDetailsPanel({
 		}
 	}
 
-	// Archives or deletes the selected task after the Server Action succeeds.
-	async function handleTaskLifecycle(action: "archive" | "delete") {
-		const actionLabel = action === "archive" ? "Archive" : "Delete";
-		if (!window.confirm(`${actionLabel} “${activeTask.title}”?`)) {
-			return;
-		}
+	// Archives, restores, or deletes the selected task after confirmation and persistence.
+	async function handleTaskLifecycle(action: "archive" | "restore" | "delete") {
 		setIsLifecyclePending(true);
 		setPanelError(null);
 		const formData = new FormData();
@@ -1060,7 +1060,13 @@ export function TaskDetailsPanel({
 			setPanelError(result.message);
 			return;
 		}
-		removeTaskFromStore(activeTask.id);
+		setLifecycleAction(null);
+		if (action === "delete") removeTaskFromStore(activeTask.id);
+		else {
+			updateTaskInStore(activeTask.id, {
+				archivedAt: action === "archive" ? new Date().toISOString() : null,
+			});
+		}
 		markPersisted();
 		onOpenChange(false);
 	}
@@ -1079,7 +1085,9 @@ export function TaskDetailsPanel({
 						type="button"
 						variant="outline"
 						size="sm"
-						isDisabled={!task.completedAt && isBlocked}
+						isDisabled={
+							Boolean(task.archivedAt) || (!task.completedAt && isBlocked)
+						}
 						onPress={handleCompletion}
 					>
 						<Check data-icon="inline-start" />
@@ -1100,14 +1108,22 @@ export function TaskDetailsPanel({
 								<Tooltip placement="bottom">Task options</Tooltip>
 							</TooltipTrigger>
 							<DropdownMenu placement="bottom end">
-								<DropdownMenuItem
-									onAction={() => void handleTaskLifecycle("archive")}
-								>
-									<Archive /> Archive task
-								</DropdownMenuItem>
+								{task.archivedAt ? (
+									<DropdownMenuItem
+										onAction={() => void handleTaskLifecycle("restore")}
+									>
+										<Archive /> Restore task
+									</DropdownMenuItem>
+								) : (
+									<DropdownMenuItem
+										onAction={() => setLifecycleAction("archive")}
+									>
+										<Archive /> Archive task
+									</DropdownMenuItem>
+								)}
 								<DropdownMenuItem
 									className="text-destructive"
-									onAction={() => void handleTaskLifecycle("delete")}
+									onAction={() => setLifecycleAction("delete")}
 								>
 									<Trash2 /> Delete task
 								</DropdownMenuItem>
@@ -1175,11 +1191,7 @@ export function TaskDetailsPanel({
 						<input type="hidden" name="replaceLabels" value="true" />
 						<input type="hidden" name="replaceDependencies" value="true" />
 						<input type="hidden" name="replaceBlockingTasks" value="true" />
-						<input
-							type="hidden"
-							name="complexityId"
-							value={selectedComplexityId}
-						/>
+						<input type="hidden" name="priorityId" value={selectedPriorityId} />
 						<input
 							type="hidden"
 							name="dueDate"
@@ -1456,18 +1468,18 @@ export function TaskDetailsPanel({
 							</PopoverTrigger>
 						</DetailRow>
 
-						<DetailRow label="Complexity">
-							{editingField === "complexity" ? (
+						<DetailRow label="Priority">
+							{editingField === "priority" ? (
 								<Select
-									aria-label="Complexity"
-									value={selectedComplexityId}
-									onChange={(value) => setSelectedComplexityId(String(value))}
+									aria-label="Priority"
+									value={selectedPriorityId}
+									onChange={(value) => setSelectedPriorityId(String(value))}
 								>
 									<SelectTrigger className="w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{complexityOptions.map((option) => (
+										{priorityOptions.map((option) => (
 											<SelectItem key={option.id} id={option.id}>
 												{option.label}
 											</SelectItem>
@@ -1479,16 +1491,16 @@ export function TaskDetailsPanel({
 									type="button"
 									variant="ghost"
 									className="h-8 px-2"
-									onPress={() => setEditingField("complexity")}
+									onPress={() => setEditingField("priority")}
 								>
 									<Badge
 										variant="ghost"
 										className={cn(
 											"min-w-20",
-											complexityStyles[selectedComplexity.key],
+											priorityStyles[selectedPriority.key],
 										)}
 									>
-										{selectedComplexity.label}
+										{selectedPriority.label}
 									</Badge>
 								</Button>
 							)}
@@ -1571,6 +1583,19 @@ export function TaskDetailsPanel({
 					onRetryActivity={() => void taskActivity.refetch()}
 				/>
 			</div>
+			{lifecycleAction && (
+				<ConfirmLifecycleDialog
+					action={lifecycleAction}
+					itemName={activeTask.title}
+					itemType="task"
+					isOpen
+					isPending={isLifecyclePending}
+					onOpenChange={(open) => {
+						if (!open) setLifecycleAction(null);
+					}}
+					onConfirm={() => void handleTaskLifecycle(lifecycleAction)}
+				/>
+			)}
 		</SheetContent>
 	);
 }

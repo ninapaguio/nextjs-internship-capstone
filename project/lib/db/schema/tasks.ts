@@ -15,7 +15,7 @@ import {
 	varchar,
 } from "drizzle-orm/pg-core";
 import { activityAction } from "./enums";
-import { complexityOptions, labels, lists, projects } from "./projects";
+import { labels, lists, priorityOptions, projects } from "./projects";
 import { users } from "./users";
 
 // Work items displayed inside a project's Kanban columns
@@ -34,9 +34,9 @@ export const tasks = pgTable(
 			.references(() => users.id, { onDelete: "restrict" }),
 		title: varchar("title", { length: 200 }).notNull(),
 		description: text("description"),
-		complexityId: uuid("complexity_id")
+		priorityId: uuid("priority_id")
 			.notNull()
-			.references(() => complexityOptions.id, { onDelete: "restrict" }),
+			.references(() => priorityOptions.id, { onDelete: "restrict" }),
 		dueDate: date("due_date"),
 		position: integer("position").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -53,7 +53,7 @@ export const tasks = pgTable(
 		index("tasks_project_id_idx").on(table.projectId),
 		index("tasks_list_position_idx").on(table.listId, table.position),
 		index("tasks_created_by_id_idx").on(table.createdById),
-		index("tasks_complexity_id_idx").on(table.complexityId),
+		index("tasks_priority_id_idx").on(table.priorityId),
 		index("tasks_due_date_idx").on(table.dueDate),
 		index("tasks_active_idx")
 			.on(table.projectId)

@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from "react";
 import type { RangeValue } from "react-aria-components";
 import { changeProjectLifecycle, updateProject } from "@/actions/projects";
+import { ConfirmLifecycleDialog } from "@/components/modals/confirm-lifecycle-dialog";
 import { Button } from "@/components/ui/button";
 import { RangeCalendar } from "@/components/ui/calendar";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -67,8 +68,9 @@ export function ProjectDetailsPanel({
 	onRemove,
 }: ProjectDetailsPanelProps) {
 	const [error, setError] = useState<string | null>(null);
-	const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] =
-		useState(false);
+	const [lifecycleAction, setLifecycleAction] = useState<
+		"archive" | "delete" | null
+	>(null);
 	const [dateRange, setDateRange] = useState<RangeValue<CalendarDate> | null>(
 		() => createSavedDateRange(project),
 	);
@@ -76,7 +78,7 @@ export function ProjectDetailsPanel({
 	useEffect(() => {
 		setDateRange(createSavedDateRange(project));
 		setError(null);
-		setIsDeleteConfirmationOpen(false);
+		setLifecycleAction(null);
 	}, [project]);
 
 	if (!project) return null;
@@ -110,6 +112,7 @@ export function ProjectDetailsPanel({
 	// Submits an archive or soft-delete operation with optimistic card removal
 	function handleLifecycle(action: "archive" | "delete") {
 		setError(null);
+		setLifecycleAction(null);
 		const formData = new FormData();
 		formData.set("projectId", activeProject.id);
 		formData.set("action", action);
@@ -211,48 +214,36 @@ export function ProjectDetailsPanel({
 						<Button
 							type="button"
 							variant="outline"
-							onPress={() => handleLifecycle("archive")}
+							onPress={() => setLifecycleAction("archive")}
 						>
 							Archive
 						</Button>
 						<Button
 							type="button"
 							variant="destructive"
-							onPress={() => setIsDeleteConfirmationOpen(true)}
+							onPress={() => setLifecycleAction("delete")}
 						>
 							Delete
 						</Button>
 					</div>
-					{isDeleteConfirmationOpen && (
-						<div className="space-y-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
-							<p className="text-sm">
-								Delete <strong>{project.name}</strong>? It will be archived and
-								soft-deleted from the application.
-							</p>
-							<div className="flex justify-end gap-2">
-								<Button
-									type="button"
-									variant="ghost"
-									onPress={() => setIsDeleteConfirmationOpen(false)}
-								>
-									Cancel
-								</Button>
-								<Button
-									type="button"
-									variant="destructive"
-									onPress={() => handleLifecycle("delete")}
-								>
-									Confirm delete
-								</Button>
-							</div>
-						</div>
-					)}
 					<p className="text-xs text-muted-foreground">
 						Archive hides the project and allows future restoration. <br />
 						Delete performs a recoverable soft deletion.
 					</p>
 				</section>
 			</div>
+			{lifecycleAction && (
+				<ConfirmLifecycleDialog
+					action={lifecycleAction}
+					itemName={activeProject.name}
+					itemType="project"
+					isOpen
+					onOpenChange={(open) => {
+						if (!open) setLifecycleAction(null);
+					}}
+					onConfirm={() => handleLifecycle(lifecycleAction)}
+				/>
+			)}
 		</SheetContent>
 	);
 }

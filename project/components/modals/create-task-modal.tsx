@@ -26,17 +26,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type {
 	BoardActionState,
-	BoardComplexityOption,
 	BoardLabelOption,
 	BoardList,
 	BoardMemberOption,
+	BoardPriorityOption,
 	BoardTask,
 } from "@/types";
 
 interface CreateTaskModalProps {
 	projectId: string;
 	list: BoardList | null;
-	complexityOptions: BoardComplexityOption[];
+	priorityOptions: BoardPriorityOption[];
 	members: BoardMemberOption[];
 	labels: BoardLabelOption[];
 	isOpen: boolean;
@@ -106,7 +106,7 @@ function formatDueDate(date: CalendarDate | null) {
 export function CreateTaskModal({
 	projectId,
 	list,
-	complexityOptions,
+	priorityOptions,
 	members,
 	labels,
 	isOpen,
@@ -114,10 +114,9 @@ export function CreateTaskModal({
 	onCreateTask,
 	onCreateLabel,
 }: CreateTaskModalProps) {
-	const defaultComplexity =
-		complexityOptions[1] ?? complexityOptions[0] ?? null;
+	const defaultPriority = priorityOptions[1] ?? priorityOptions[0] ?? null;
 	const [dueDate, setDueDate] = useState<CalendarDate | null>(null);
-	const [complexityId, setComplexityId] = useState(defaultComplexity?.id ?? "");
+	const [priorityId, setPriorityId] = useState(defaultPriority?.id ?? "");
 	const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
 	const [labelIds, setLabelIds] = useState<string[]>([]);
 
@@ -131,11 +130,11 @@ export function CreateTaskModal({
 			const result = await createBoardTask(previousState, formData);
 			if (result.status !== "success" || !result.data) return result;
 
-			const complexity = complexityOptions.find(
-				(option) => option.id === complexityId,
+			const priority = priorityOptions.find(
+				(option) => option.id === priorityId,
 			);
-			if (!complexity) {
-				return { status: "error", message: "Select a valid complexity." };
+			if (!priority) {
+				return { status: "error", message: "Select a valid priority." };
 			}
 
 			onCreateTask({
@@ -143,10 +142,11 @@ export function CreateTaskModal({
 				listId: list.id,
 				title: String(formData.get("title") ?? ""),
 				description: String(formData.get("description") ?? "") || null,
-				complexity,
+				priority,
 				dueDate: dueDate?.toString() ?? null,
 				position: list.tasks.length,
 				completedAt: null,
+				archivedAt: null,
 				assignees: members.filter((member) => assigneeIds.includes(member.id)),
 				labels: labels.filter((label) => labelIds.includes(label.id)),
 				dependencyIds: [],
@@ -166,7 +166,7 @@ export function CreateTaskModal({
 			<form action={formAction} className="grid gap-5">
 				<input type="hidden" name="projectId" value={projectId} />
 				<input type="hidden" name="listId" value={list?.id ?? ""} />
-				<input type="hidden" name="complexityId" value={complexityId} />
+				<input type="hidden" name="priorityId" value={priorityId} />
 				<input type="hidden" name="dueDate" value={dueDate?.toString() ?? ""} />
 				{assigneeIds.map((id) => (
 					<input key={id} type="hidden" name="assigneeIds" value={id} />
@@ -218,21 +218,21 @@ export function CreateTaskModal({
 					<div className="grid gap-4 sm:grid-cols-2">
 						<label
 							className="grid gap-2 text-sm font-medium"
-							htmlFor="task-complexity"
+							htmlFor="task-priority"
 						>
-							<span>Complexity</span>
+							<span>Priority</span>
 							<Select
 								className="w-full"
-								id="task-complexity"
-								aria-label="Complexity"
-								value={complexityId}
-								onChange={(value) => setComplexityId(String(value))}
+								id="task-priority"
+								aria-label="Priority"
+								value={priorityId}
+								onChange={(value) => setPriorityId(String(value))}
 							>
 								<SelectTrigger className="w-full">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									{complexityOptions.map((option) => (
+									{priorityOptions.map((option) => (
 										<SelectItem key={option.id} id={option.id}>
 											{option.label}
 										</SelectItem>

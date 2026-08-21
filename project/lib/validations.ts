@@ -329,7 +329,7 @@ const taskFields = {
 		10_000,
 		"Task description must be 10,000 characters or fewer",
 	),
-	complexityId: uuidSchema,
+	priorityId: uuidSchema,
 	dueDate: optionalDateSchema,
 	position: z.coerce
 		.number()
@@ -353,7 +353,7 @@ export const updateTaskSchema = z
 			10_000,
 			"Task description must be 10,000 characters or fewer",
 		),
-		complexityId: taskFields.complexityId.optional(),
+		priorityId: taskFields.priorityId.optional(),
 		dueDate: nullableDateSchema,
 		assigneeIds: taskFields.assigneeIds.optional(),
 		labelIds: taskFields.labelIds.optional(),
@@ -382,7 +382,7 @@ export const updateBoardTaskSchema = z
 			10_000,
 			"Task description must be 10,000 characters or fewer",
 		),
-		complexityId: taskFields.complexityId.optional(),
+		priorityId: taskFields.priorityId.optional(),
 		dueDate: nullableDateSchema,
 		completed: z.union([z.boolean(), z.stringbool()]).optional(),
 		assigneeIds: taskFields.assigneeIds.optional(),
@@ -408,7 +408,7 @@ export const taskLifecycleSchema = z
 	.object({
 		projectId: uuidSchema,
 		taskId: uuidSchema,
-		action: z.enum(["archive", "delete"]),
+		action: z.enum(["archive", "restore", "delete"]),
 	})
 	.strict();
 
@@ -423,6 +423,19 @@ export const moveTaskSchema = z
 			.min(0, "Position cannot be negative"),
 	})
 	.strict();
+
+export const moveTasksSchema = z
+	.object({
+		projectId: uuidSchema,
+		taskIds: z.array(uuidSchema).min(1).max(10),
+		targetListId: uuidSchema,
+		position: z.coerce.number().int().min(0),
+	})
+	.strict()
+	.refine((input) => new Set(input.taskIds).size === input.taskIds.length, {
+		message: "A task cannot be moved twice",
+		path: ["taskIds"],
+	});
 
 export const taskCompletionSchema = z
 	.object({
@@ -518,7 +531,7 @@ export const taskFilterSchema = z
 		projectId: uuidSchema,
 		query: optionalText(100, "Search query is too long"),
 		listId: uuidSchema.optional(),
-		complexityId: uuidSchema.optional(),
+		priorityId: uuidSchema.optional(),
 		assigneeId: uuidSchema.optional(),
 		labelId: uuidSchema.optional(),
 		completed: booleanQuerySchema.optional(),
