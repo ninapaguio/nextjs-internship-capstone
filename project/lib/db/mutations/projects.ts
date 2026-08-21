@@ -3,14 +3,22 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, exists, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectMembers, projects, teams } from "@/lib/db/schema";
+import { lists, projectMembers, projects, teams } from "@/lib/db/schema";
 import type { CreateProjectInput, UpdateProjectInput } from "@/types";
 
 type InsertProjectInput = CreateProjectInput & {
 	createdById: string;
 };
 
-// Inserts a solo project and grants its creator owner access
+const defaultKanbanLists = [
+	"Backlog",
+	"Current sprint",
+	"In progress",
+	"In review",
+	"Done",
+] as const;
+
+// Inserts a solo project, its default workflow, and creator ownership.
 export async function insertProject(input: InsertProjectInput) {
 	const projectId = randomUUID();
 	const [projectRows] = await db.batch([
@@ -24,6 +32,13 @@ export async function insertProject(input: InsertProjectInput) {
 			accessRole: "owner",
 			addedById: input.createdById,
 		}),
+		db.insert(lists).values(
+			defaultKanbanLists.map((name, position) => ({
+				projectId,
+				name,
+				position,
+			})),
+		),
 	]);
 
 	return projectRows[0] ?? null;

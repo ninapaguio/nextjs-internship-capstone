@@ -84,6 +84,7 @@ export function KanbanBoard({
 	const archiveList = useBoardStore((state) => state.archiveList);
 	const deleteList = useBoardStore((state) => state.deleteList);
 	const addTask = useBoardStore((state) => state.addTask);
+	const updateTask = useBoardStore((state) => state.updateTask);
 	const beginTaskDrag = useBoardStore((state) => state.beginTaskDrag);
 	const moveTaskOptimistically = useBoardStore(
 		(state) => state.moveTaskOptimistically,
@@ -172,6 +173,7 @@ export function KanbanBoard({
 		columns
 			.flatMap((list) => list.tasks)
 			.find((task) => task.id === selectedTaskId) ?? null;
+	const openingTaskId = taskComments.isLoading ? selectedTaskId : null;
 
 	// Opens the creation dialog for a specific workflow column.
 	function openCreateTask(listId: string) {
@@ -229,6 +231,21 @@ export function KanbanBoard({
 	// Adds a server-confirmed task to the selected workflow column.
 	function createTask(task: BoardTask) {
 		addTask(task.listId, task);
+		markPersisted();
+	}
+
+	// Updates the task-card count after a comment is confirmed by the server.
+	function recordTaskComment(
+		taskId: string,
+		comment: Parameters<typeof taskComments.recordComment>[1],
+	) {
+		taskComments.recordComment(taskId, comment);
+		const task = useBoardStore
+			.getState()
+			.lists.flatMap((list) => list.tasks)
+			.find((item) => item.id === taskId);
+		if (!task) return;
+		updateTask(taskId, { commentsCount: task.commentsCount + 1 });
 		markPersisted();
 	}
 
@@ -358,7 +375,7 @@ export function KanbanBoard({
 				}}
 			>
 				{displayedColumns.length ? (
-					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(280px,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80">
+					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(16rem,86vw)] gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80 lg:auto-cols-[19rem] xl:auto-cols-80">
 						{displayedColumns.map((column) => (
 							<KanbanColumn
 								key={column.id}
@@ -369,6 +386,7 @@ export function KanbanBoard({
 								onArchive={(id) => void changeListLifecycle(id, "archive")}
 								onDelete={deleteBoardList}
 								onOpenTask={setSelectedTaskId}
+								openingTaskId={openingTaskId}
 							/>
 						))}
 					</div>
@@ -419,7 +437,7 @@ export function KanbanBoard({
 				commentsError={taskComments.error}
 				currentUser={currentUser}
 				isCommentsLoading={taskComments.isLoading}
-				onCommentCreated={taskComments.recordComment}
+				onCommentCreated={recordTaskComment}
 				onRetryComments={() => void taskComments.refetch()}
 				onCreateLabel={addBoardLabel}
 				isOpen={selectedTaskId !== null}

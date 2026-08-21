@@ -28,6 +28,7 @@ export interface BoardTask {
 	assignees: BoardMemberOption[];
 	labels: BoardLabelOption[];
 	dependencyIds: string[];
+	commentsCount: number;
 }
 
 export interface BoardList {
