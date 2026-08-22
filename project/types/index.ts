@@ -30,6 +30,7 @@ export type {
 	TaskFeedTab,
 	TaskStatusFilter,
 } from "./board";
+
 export type {
 	Comment,
 	Label,
@@ -87,8 +88,6 @@ export type {
 	ProjectInvitationsManagerProps,
 } from "./project-invitations";
 export type {
-	ListWithTasks,
-	ProjectBoard,
 	ProjectCardData,
 	ProjectCardView,
 	ProjectListData,
@@ -110,11 +109,6 @@ export type {
 	TeamDetailData,
 	TeamDetailMember,
 	TeamListItem,
-	TeamProjectAssignment,
 	TeamRoleOption,
 } from "./teams";
 export type { UIState } from "./ui";
-export type MemberWorkStatus =
-	| "has_updates"
-	| "no_recent_updates"
-	| "no_assigned_tasks";

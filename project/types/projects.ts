@@ -1,14 +1,4 @@
-import type { List, Project, Task } from "./database";
-
-// Use this only for a query that actually loads each list and its tasks.
-export interface ListWithTasks extends List {
-	tasks: Task[];
-}
-
-// the project board server component receives a project together with the Kanban columns and tasks requested by its relational query.
-export interface ProjectBoard extends Project {
-	lists: ListWithTasks[];
-}
+import type { Project } from "./database";
 
 // dashboard totals and progress are calculated query results, not stored project columns, so the project-card UI gets a dedicated view type.
 export interface ProjectCardView {
@@ -26,7 +16,7 @@ export interface ProjectCardView {
 export interface ProjectCardData extends ProjectCardView {
 	href: string;
 	teamId: string | null;
-	accessRole: "owner" | "member";
+	accessRole: "owner" | "manager" | "member";
 	teamName: string;
 	status: Project["status"];
 }
@@ -53,6 +43,7 @@ export type ProjectOptimisticAction =
 	| { type: "remove"; projectId: ProjectCardData["id"] };
 
 export interface UseProjectsOptions {
+	applicationUserId: string;
 	initialData: ProjectListData;
 	search: string;
 	page: number;

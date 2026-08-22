@@ -1,7 +1,15 @@
 "use client";
 
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import { ArrowDownAZ, Filter, MoveRight, Plus, Search, X } from "lucide-react";
+import {
+	ArrowDownAZ,
+	CheckSquare,
+	Filter,
+	MoveRight,
+	Plus,
+	Search,
+	X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
 	changeBoardListLifecycle,
@@ -161,10 +169,12 @@ export function KanbanBoard({
 	async function addBoardLabel(
 		labelProjectId: string,
 		name: string,
+		color: string,
 	): Promise<BoardLabelOption> {
 		const formData = new FormData();
 		formData.set("projectId", labelProjectId);
 		formData.set("name", name);
+		formData.set("color", color);
 		const result = await createBoardLabel(formData);
 		if (result.status === "error" || !result.data) {
 			throw new Error(result.message);
@@ -665,16 +675,23 @@ export function KanbanBoard({
 			</div>
 
 			{selectedTaskIds.size > 0 ? (
-				<div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-brand_teal-500/30 bg-card p-3 shadow-sm">
-					<p className="text-sm font-semibold text-foreground">
-						{selectedTaskIds.size} selected
-					</p>
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-brand_teal-500/40 bg-card p-3.5 shadow-md ring-4 ring-brand_teal-500/10 transition-all duration-200 animate-in fade-in-0 slide-in-from-top-2">
+					<div className="flex items-center gap-2.5">
+						<span className="inline-flex items-center gap-1.5 rounded-full border border-brand_teal-500/30 bg-brand_teal-500/15 px-3 py-1 text-xs font-semibold text-brand_teal-700 dark:bg-brand_teal-500/25 dark:text-brand_teal-300">
+							<CheckSquare className="size-3.5" />
+							{selectedTaskIds.size}{" "}
+							{selectedTaskIds.size === 1 ? "task" : "tasks"} selected
+						</span>
+						<p className="hidden text-xs font-medium text-muted-foreground sm:inline">
+							Select a destination column to move them in bulk
+						</p>
+					</div>
 					<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
 						<Select
 							aria-label="Move selected tasks to column"
 							value={bulkTargetListId || null}
 							onChange={(value) => setBulkTargetListId(String(value))}
-							className="min-w-40 max-w-56 flex-1"
+							className="min-w-44 max-w-60 flex-1"
 						>
 							<SelectTrigger size="sm">
 								<SelectValue>Select a column</SelectValue>
@@ -692,23 +709,29 @@ export function KanbanBoard({
 						<Button
 							variant="default"
 							size="sm"
+							className="bg-brand_teal-500 font-semibold text-white shadow-xs hover:bg-brand_teal-600"
 							isDisabled={isBulkPending || !bulkTargetListId}
 							onPress={() => void moveSelectedTasks()}
 						>
 							<MoveRight data-icon="inline-start" />
 							{isBulkPending ? "Moving…" : "Move selected"}
 						</Button>
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							aria-label="Clear task selection"
-							onPress={() => {
-								setSelectedTaskIds(new Set());
-								setBulkTargetListId("");
-							}}
-						>
-							<X />
-						</Button>
+						<TooltipTrigger delay={300}>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="gap-1.5 text-muted-foreground hover:text-foreground"
+								aria-label="Clear task selection"
+								onPress={() => {
+									setSelectedTaskIds(new Set());
+									setBulkTargetListId("");
+								}}
+							>
+								<X className="size-4" />
+								<span className="hidden sm:inline">Clear</span>
+							</Button>
+							<Tooltip placement="bottom">Clear selection</Tooltip>
+						</TooltipTrigger>
 					</div>
 				</div>
 			) : null}

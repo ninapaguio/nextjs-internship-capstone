@@ -162,7 +162,7 @@ export function ProjectInvitationsManager({
 								className={cn(
 									"rounded-xl font-medium transition-all",
 									selectedState === state.id &&
-									"bg-card text-foreground shadow-xs hover:bg-card font-semibold",
+										"bg-card text-foreground shadow-xs hover:bg-card font-semibold",
 								)}
 							>
 								{state.label}
@@ -180,8 +180,13 @@ export function ProjectInvitationsManager({
 							>
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
-										<p className="truncate font-semibold text-sm text-foreground">{invitation.email}</p>
-										<Badge variant="secondary" className="capitalize text-[10px]">
+										<p className="truncate font-semibold text-sm text-foreground">
+											{invitation.email}
+										</p>
+										<Badge
+											variant="secondary"
+											className="capitalize text-[10px]"
+										>
 											{invitation.status}
 										</Badge>
 									</div>

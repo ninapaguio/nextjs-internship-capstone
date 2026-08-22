@@ -423,14 +423,14 @@ export async function updateBoardTask(
 
 	const previousBlockingRows = input.blockingTaskIds
 		? await db
-			.select({ taskId: taskDependencies.taskId })
-			.from(taskDependencies)
-			.where(
-				and(
-					eq(taskDependencies.projectId, projectId),
-					eq(taskDependencies.dependsOnTaskId, taskId),
-				),
-			)
+				.select({ taskId: taskDependencies.taskId })
+				.from(taskDependencies)
+				.where(
+					and(
+						eq(taskDependencies.projectId, projectId),
+						eq(taskDependencies.dependsOnTaskId, taskId),
+					),
+				)
 		: [];
 	const affectedBlockingTaskIds = [
 		...new Set([

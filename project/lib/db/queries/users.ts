@@ -24,7 +24,8 @@ export async function getBoardMemberOptionByUserId(
 	if (!user) return null;
 	return {
 		id: user.id,
-		name: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+		name:
+			[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
 		imageUrl: user.imageUrl,
 	};
 }

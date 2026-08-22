@@ -112,6 +112,7 @@ interface TaskDetailsPanelProps {
 	onCreateLabel: (
 		projectId: string,
 		name: string,
+		color: string,
 	) => Promise<BoardLabelOption> | BoardLabelOption;
 }
 
@@ -889,8 +890,8 @@ export function TaskDetailsPanel({
 	}, [lists, task]);
 
 	// Adds a persisted label to the panel's available project labels.
-	async function createPanelLabel(name: string) {
-		const created = await onCreateLabel(projectId, name);
+	async function createPanelLabel(name: string, color: string) {
+		const created = await onCreateLabel(projectId, name, color);
 		setLocalLabels((current) =>
 			current.some((label) => label.id === created.id)
 				? current

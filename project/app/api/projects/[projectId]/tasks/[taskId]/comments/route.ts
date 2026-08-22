@@ -1,10 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
-import {
-	getTaskComments,
-	isActiveTaskInProject,
-} from "@/lib/db/queries/board";
+import { getTaskComments, isActiveTaskInProject } from "@/lib/db/queries/board";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import { uuidSchema } from "@/lib/validations";
 
