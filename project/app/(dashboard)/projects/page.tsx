@@ -90,14 +90,9 @@ export default async function ProjectsPage({
 		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
 			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
 				<TooltipTrigger delay={400}>
-					<Link
-						href="/dashboard"
-						aria-label="Back to dashboard"
-						className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
-					>
-						<ArrowLeft className="size-3.5" aria-hidden="true" />
-						<span>Projects</span>
-					</Link>
+					<h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+						Projects
+					</h1>
 					<Tooltip placement="bottom start">Back to dashboard</Tooltip>
 				</TooltipTrigger>
 
