@@ -15,6 +15,8 @@ import type { BoardList } from "@/types";
 
 interface KanbanColumnProps {
 	list: BoardList;
+	canEditTasks: boolean;
+	canManageColumn: boolean;
 	onAddTask: (listId: string) => void;
 	onAddList: () => void;
 	onEdit: (list: BoardList) => void;
@@ -31,6 +33,8 @@ interface KanbanColumnProps {
 // Renders one board list as a droppable column in the Kanban interface.
 export function KanbanColumn({
 	list,
+	canEditTasks,
+	canManageColumn,
 	onAddTask,
 	onAddList,
 	onEdit,
@@ -47,6 +51,7 @@ export function KanbanColumn({
 		id: `column:${list.id}`,
 		accept: "task",
 		data: { listId: list.id },
+		disabled: !canEditTasks,
 	});
 
 	return (
@@ -55,7 +60,8 @@ export function KanbanColumn({
 			aria-labelledby={`column-${list.id}`}
 			className={cn(
 				"group/column flex h-[clamp(28rem,calc(100dvh-17rem),46rem)] min-h-0 flex-col overflow-hidden rounded-3xl border border-border bg-muted/70 p-2.5 transition-colors dark:border-border dark:bg-muted/60",
-				isDropTarget && "bg-brand_teal-50/30 ring-2 ring-brand_teal-500/60 dark:bg-brand_teal-950/30",
+				isDropTarget &&
+					"bg-brand_teal-50/30 ring-2 ring-brand_teal-500/60 dark:bg-brand_teal-950/30",
 			)}
 		>
 			<header className="px-1.5 pt-1.5 pb-3">
@@ -71,50 +77,56 @@ export function KanbanColumn({
 							{list.tasks.length}
 						</span>
 					</div>
-					<div className="flex items-center">
-						<DropdownMenuTrigger>
-							<TooltipTrigger delay={400}>
-								<Button
-									size="icon-sm"
-									variant="ghost"
-									aria-label={`Options for ${list.title}`}
-									className="rounded-xl text-muted-foreground hover:bg-card hover:text-foreground"
-								>
-									<Ellipsis className="size-4" />
-								</Button>
-								<Tooltip placement="bottom">Column options</Tooltip>
-							</TooltipTrigger>
-							<DropdownMenu placement="bottom end">
-								<DropdownMenuItem onAction={onAddList}>
-									<Plus /> Add column
-								</DropdownMenuItem>
-								<DropdownMenuItem onAction={() => onEdit(list)}>
-									<Pencil /> Edit column
-								</DropdownMenuItem>
-								<DropdownMenuItem onAction={() => onArchive(list.id)}>
-									<Archive /> Archive column
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									variant="destructive"
-									onAction={() => onDelete(list.id)}
-								>
-									<Trash2 /> Delete column
-								</DropdownMenuItem>
-							</DropdownMenu>
-						</DropdownMenuTrigger>
-						<TooltipTrigger delay={400}>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								onPress={() => onAddTask(list.id)}
-								aria-label={`Add task to ${list.title}`}
-								className="rounded-xl text-muted-foreground hover:bg-card hover:text-foreground"
-							>
-								<Plus className="size-4" />
-							</Button>
-							<Tooltip placement="bottom">Add task</Tooltip>
-						</TooltipTrigger>
-					</div>
+					{canManageColumn || canEditTasks ? (
+						<div className="flex items-center">
+							{canManageColumn ? (
+								<DropdownMenuTrigger>
+									<TooltipTrigger delay={400}>
+										<Button
+											size="icon-sm"
+											variant="ghost"
+											aria-label={`Options for ${list.title}`}
+											className="rounded-xl text-muted-foreground hover:bg-card hover:text-foreground"
+										>
+											<Ellipsis className="size-4" />
+										</Button>
+										<Tooltip placement="bottom">Column options</Tooltip>
+									</TooltipTrigger>
+									<DropdownMenu placement="bottom end">
+										<DropdownMenuItem onAction={onAddList}>
+											<Plus /> Add column
+										</DropdownMenuItem>
+										<DropdownMenuItem onAction={() => onEdit(list)}>
+											<Pencil /> Edit column
+										</DropdownMenuItem>
+										<DropdownMenuItem onAction={() => onArchive(list.id)}>
+											<Archive /> Archive column
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											variant="destructive"
+											onAction={() => onDelete(list.id)}
+										>
+											<Trash2 /> Delete column
+										</DropdownMenuItem>
+									</DropdownMenu>
+								</DropdownMenuTrigger>
+							) : null}
+							{canEditTasks ? (
+								<TooltipTrigger delay={400}>
+									<Button
+										size="icon-sm"
+										variant="ghost"
+										onPress={() => onAddTask(list.id)}
+										aria-label={`Add task to ${list.title}`}
+										className="rounded-xl text-muted-foreground hover:bg-card hover:text-foreground"
+									>
+										<Plus className="size-4" />
+									</Button>
+									<Tooltip placement="bottom">Add task</Tooltip>
+								</TooltipTrigger>
+							) : null}
+						</div>
+					) : null}
 				</div>
 				{list.description ? (
 					<p className="mt-1.5 text-xs leading-5 text-muted-foreground">
@@ -129,6 +141,7 @@ export function KanbanColumn({
 						key={task.id}
 						task={task}
 						listId={list.id}
+						canEdit={canEditTasks}
 						isOpening={openingTaskId === task.id}
 						isSelected={selectedTaskIds.has(task.id)}
 						selectedDragCount={
@@ -147,15 +160,17 @@ export function KanbanColumn({
 				) : null}
 			</div>
 
-			<Button
-				type="button"
-				variant="default"
-				size="sm"
-				onPress={() => onAddTask(list.id)}
-				className="pointer-events-none mt-3 w-full translate-y-1 rounded-xl text-xs opacity-0 shadow-xs transition-[opacity,transform] focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100 group-focus-within/column:pointer-events-auto group-focus-within/column:translate-y-0 group-focus-within/column:opacity-100 group-hover/column:pointer-events-auto group-hover/column:translate-y-0 group-hover/column:opacity-100"
-			>
-				<Plus data-icon="inline-start" /> Add task
-			</Button>
+			{canEditTasks ? (
+				<Button
+					type="button"
+					variant="default"
+					size="sm"
+					onPress={() => onAddTask(list.id)}
+					className="pointer-events-none mt-3 w-full translate-y-1 rounded-xl text-xs opacity-0 shadow-xs transition-[opacity,transform] focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100 group-focus-within/column:pointer-events-auto group-focus-within/column:translate-y-0 group-focus-within/column:opacity-100 group-hover/column:pointer-events-auto group-hover/column:translate-y-0 group-hover/column:opacity-100"
+				>
+					<Plus data-icon="inline-start" /> Add task
+				</Button>
+			) : null}
 		</section>
 	);
 }

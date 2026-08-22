@@ -35,6 +35,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useSharedViewRefresh } from "@/hooks/use-shared-view-refresh";
 import { useTaskComments } from "@/hooks/use-task-comments";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
@@ -51,6 +52,8 @@ interface KanbanBoardProps {
 	projectId: string;
 	currentUserId: string;
 	initialData: ProjectBoardData;
+	canEditTasks: boolean;
+	canManageColumns: boolean;
 }
 
 // TODO: Task 5.1 - Design responsive Kanban board layout
@@ -93,7 +96,10 @@ export function KanbanBoard({
 	projectId,
 	currentUserId,
 	initialData,
+	canEditTasks,
+	canManageColumns,
 }: KanbanBoardProps) {
+	useSharedViewRefresh();
 	const columns = useBoardStore((state) => state.lists);
 	const draggedTaskIds = useBoardStore((state) => state.draggedTaskIds);
 	const hydrate = useBoardStore((state) => state.hydrate);
@@ -180,6 +186,13 @@ export function KanbanBoard({
 		setBulkTargetListId("");
 	}, [statusFilter]);
 
+	// Clears edit-only selection state whenever the board becomes read-only.
+	useEffect(() => {
+		if (canEditTasks) return;
+		setSelectedTaskIds(new Set());
+		setBulkTargetListId("");
+	}, [canEditTasks]);
+
 	const displayedColumns = useMemo(() => {
 		const normalizedQuery = query.trim().toLowerCase();
 		const today = new Date();
@@ -201,9 +214,9 @@ export function KanbanBoard({
 						statusFilter === "archived"
 							? isArchived
 							: !isArchived &&
-							(statusFilter === "all" ||
-								(statusFilter === "open" && !task.completedAt) ||
-								(statusFilter === "completed" && Boolean(task.completedAt)));
+								(statusFilter === "all" ||
+									(statusFilter === "open" && !task.completedAt) ||
+									(statusFilter === "completed" && Boolean(task.completedAt)));
 					const matchesPriority =
 						priorityFilter === "all" || task.priority.key === priorityFilter;
 					const matchesAssignee =
@@ -241,10 +254,10 @@ export function KanbanBoard({
 					sortDirection === "none"
 						? matchingTasks
 						: [...matchingTasks].sort((left, right) =>
-							sortDirection === "asc"
-								? left.title.localeCompare(right.title)
-								: right.title.localeCompare(left.title),
-						);
+								sortDirection === "asc"
+									? left.title.localeCompare(right.title)
+									: right.title.localeCompare(left.title),
+							);
 				return { ...column, tasks };
 			});
 	}, [
@@ -353,17 +366,20 @@ export function KanbanBoard({
 
 	// Opens the creation dialog for a specific workflow column.
 	function openCreateTask(listId: string) {
+		if (!canEditTasks) return;
 		setActiveListId(listId);
 	}
 
 	// Opens an empty dialog for creating another workflow column.
 	function openAddList() {
+		if (!canManageColumns) return;
 		setEditingList(null);
 		setIsListModalOpen(true);
 	}
 
 	// Opens the column dialog with an existing column's values.
 	function openEditList(list: BoardList) {
+		if (!canManageColumns) return;
 		setEditingList(list);
 		setIsListModalOpen(true);
 	}
@@ -650,7 +666,9 @@ export function KanbanBoard({
 
 			{selectedTaskIds.size > 0 ? (
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-brand_teal-500/30 bg-card p-3 shadow-sm">
-					<p className="text-sm font-semibold text-foreground">{selectedTaskIds.size} selected</p>
+					<p className="text-sm font-semibold text-foreground">
+						{selectedTaskIds.size} selected
+					</p>
 					<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
 						<Select
 							aria-label="Move selected tasks to column"
@@ -703,6 +721,7 @@ export function KanbanBoard({
 
 			<DragDropProvider
 				onDragStart={({ operation }) => {
+					if (!canEditTasks) return;
 					if (!operation.source) return;
 					const taskId = String(operation.source.id);
 					const taskIds = selectedTaskIds.has(taskId)
@@ -711,6 +730,7 @@ export function KanbanBoard({
 					beginTaskDrag(taskId, taskIds);
 				}}
 				onDragEnd={({ canceled, operation }) => {
+					if (!canEditTasks) return;
 					if (canceled || !operation.source || !operation.target) {
 						finishTaskDrag(true);
 						return;
@@ -728,6 +748,8 @@ export function KanbanBoard({
 							<KanbanColumn
 								key={column.id}
 								list={column}
+								canEditTasks={canEditTasks}
+								canManageColumn={canManageColumns}
 								onAddTask={openCreateTask}
 								onAddList={openAddList}
 								onEdit={openEditList}
@@ -738,9 +760,13 @@ export function KanbanBoard({
 								selectedTaskIds={selectedTaskIds}
 								draggedTaskIds={draggedTaskIdSet}
 								onToggleTaskSelection={
-									statusFilter === "archived" ? undefined : toggleTaskSelection
+									!canEditTasks || statusFilter === "archived"
+										? undefined
+										: toggleTaskSelection
 								}
-								onRestoreTask={(id) => void restoreTask(id)}
+								onRestoreTask={
+									canEditTasks ? (id) => void restoreTask(id) : undefined
+								}
 							/>
 						))}
 					</div>
@@ -751,9 +777,11 @@ export function KanbanBoard({
 							<p className="mt-1 text-sm text-muted-foreground">
 								Add the first workflow stage to begin planning tasks.
 							</p>
-							<Button className="mt-4" onPress={openAddList}>
-								<Plus data-icon="inline-start" /> Add column
-							</Button>
+							{canManageColumns ? (
+								<Button className="mt-4" onPress={openAddList}>
+									<Plus data-icon="inline-start" /> Add column
+								</Button>
+							) : null}
 						</div>
 					</div>
 				)}
@@ -798,6 +826,7 @@ export function KanbanBoard({
 				onRetryComments={() => void taskComments.refetch()}
 				onCreateLabel={addBoardLabel}
 				isOpen={selectedTaskId !== null}
+				canEdit={canEditTasks}
 				onOpenChange={(open) => {
 					if (!open) setSelectedTaskId(null);
 				}}
