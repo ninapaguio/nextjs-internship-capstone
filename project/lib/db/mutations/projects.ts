@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, exists, isNull } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { lists, projectMembers, projects, teams } from "@/lib/db/schema";
 import type { CreateProjectInput, UpdateProjectInput } from "@/types";
@@ -44,8 +44,8 @@ export async function insertProject(input: InsertProjectInput) {
 	return projectRows[0] ?? null;
 }
 
-// Updates one non-deleted project owned by the application user.
-export async function updateOwnedProject(
+// Updates one active project managed by its owner or a designated manager.
+export async function updateManagedProject(
 	projectId: string,
 	applicationUserId: string,
 	input: Omit<UpdateProjectInput, "projectId">,
@@ -64,7 +64,7 @@ export async function updateOwnedProject(
 							and(
 								eq(projectMembers.projectId, projects.id),
 								eq(projectMembers.userId, applicationUserId),
-								eq(projectMembers.accessRole, "owner"),
+								inArray(projectMembers.accessRole, ["owner", "manager"]),
 							),
 						),
 				),

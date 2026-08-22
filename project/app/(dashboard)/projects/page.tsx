@@ -121,6 +121,7 @@ export default async function ProjectsPage({
 
 			<div className="flex-1 py-5">
 				<ProjectGrid
+					applicationUserId={applicationUser.id}
 					initialData={{
 						currentPage,
 						projectRows: projectCards,

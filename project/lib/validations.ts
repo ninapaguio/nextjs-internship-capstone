@@ -104,7 +104,7 @@ export const normalizedEmailSchema = z
 	.transform((email) => email.toLowerCase());
 
 export const projectStatusSchema = z.enum([
-	"planned",
+	"inactive",
 	"active",
 	"completed",
 	"archived",
@@ -230,13 +230,14 @@ export const createProjectSchema = z
 export const updateProjectSchema = z
 	.object({
 		projectId: uuidSchema,
-		name: projectFields.name.optional(),
+		name: z.preprocess(emptyStringToUndefined, projectFields.name.optional()),
 		description: nullableText(
 			5000,
 			"Project description must be 5,000 characters or fewer",
 		),
 		startDate: nullableDateSchema,
 		endDate: nullableDateSchema,
+		status: projectStatusSchema.exclude(["archived"]).optional(),
 	})
 	.strict()
 	.superRefine((input, ctx) => {
@@ -259,6 +260,7 @@ export const updateProjectMemberSchema = z
 		teamId: uuidSchema,
 		projectId: uuidSchema,
 		userId: uuidSchema,
+		accessRole: z.enum(["manager", "member"]),
 		assignedRoleId: z
 			.union([uuidSchema, z.literal("")])
 			.transform((value) => value || null),

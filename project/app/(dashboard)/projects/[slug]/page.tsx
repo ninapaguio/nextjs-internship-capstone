@@ -47,6 +47,19 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 	);
 	if (!project) notFound();
 	const boardData = await getProjectBoardData(project.id);
+	const canManageBoard =
+		project.accessRole === "owner" || project.accessRole === "manager";
+	const canEditTasks =
+		project.status !== "completed" &&
+		(canManageBoard || project.status === "active");
+	const readOnlyMessage =
+		project.status === "completed"
+			? "This project is completed. Reopen it from the Projects page to continue editing."
+			: !canManageBoard && project.status === "inactive"
+				? "This project is planned. Members can work with tasks after an owner or manager starts the project."
+				: !canManageBoard
+					? "You can work with tasks. Only the project owner and managers can change columns or project settings."
+					: null;
 
 	const canonicalSlug = createProjectCompositeSlug(project.id, project.name);
 	if (slug !== canonicalSlug) redirect(`/projects/${canonicalSlug}`);
@@ -70,17 +83,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 				</div>
 
 				<div className="flex flex-wrap items-center gap-2">
-					{project.accessRole === "owner" ? (
+					{project.accessRole !== "member" ? (
 						<InviteProjectMemberModal
 							projectId={project.id}
 							projectName={project.name}
 						/>
 					) : null}
 					{project.teamId ? (
-						<LinkButton
-							href={`/team/${project.teamId}`}
-							size="sm"
-						>
+						<LinkButton href={`/team/${project.teamId}`} size="sm">
 							<Users data-icon="inline-start" />
 							Members
 						</LinkButton>
@@ -90,10 +100,17 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
 			{/* Interactive Kanban board */}
 			<div className="flex-1 py-5">
+				{readOnlyMessage ? (
+					<p className="mb-4 rounded-xl border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+						{readOnlyMessage}
+					</p>
+				) : null}
 				<KanbanBoard
 					projectId={project.id}
 					currentUserId={applicationUser.id}
 					initialData={boardData}
+					canEditTasks={canEditTasks}
+					canManageColumns={canManageBoard && canEditTasks}
 				/>
 			</div>
 		</section>

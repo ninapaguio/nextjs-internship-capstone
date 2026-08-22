@@ -17,6 +17,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useSharedViewRefresh } from "@/hooks/use-shared-view-refresh";
 import type { ProjectMemberActionState, TeamDetailData } from "@/types";
 
 interface TeamDetailProps {
@@ -87,28 +88,43 @@ function RemoveProjectMemberForm({
 
 // Renders a team list with project-specific access and assigned role labels
 export function TeamDetail({ team }: TeamDetailProps) {
+	useSharedViewRefresh();
 	return (
 		<div className="space-y-6">
 			<div className="grid gap-4 sm:grid-cols-2">
-				<Card size="sm" className="rounded-2xl border border-border bg-card shadow-2xs">
+				<Card
+					size="sm"
+					className="rounded-2xl border border-border bg-card shadow-2xs"
+				>
 					<CardContent className="flex items-center gap-3.5 p-4">
 						<div className="rounded-xl bg-brand_teal-500/10 p-2.5 text-brand_teal-600 dark:bg-brand_teal-500/20 dark:text-brand_mint-400">
 							<UsersRound className="size-5" aria-hidden="true" />
 						</div>
 						<div>
-							<p className="text-2xl font-bold tracking-tight text-foreground">{team.members.length}</p>
-							<p className="text-xs font-medium text-muted-foreground">Active members</p>
+							<p className="text-2xl font-bold tracking-tight text-foreground">
+								{team.members.length}
+							</p>
+							<p className="text-xs font-medium text-muted-foreground">
+								Active members
+							</p>
 						</div>
 					</CardContent>
 				</Card>
-				<Card size="sm" className="rounded-2xl border border-border bg-card shadow-2xs">
+				<Card
+					size="sm"
+					className="rounded-2xl border border-border bg-card shadow-2xs"
+				>
 					<CardContent className="flex items-center gap-3.5 p-4">
 						<div className="rounded-xl bg-brand_navy-500/10 p-2.5 text-brand_navy-600 dark:bg-brand_mint-500/20 dark:text-brand_mint-300">
 							<ShieldCheck className="size-5" aria-hidden="true" />
 						</div>
 						<div>
-							<p className="text-2xl font-bold tracking-tight text-foreground">{team.roles.length}</p>
-							<p className="text-xs font-medium text-muted-foreground">Custom roles</p>
+							<p className="text-2xl font-bold tracking-tight text-foreground">
+								{team.roles.length}
+							</p>
+							<p className="text-xs font-medium text-muted-foreground">
+								Custom roles
+							</p>
 						</div>
 					</CardContent>
 				</Card>
@@ -116,7 +132,10 @@ export function TeamDetail({ team }: TeamDetailProps) {
 
 			<section className="space-y-4" aria-labelledby="team-members-heading">
 				<div>
-					<h2 id="team-members-heading" className="text-lg font-semibold tracking-tight text-foreground">
+					<h2
+						id="team-members-heading"
+						className="text-lg font-semibold tracking-tight text-foreground"
+					>
 						Team members
 					</h2>
 					<p className="mt-1 text-sm text-muted-foreground">
@@ -134,7 +153,6 @@ export function TeamDetail({ team }: TeamDetailProps) {
 						</TableHeader>
 						<TableBody>
 							{team.members.map((member) => {
-								const assignment = member.projects[0];
 								return (
 									<TableRow key={member.id} id={member.id}>
 										<TableCell className="px-5 py-4">
@@ -151,7 +169,9 @@ export function TeamDetail({ team }: TeamDetailProps) {
 													</AvatarFallback>
 												</Avatar>
 												<div className="min-w-0">
-													<p className="truncate font-semibold text-foreground text-sm">{member.name}</p>
+													<p className="truncate font-semibold text-foreground text-sm">
+														{member.name}
+													</p>
 													<p className="truncate text-xs text-muted-foreground">
 														{member.email}
 													</p>
@@ -159,12 +179,18 @@ export function TeamDetail({ team }: TeamDetailProps) {
 											</div>
 										</TableCell>
 										<TableCell className="px-5 py-4">
-											<Badge variant="secondary" className="border-border/60 font-medium">
-												{assignment?.assignedRoleName || "No role assigned"}
+											<Badge
+												variant="secondary"
+												className="border-border/60 font-medium"
+											>
+												{member.assignedRoleName || "No role assigned"}
 											</Badge>
 										</TableCell>
 										<TableCell className="px-5 py-4 text-right">
-											{team.isOwner && member.projectRole === "member" ? (
+											{(team.isOwner && member.projectRole !== "owner") ||
+											(!team.isOwner &&
+												team.canManage &&
+												member.projectRole === "member") ? (
 												<RemoveProjectMemberForm
 													teamId={team.id}
 													projectId={team.projectId}

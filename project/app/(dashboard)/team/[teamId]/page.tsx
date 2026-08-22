@@ -61,13 +61,14 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
 					<LinkButton href="/projects" size="sm">
 						<FolderKanban data-icon="inline-start" /> Projects
 					</LinkButton>
-					{team.isOwner ? (
+					{team.canManage ? (
 						<>
 							<TeamRoleManager
 								teamId={team.id}
 								projectId={team.projectId}
 								members={team.members}
 								roles={team.roles}
+								canAssignManager={team.isOwner}
 							/>
 							<ProjectInvitationsManager invitations={team.invitations} />
 							<InviteProjectMemberModal

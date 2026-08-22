@@ -75,7 +75,7 @@ export async function inviteProjectMember(
 	if (!project) {
 		return {
 			status: "error",
-			message: "Only the project owner can add members.",
+			message: "Only the project owner or a manager can add members.",
 		};
 	}
 

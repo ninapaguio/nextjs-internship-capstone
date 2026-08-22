@@ -9,7 +9,7 @@ import {
 	updateProjectMemberAssignment,
 } from "@/lib/db/mutations/project-members";
 import {
-	canManageProjectMembers,
+	getProjectManagementAccessRole,
 	isTeamRole,
 } from "@/lib/db/queries/project-members";
 import {
@@ -18,7 +18,7 @@ import {
 } from "@/lib/validations";
 import type { ProjectMemberActionState } from "@/types";
 
-// Removes a MEMBER while preserving the Project's required OWNER.
+// Removes an allowed member while preserving the Project's required owner.
 export async function removeProjectMember(
 	_previousState: ProjectMemberActionState,
 	formData: FormData,
@@ -48,7 +48,7 @@ export async function removeProjectMember(
 		return {
 			status: "error",
 			message:
-				"Only the owner can remove a member; the owner cannot be removed.",
+				"You cannot remove this member. Managers may remove members, while only the owner may remove managers.",
 		};
 	}
 
@@ -67,7 +67,7 @@ export async function removeProjectMember(
 	};
 }
 
-// Updates a member's assigned Team role after validating project owner access.
+// Updates a member's assigned Team role after validating management access.
 export async function updateProjectMember(
 	_previousState: ProjectMemberActionState,
 	formData: FormData,
@@ -76,6 +76,7 @@ export async function updateProjectMember(
 		teamId: formData.get("teamId"),
 		projectId: formData.get("projectId"),
 		userId: formData.get("userId"),
+		accessRole: formData.get("accessRole"),
 		assignedRoleId: formData.get("assignedRoleId"),
 	});
 	if (!parsed.success) {
@@ -94,16 +95,15 @@ export async function updateProjectMember(
 		return { status: "error", message: "Your account could not be loaded." };
 	}
 
-	if (
-		!(await canManageProjectMembers(
-			parsed.data.projectId,
-			parsed.data.teamId,
-			applicationUser.id,
-		))
-	) {
+	const managementRole = await getProjectManagementAccessRole(
+		parsed.data.projectId,
+		parsed.data.teamId,
+		applicationUser.id,
+	);
+	if (!managementRole) {
 		return {
 			status: "error",
-			message: "Only the project owner can change assigned roles.",
+			message: "Only the project owner or a manager can change assigned roles.",
 		};
 	}
 
@@ -121,6 +121,8 @@ export async function updateProjectMember(
 		parsed.data.projectId,
 		parsed.data.userId,
 		{
+			accessRole:
+				managementRole === "owner" ? parsed.data.accessRole : undefined,
 			assignedRoleId: parsed.data.assignedRoleId,
 		},
 	);
@@ -129,6 +131,8 @@ export async function updateProjectMember(
 	}
 
 	revalidatePath(`/team/${parsed.data.teamId}`);
+	revalidatePath("/team");
+	revalidatePath("/projects");
 	revalidatePath("/projects/[slug]", "page");
 	return { status: "success", message: "Project role updated." };
 }

@@ -100,6 +100,7 @@ interface TaskDetailsPanelProps {
 	members: BoardMemberOption[];
 	labels: BoardLabelOption[];
 	isOpen: boolean;
+	canEdit: boolean;
 	onOpenChange: (open: boolean) => void;
 	onSelectTask: (taskId: string) => void;
 	comments: BoardComment[];
@@ -122,7 +123,8 @@ const initialCommentState: CreateBoardCommentActionState = {
 
 const priorityStyles: Record<BoardPriorityOption["key"], string> = {
 	low: "bg-brand_mint-50 text-brand_mint-800 border border-brand_mint-200/80 dark:bg-brand_mint-950/40 dark:text-brand_mint-300 dark:border-brand_mint-800/50",
-	medium: "bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
+	medium:
+		"bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
 	high: "bg-rose-50 text-rose-800 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50",
 };
 
@@ -635,6 +637,7 @@ function TaskActivitySection({
 	onCommentCreated,
 	onRetryComments,
 	onRetryActivity,
+	canComment,
 }: {
 	projectId: string;
 	taskId: string;
@@ -650,6 +653,7 @@ function TaskActivitySection({
 	onCommentCreated: (taskId: string, comment: BoardComment) => void;
 	onRetryComments: () => void;
 	onRetryActivity: () => void;
+	canComment: boolean;
 }) {
 	const [localComments, setLocalComments] = useState(comments);
 
@@ -785,7 +789,7 @@ function TaskActivitySection({
 				)}
 			</section>
 
-			{tab === "comments" && (
+			{tab === "comments" && canComment ? (
 				<CommentComposer
 					key={taskId}
 					projectId={projectId}
@@ -794,7 +798,7 @@ function TaskActivitySection({
 					onOptimisticComment={addOptimisticComment}
 					onCommentSettled={settleOptimisticComment}
 				/>
-			)}
+			) : null}
 		</div>
 	);
 }
@@ -808,6 +812,7 @@ export function TaskDetailsPanel({
 	members,
 	labels,
 	isOpen,
+	canEdit,
 	onOpenChange,
 	onSelectTask,
 	comments,
@@ -1081,54 +1086,58 @@ export function TaskDetailsPanel({
 		>
 			<SheetHeader>
 				<div className="flex items-center justify-between gap-3">
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						isDisabled={
-							Boolean(task.archivedAt) || (!task.completedAt && isBlocked)
-						}
-						onPress={handleCompletion}
-					>
-						<Check data-icon="inline-start" />
-						{task.completedAt ? "Reopen task" : "Mark complete"}
-					</Button>
+					{canEdit ? (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							isDisabled={
+								Boolean(task.archivedAt) || (!task.completedAt && isBlocked)
+							}
+							onPress={handleCompletion}
+						>
+							<Check data-icon="inline-start" />
+							{task.completedAt ? "Reopen task" : "Mark complete"}
+						</Button>
+					) : null}
 					<div className="flex items-center gap-1">
-						<DropdownMenuTrigger>
-							<TooltipTrigger delay={400}>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									aria-label="Task options"
-									isDisabled={isLifecyclePending}
-								>
-									<Ellipsis />
-								</Button>
-								<Tooltip placement="bottom">Task options</Tooltip>
-							</TooltipTrigger>
-							<DropdownMenu placement="bottom end">
-								{task.archivedAt ? (
-									<DropdownMenuItem
-										onAction={() => void handleTaskLifecycle("restore")}
+						{canEdit ? (
+							<DropdownMenuTrigger>
+								<TooltipTrigger delay={400}>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										aria-label="Task options"
+										isDisabled={isLifecyclePending}
 									>
-										<Archive /> Restore task
-									</DropdownMenuItem>
-								) : (
+										<Ellipsis />
+									</Button>
+									<Tooltip placement="bottom">Task options</Tooltip>
+								</TooltipTrigger>
+								<DropdownMenu placement="bottom end">
+									{task.archivedAt ? (
+										<DropdownMenuItem
+											onAction={() => void handleTaskLifecycle("restore")}
+										>
+											<Archive /> Restore task
+										</DropdownMenuItem>
+									) : (
+										<DropdownMenuItem
+											onAction={() => setLifecycleAction("archive")}
+										>
+											<Archive /> Archive task
+										</DropdownMenuItem>
+									)}
 									<DropdownMenuItem
-										onAction={() => setLifecycleAction("archive")}
+										className="text-destructive"
+										onAction={() => setLifecycleAction("delete")}
 									>
-										<Archive /> Archive task
+										<Trash2 /> Delete task
 									</DropdownMenuItem>
-								)}
-								<DropdownMenuItem
-									className="text-destructive"
-									onAction={() => setLifecycleAction("delete")}
-								>
-									<Trash2 /> Delete task
-								</DropdownMenuItem>
-							</DropdownMenu>
-						</DropdownMenuTrigger>
+								</DropdownMenu>
+							</DropdownMenuTrigger>
+						) : null}
 						<TooltipTrigger delay={400}>
 							<SheetClose
 								type="button"
@@ -1157,19 +1166,21 @@ export function TaskDetailsPanel({
 						) : (
 							<div className="max-w-full whitespace-normal py-1 text-left text-xl font-semibold wrap-anywhere">
 								<span>{title}</span>{" "}
-								<TooltipTrigger delay={400}>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-xs"
-										className="inline-flex align-text-bottom"
-										aria-label="Edit task title"
-										onPress={() => setEditingField("title")}
-									>
-										<Pencil />
-									</Button>
-									<Tooltip placement="bottom start">Edit task title</Tooltip>
-								</TooltipTrigger>
+								{canEdit ? (
+									<TooltipTrigger delay={400}>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-xs"
+											className="inline-flex align-text-bottom"
+											aria-label="Edit task title"
+											onPress={() => canEdit && setEditingField("title")}
+										>
+											<Pencil />
+										</Button>
+										<Tooltip placement="bottom start">Edit task title</Tooltip>
+									</TooltipTrigger>
+								) : null}
 							</div>
 						)}
 					</div>
@@ -1234,7 +1245,7 @@ export function TaskDetailsPanel({
 							) : (
 								<AssigneeAvatars
 									assignees={selectedAssignees}
-									onEdit={() => setEditingField("assignees")}
+									onEdit={() => canEdit && setEditingField("assignees")}
 								/>
 							)}
 						</DetailRow>
@@ -1252,7 +1263,7 @@ export function TaskDetailsPanel({
 									type="button"
 									variant="ghost"
 									className="h-auto min-h-8 flex-wrap justify-start gap-1 px-2"
-									onPress={() => setEditingField("labels")}
+									onPress={() => canEdit && setEditingField("labels")}
 								>
 									{selectedLabels.length > 0 ? (
 										selectedLabels.map((label) => (
@@ -1411,7 +1422,7 @@ export function TaskDetailsPanel({
 										type="button"
 										variant="ghost"
 										className="h-8 justify-start px-0 text-xs text-muted-foreground"
-										onPress={() => setEditingField("dependencies")}
+										onPress={() => canEdit && setEditingField("dependencies")}
 									>
 										Add dependencies
 									</Button>
@@ -1442,7 +1453,7 @@ export function TaskDetailsPanel({
 									type="button"
 									variant="ghost"
 									className="h-8 px-2"
-									onPress={() => setEditingField("column")}
+									onPress={() => canEdit && setEditingField("column")}
 								>
 									{selectedList?.title ?? "Choose a column"}
 								</Button>
@@ -1455,6 +1466,7 @@ export function TaskDetailsPanel({
 									type="button"
 									variant="ghost"
 									className="h-8 px-2 font-normal"
+									isDisabled={!canEdit}
 								>
 									{formatDueDate(dueDate)}
 								</Button>
@@ -1491,7 +1503,7 @@ export function TaskDetailsPanel({
 									type="button"
 									variant="ghost"
 									className="h-8 px-2"
-									onPress={() => setEditingField("priority")}
+									onPress={() => canEdit && setEditingField("priority")}
 								>
 									<Badge
 										variant="ghost"
@@ -1526,7 +1538,7 @@ export function TaskDetailsPanel({
 										type="button"
 										variant="ghost"
 										className="h-auto min-h-24 w-full min-w-0 max-w-full justify-start overflow-hidden whitespace-normal px-3 py-3 text-left font-normal"
-										onPress={() => setEditingField("description")}
+										onPress={() => canEdit && setEditingField("description")}
 									>
 										{description ? (
 											<span className="min-w-0 max-w-full whitespace-pre-wrap wrap-anywhere">
@@ -1561,9 +1573,11 @@ export function TaskDetailsPanel({
 						)}
 					</div>
 
-					<SheetFooter className="mt-auto flex-row justify-end px-6 py-4">
-						<TaskDetailsSubmit />
-					</SheetFooter>
+					{canEdit ? (
+						<SheetFooter className="mt-auto flex-row justify-end px-6 py-4">
+							<TaskDetailsSubmit />
+						</SheetFooter>
+					) : null}
 				</form>
 
 				<TaskActivitySection
@@ -1581,6 +1595,7 @@ export function TaskDetailsPanel({
 					onCommentCreated={onCommentCreated}
 					onRetryComments={onRetryComments}
 					onRetryActivity={() => void taskActivity.refetch()}
+					canComment={canEdit}
 				/>
 			</div>
 			{lifecycleAction && (

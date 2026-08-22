@@ -76,7 +76,7 @@ export const teamRoles = pgTable(
 	],
 );
 
-// Grants project-scoped OWNER or MEMBER access; this is the source of Team membership.
+// Grants project-scoped owner, manager, or member access; this is the source of Team membership.
 export const projectMembers = pgTable(
 	"project_members",
 	{

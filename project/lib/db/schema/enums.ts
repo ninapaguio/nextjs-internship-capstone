@@ -17,6 +17,7 @@ export const projectStatus = pgEnum("project_status", [
 ]);
 export const projectAccessRole = pgEnum("project_access_role", [
 	"owner",
+	"manager",
 	"member",
 ]);
 export const activityAction = pgEnum("activity_action", [

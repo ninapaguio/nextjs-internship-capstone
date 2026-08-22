@@ -5,20 +5,11 @@ export interface TeamListItem {
 	id: string;
 	name: string;
 	description: string | null;
-	isOwner: boolean;
+	accessRole: ProjectAccessRole;
 	memberCount: number;
 }
 
-export type ProjectAccessRole = "owner" | "member";
-
-export interface TeamProjectAssignment {
-	projectId: string;
-	projectName: string;
-	accessRole: ProjectAccessRole;
-	assignedRoleId: string | null;
-	assignedRoleName: string | null;
-	canManage: boolean;
-}
+export type ProjectAccessRole = "owner" | "manager" | "member";
 
 export interface TeamRoleOption {
 	id: string;
@@ -31,7 +22,8 @@ export interface TeamDetailMember {
 	email: string;
 	imageUrl: string | null;
 	projectRole: ProjectAccessRole;
-	projects: TeamProjectAssignment[];
+	assignedRoleId: string | null;
+	assignedRoleName: string | null;
 }
 
 export interface TeamDetailData {
@@ -39,6 +31,7 @@ export interface TeamDetailData {
 	projectId: string;
 	name: string;
 	isOwner: boolean;
+	canManage: boolean;
 	roles: TeamRoleOption[];
 	invitations: ProjectInvitationListItem[];
 	members: TeamDetailMember[];
