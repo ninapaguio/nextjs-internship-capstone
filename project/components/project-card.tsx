@@ -26,6 +26,7 @@ import {
 	ProgressTrack,
 } from "@/components/ui/progress";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import type { ProjectCardData } from "@/types";
 
 interface ProjectCardProps {
@@ -34,7 +35,7 @@ interface ProjectCardProps {
 }
 
 const statusLabels: Record<ProjectCardData["status"], string> = {
-	inactive: "Not Active",
+	inactive: "Planned",
 	active: "In progress",
 	completed: "Completed",
 	archived: "Archived",
@@ -80,7 +81,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 								<Clock3 className="size-3" aria-hidden="true" />
 								{formatProjectDeadline(project.endDate)}
 							</span>
-							{project.accessRole === "owner" ? (
+							{project.accessRole !== "member" ? (
 								<DropdownMenuTrigger>
 									<TooltipTrigger delay={400}>
 										<Button
@@ -109,8 +110,14 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 						</CardDescription>
 						<div className="flex items-center gap-1.5">
 							<Badge
-								variant="secondary"
-								className="h-5 px-2 text-[10px] font-medium border-border/50"
+								variant={
+									project.status === "completed" ? "default" : "secondary"
+								}
+								className={cn(
+									"h-5 px-2 text-[10px] font-medium border-border/50 capitalize",
+									project.status === "completed" &&
+										"bg-brand_teal-500 text-white dark:bg-brand_mint-500 dark:text-brand_navy-950 font-semibold",
+								)}
 							>
 								{statusLabels[project.status]}
 							</Badge>
@@ -121,19 +128,27 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 				<CardContent className="space-y-3 px-4 pb-4">
 					<div className="flex items-center justify-between text-xs text-muted-foreground">
 						<span className="inline-flex items-center gap-1.5">
-							<Users className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400" aria-hidden="true" />
+							<Users
+								className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400"
+								aria-hidden="true"
+							/>
 							{project.totalMembers}{" "}
 							{project.totalMembers === 1 ? "member" : "members"}
 						</span>
 						<span className="inline-flex items-center gap-1.5">
-							<CheckCircle2 className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400" aria-hidden="true" />
+							<CheckCircle2
+								className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400"
+								aria-hidden="true"
+							/>
 							{project.totalTasks} {project.totalTasks === 1 ? "task" : "tasks"}
 						</span>
 					</div>
 
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between text-xs">
-							<span className="text-[11px] font-medium text-muted-foreground">Progress</span>
+							<span className="text-[11px] font-medium text-muted-foreground">
+								Progress
+							</span>
 							<span className="font-semibold text-foreground tabular-nums">
 								{project.progressPercentage}%
 							</span>
@@ -143,7 +158,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 							aria-label={`${project.name} progress`}
 						>
 							<ProgressTrack className="h-2 bg-muted/80 rounded-full overflow-hidden">
-								<ProgressIndicator className="bg-gradient-to-r from-brand_teal-500 to-brand_mint-500 transition-all duration-300" />
+								<ProgressIndicator className="bg-linear-to-r from-brand_teal-500 to-brand_mint-500 transition-all duration-300" />
 							</ProgressTrack>
 						</Progress>
 					</div>

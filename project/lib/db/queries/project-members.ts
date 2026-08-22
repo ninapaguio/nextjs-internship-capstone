@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
 	projectInvitations,
@@ -10,9 +10,8 @@ import {
 	teams,
 	users,
 } from "@/lib/db/schema";
-import type { ProjectInvitationManagementStatus } from "@/types";
 
-// Loads invitation context only when the application user owns the project.
+// Loads invitation context when the application user owns or manages the project.
 export async function getProjectInvitationAccess(
 	projectId: string,
 	applicationUserId: string,
@@ -25,7 +24,7 @@ export async function getProjectInvitationAccess(
 			and(
 				eq(projectMembers.projectId, projects.id),
 				eq(projectMembers.userId, applicationUserId),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
 		.where(
@@ -93,49 +92,14 @@ export async function getPendingProjectInvitationForUser(
 	return invitation ?? null;
 }
 
-// Lists owner-visible invitation outcomes and derives elapsed pending records as expired.
-export async function getProjectInvitationsForOwner(
-	projectId: string,
-	applicationUserId: string,
-) {
-	return db
-		.select({
-			id: projectInvitations.id,
-			email: projectInvitations.email,
-			status: sql<ProjectInvitationManagementStatus>`case
-				when ${projectInvitations.status} = 'pending'
-					and ${projectInvitations.expiresAt} <= now() then 'expired'
-				else ${projectInvitations.status}::text
-			end`,
-			createdAt: projectInvitations.createdAt,
-			expiresAt: projectInvitations.expiresAt,
-		})
-		.from(projectInvitations)
-		.innerJoin(
-			projectMembers,
-			and(
-				eq(projectMembers.projectId, projectInvitations.projectId),
-				eq(projectMembers.userId, applicationUserId),
-				eq(projectMembers.accessRole, "owner"),
-			),
-		)
-		.where(
-			and(
-				eq(projectInvitations.projectId, projectId),
-				inArray(projectInvitations.status, ["pending", "declined", "expired"]),
-			),
-		)
-		.orderBy(desc(projectInvitations.createdAt));
-}
-
-// Checks whether the application user is the project's owner.
-export async function canManageProjectMembers(
+// Returns the project management role used to authorize permission changes.
+export async function getProjectManagementAccessRole(
 	projectId: string,
 	teamId: string,
 	applicationUserId: string,
 ) {
 	const [project] = await db
-		.select({ id: projects.id })
+		.select({ accessRole: projectMembers.accessRole })
 		.from(projects)
 		.innerJoin(teams, eq(teams.projectId, projects.id))
 		.innerJoin(
@@ -143,7 +107,7 @@ export async function canManageProjectMembers(
 			and(
 				eq(projectMembers.projectId, projects.id),
 				eq(projectMembers.userId, applicationUserId),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
 		.where(
@@ -152,15 +116,15 @@ export async function canManageProjectMembers(
 				eq(teams.id, teamId),
 				isNull(projects.deletedAt),
 				isNull(projects.archivedAt),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
 		.limit(1);
 
-	return Boolean(project);
+	return project?.accessRole ?? null;
 }
 
-// Allows only the generated Team's project owner to define reusable roles.
+// Allows the generated Team's project owner or manager to define reusable roles.
 export async function canManageTeamRoles(
 	teamId: string,
 	applicationUserId: string,
@@ -174,16 +138,10 @@ export async function canManageTeamRoles(
 			and(
 				eq(projectMembers.projectId, projects.id),
 				eq(projectMembers.userId, applicationUserId),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
-		.where(
-			and(
-				eq(teams.id, teamId),
-				isNull(teams.deletedAt),
-				eq(projectMembers.userId, applicationUserId),
-			),
-		)
+		.where(and(eq(teams.id, teamId), isNull(teams.deletedAt)))
 		.limit(1);
 
 	return Boolean(team);

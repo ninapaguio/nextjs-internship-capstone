@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, gt, isNull, lte } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
 	projectInvitations,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema";
 
 interface UpdateProjectMemberAssignmentInput {
+	accessRole?: "manager" | "member";
 	assignedRoleId: string | null;
 }
 
@@ -29,11 +30,16 @@ export async function updateProjectMemberAssignment(
 ) {
 	const [member] = await db
 		.update(projectMembers)
-		.set({ ...input, updatedAt: new Date() })
+		.set({
+			assignedRoleId: input.assignedRoleId,
+			...(input.accessRole ? { accessRole: input.accessRole } : {}),
+			updatedAt: new Date(),
+		})
 		.where(
 			and(
 				eq(projectMembers.projectId, projectId),
 				eq(projectMembers.userId, userId),
+				inArray(projectMembers.accessRole, ["manager", "member"]),
 			),
 		)
 		.returning({ userId: projectMembers.userId });
@@ -42,7 +48,7 @@ export async function updateProjectMemberAssignment(
 }
 
 // Adds one member and creates the Project's generated Team when membership reaches two.
-export async function addProjectMember(
+async function addProjectMember(
 	projectId: string,
 	userId: string,
 	addedById: string,
@@ -57,7 +63,7 @@ export async function addProjectMember(
 			and(
 				eq(projectMembers.projectId, projects.id),
 				eq(projectMembers.userId, addedById),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
 		.where(
@@ -105,18 +111,18 @@ export async function removeProjectMember(
 	userId: string,
 	removedById: string,
 ) {
-	const [owner] = await db
-		.select({ userId: projectMembers.userId })
+	const [manager] = await db
+		.select({ accessRole: projectMembers.accessRole })
 		.from(projectMembers)
 		.where(
 			and(
 				eq(projectMembers.projectId, projectId),
 				eq(projectMembers.userId, removedById),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
 		.limit(1);
-	if (!owner) return null;
+	if (!manager) return null;
 
 	const [removed] = await db
 		.delete(projectMembers)
@@ -124,7 +130,9 @@ export async function removeProjectMember(
 			and(
 				eq(projectMembers.projectId, projectId),
 				eq(projectMembers.userId, userId),
-				eq(projectMembers.accessRole, "member"),
+				manager.accessRole === "owner"
+					? inArray(projectMembers.accessRole, ["manager", "member"])
+					: eq(projectMembers.accessRole, "member"),
 			),
 		)
 		.returning({ userId: projectMembers.userId });
@@ -170,7 +178,7 @@ export async function createProjectInvitation(
 }
 
 // Marks one elapsed pending invitation as expired before a state transition is attempted.
-export async function expirePendingProjectInvitation(invitationId: string) {
+async function expirePendingProjectInvitation(invitationId: string) {
 	return db
 		.update(projectInvitations)
 		.set({ status: "expired" })
@@ -184,7 +192,7 @@ export async function expirePendingProjectInvitation(invitationId: string) {
 		.returning({ id: projectInvitations.id });
 }
 
-// Revokes a pending invitation only when the requesting user owns its Project.
+// Revokes a pending invitation when the requesting user owns or manages its Project.
 export async function cancelProjectInvitation(
 	invitationId: string,
 	applicationUserId: string,
@@ -204,7 +212,7 @@ export async function cancelProjectInvitation(
 			and(
 				eq(projectMembers.projectId, projectInvitations.projectId),
 				eq(projectMembers.userId, applicationUserId),
-				eq(projectMembers.accessRole, "owner"),
+				inArray(projectMembers.accessRole, ["owner", "manager"]),
 			),
 		)
 		.where(

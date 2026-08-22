@@ -69,8 +69,13 @@ import type {
 } from "@/types";
 
 // Creates the stable cache key for one searched and paginated project result.
-function projectQueryKey(search: string, page: number, pageSize: number) {
-	return ["projects", { search, page, pageSize }] as const;
+function projectQueryKey(
+	applicationUserId: string,
+	search: string,
+	page: number,
+	pageSize: number,
+) {
+	return ["projects", applicationUserId, { search, page, pageSize }] as const;
 }
 
 // Fetches one authorized project page from the application API.
@@ -112,13 +117,14 @@ function reduceProjects(
 
 // Manages cached project fetching and optimistic Server Action mutations.
 export function useProjects({
+	applicationUserId,
 	initialData,
 	search,
 	page,
 	pageSize,
 }: UseProjectsOptions) {
 	const queryClient = useQueryClient();
-	const queryKey = projectQueryKey(search, page, pageSize);
+	const queryKey = projectQueryKey(applicationUserId, search, page, pageSize);
 	const projectsQuery = useQuery({
 		queryKey,
 		queryFn: () => fetchProjects(search, page, pageSize),

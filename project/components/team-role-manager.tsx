@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
-	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -36,6 +35,7 @@ interface TeamRoleManagerProps {
 	projectId: string;
 	members: TeamDetailMember[];
 	roles: TeamRoleOption[];
+	canAssignManager: boolean;
 }
 
 interface RenameRoleFormProps {
@@ -48,6 +48,7 @@ interface MemberRoleAssignmentProps {
 	projectId: string;
 	member: TeamDetailMember;
 	roles: TeamRoleOption[];
+	canAssignManager: boolean;
 }
 
 const initialMemberState: ProjectMemberActionState = {
@@ -80,7 +81,7 @@ function RoleSubmit({ label }: { label: string }) {
 	);
 }
 
-// project owner define reusable roles for the generated team.
+// Lets a project owner or manager define reusable roles for the generated team.
 function CreateRoleForm({ teamId }: { teamId: string }) {
 	const router = useRouter();
 	const formRef = useRef<HTMLFormElement>(null);
@@ -187,16 +188,19 @@ function RenameRoleForm({ teamId, role }: RenameRoleFormProps) {
 	);
 }
 
-// Lets the Project owner assign a reusable team role.
+// Lets a project manager assign a reusable role and permitted access level.
 function MemberRoleAssignment({
 	teamId,
 	projectId,
 	member,
 	roles,
+	canAssignManager,
 }: MemberRoleAssignmentProps) {
 	const router = useRouter();
-	const assignment = member.projects[0];
-	const [roleId, setRoleId] = useState(assignment?.assignedRoleId ?? "none");
+	const [roleId, setRoleId] = useState(member.assignedRoleId ?? "none");
+	const [accessRole, setAccessRole] = useState<"manager" | "member">(
+		member.projectRole === "manager" ? "manager" : "member",
+	);
 	const [state, formAction] = useActionState(
 		updateProjectMember,
 		initialMemberState,
@@ -209,11 +213,12 @@ function MemberRoleAssignment({
 	return (
 		<form
 			action={formAction}
-			className="grid gap-3 rounded-2xl border border-border bg-card p-3 shadow-2xs sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-center"
+			className="grid gap-3 rounded-2xl border border-border bg-card p-3 shadow-2xs sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:items-center"
 		>
 			<input type="hidden" name="teamId" value={teamId} />
 			<input type="hidden" name="projectId" value={projectId} />
 			<input type="hidden" name="userId" value={member.id} />
+			<input type="hidden" name="accessRole" value={accessRole} />
 			<input
 				type="hidden"
 				name="assignedRoleId"
@@ -224,12 +229,35 @@ function MemberRoleAssignment({
 					{member.imageUrl ? (
 						<AvatarImage src={member.imageUrl} alt={member.name} />
 					) : null}
-					<AvatarFallback className="bg-brand_navy-500/10 text-brand_navy-700 dark:bg-brand_mint-500/15 dark:text-brand_mint-300 font-semibold text-xs">{memberInitials(member.name)}</AvatarFallback>
+					<AvatarFallback className="bg-brand_navy-500/10 text-brand_navy-700 dark:bg-brand_mint-500/15 dark:text-brand_mint-300 font-semibold text-xs">
+						{memberInitials(member.name)}
+					</AvatarFallback>
 				</Avatar>
 				<div className="min-w-0">
 					<p className="truncate font-medium">{member.name}</p>
 				</div>
 			</div>
+			{canAssignManager ? (
+				<Select
+					aria-label={`Board access for ${member.name}`}
+					value={accessRole}
+					onChange={(value) =>
+						setAccessRole(String(value) as "manager" | "member")
+					}
+				>
+					<SelectTrigger className="w-full">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem id="member">Member</SelectItem>
+						<SelectItem id="manager">Manager</SelectItem>
+					</SelectContent>
+				</Select>
+			) : (
+				<p className="px-2 text-sm text-muted-foreground capitalize">
+					{accessRole}
+				</p>
+			)}
 			<Select
 				aria-label={`Role for ${member.name}`}
 				value={roleId}
@@ -249,7 +277,7 @@ function MemberRoleAssignment({
 			</Select>
 			<RoleSubmit label="Save" />
 			{state.status === "error" ? (
-				<p className="text-xs text-destructive sm:col-span-3" role="alert">
+				<p className="text-xs text-destructive sm:col-span-4" role="alert">
 					{state.message}
 				</p>
 			) : null}
@@ -263,6 +291,7 @@ export function TeamRoleManager({
 	projectId,
 	members,
 	roles,
+	canAssignManager,
 }: TeamRoleManagerProps) {
 	return (
 		<DialogTrigger>
@@ -302,19 +331,22 @@ export function TeamRoleManager({
 								Member assignments
 							</h3>
 							<p className="text-xs text-muted-foreground">
-								Assign one role to each team member.
+								Set board access separately from each member's custom role.
 							</p>
 						</div>
 						<div className="space-y-2">
-							{members.map((member) => (
-								<MemberRoleAssignment
-									key={member.id}
-									teamId={teamId}
-									projectId={projectId}
-									member={member}
-									roles={roles}
-								/>
-							))}
+							{members
+								.filter((member) => member.projectRole !== "owner")
+								.map((member) => (
+									<MemberRoleAssignment
+										key={member.id}
+										teamId={teamId}
+										projectId={projectId}
+										member={member}
+										roles={roles}
+										canAssignManager={canAssignManager}
+									/>
+								))}
 						</div>
 					</section>
 				</div>

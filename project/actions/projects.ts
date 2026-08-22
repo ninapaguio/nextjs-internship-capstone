@@ -1,13 +1,17 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
+import { db } from "@/lib/db";
 import {
 	changeOwnedProjectLifecycle,
 	insertProject,
-	updateOwnedProject,
+	updateManagedProject,
 } from "@/lib/db/mutations/projects";
+import { getAccessibleProjectById } from "@/lib/db/queries/projects";
+import { tasks } from "@/lib/db/schema";
 import {
 	createProjectSchema,
 	projectLifecycleSchema,
@@ -72,7 +76,7 @@ export async function createProject(
 	}
 }
 
-// Updates a project after validating owner access.
+// Updates project details or performs an allowed owner/manager status transition.
 export async function updateProject(
 	formData: FormData,
 ): Promise<ProjectMutationActionState> {
@@ -82,10 +86,15 @@ export async function updateProject(
 
 	const parsed = updateProjectSchema.safeParse({
 		projectId: formData.get("projectId"),
-		name: formData.get("name"),
-		description: formData.get("description"),
-		startDate: formData.get("startDate"),
-		endDate: formData.get("endDate"),
+		name: formData.get("name") ?? undefined,
+		description: formData.has("description")
+			? formData.get("description")
+			: undefined,
+		startDate: formData.has("startDate")
+			? formData.get("startDate")
+			: undefined,
+		endDate: formData.has("endDate") ? formData.get("endDate") : undefined,
+		status: formData.get("status") ?? undefined,
 	});
 
 	if (!parsed.success) {
@@ -102,13 +111,77 @@ export async function updateProject(
 	}
 
 	const { projectId, ...changes } = parsed.data;
-	const project = await updateOwnedProject(
+	const accessibleProject = await getAccessibleProjectById(
+		projectId,
+		applicationUser.id,
+	);
+	if (
+		!accessibleProject ||
+		(accessibleProject.accessRole !== "owner" &&
+			accessibleProject.accessRole !== "manager")
+	) {
+		return {
+			status: "error",
+			message: "Only the project owner or a manager can edit it.",
+		};
+	}
+
+	if (changes.status && changes.status !== accessibleProject.status) {
+		const transition = `${accessibleProject.status}:${changes.status}`;
+		const allowedTransitions = new Set([
+			"inactive:active",
+			"active:inactive",
+			"active:completed",
+			"completed:active",
+		]);
+		if (!allowedTransitions.has(transition)) {
+			return {
+				status: "error",
+				message: "That project status change is not allowed.",
+			};
+		}
+	}
+
+	if (changes.status === "completed") {
+		const [{ incompleteCount, totalCount }] = await db
+			.select({
+				incompleteCount: sql<number>`count(*) filter (where ${tasks.completedAt} is null)::int`,
+				totalCount: sql<number>`count(*)::int`,
+			})
+			.from(tasks)
+			.where(
+				and(
+					eq(tasks.projectId, projectId),
+					isNull(tasks.archivedAt),
+					isNull(tasks.deletedAt),
+				),
+			);
+
+		if (totalCount === 0) {
+			return {
+				status: "error",
+				message: "Add at least one task before completing this project.",
+			};
+		}
+
+		if (incompleteCount > 0) {
+			return {
+				status: "error",
+				message: `Complete all tasks (${incompleteCount} remaining) before marking this project as complete.`,
+			};
+		}
+	}
+
+	const project = await updateManagedProject(
 		projectId,
 		applicationUser.id,
 		changes,
 	);
 	if (!project) {
-		return { status: "error", message: "Only the project owner can edit it." };
+		return {
+			status: "error",
+			message: "Only the project owner or a manager can edit it.",
+		};
 	}
 
 	revalidatePath("/projects");

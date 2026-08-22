@@ -15,6 +15,7 @@ import { useProjects } from "@/hooks/use-projects";
 import type { ProjectCardData, ProjectListData } from "@/types";
 
 interface ProjectGridProps {
+	applicationUserId: string;
 	initialData: ProjectListData;
 	hasSearchQuery: boolean;
 	search: string;
@@ -24,6 +25,7 @@ interface ProjectGridProps {
 
 // Renders the optimistic project collection received from the server page.
 export function ProjectGrid({
+	applicationUserId,
 	initialData,
 	hasSearchQuery,
 	search,
@@ -41,6 +43,7 @@ export function ProjectGrid({
 		updateProject,
 		removeProject,
 	} = useProjects({
+		applicationUserId,
 		initialData,
 		search,
 		page,

@@ -35,6 +35,7 @@ export async function getAccessibleProjectById(
 			name: projects.name,
 			description: projects.description,
 			startDate: projects.startDate,
+			status: projects.status,
 		})
 		.from(projects)
 		.leftJoin(

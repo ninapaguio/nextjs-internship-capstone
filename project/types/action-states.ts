@@ -40,7 +40,9 @@ export interface ProjectMemberActionState {
 	status: ActionStatus;
 	message: string;
 	redirectTo?: string;
-	fieldErrors?: Partial<Record<"assignedRoleId", string[] | undefined>>;
+	fieldErrors?: Partial<
+		Record<"accessRole" | "assignedRoleId", string[] | undefined>
+	>;
 }
 
 export interface TeamRoleActionState {

@@ -8,7 +8,7 @@ import { canManageTeamRoles } from "@/lib/db/queries/project-members";
 import { teamRoleSchema, updateTeamRoleSchema } from "@/lib/validations";
 import type { TeamRoleActionState } from "@/types";
 
-// Renames a team-scoped role after checking Project owner access.
+// Renames a team-scoped role after checking Project management access.
 export async function updateTeamRole(
 	_previousState: TeamRoleActionState,
 	formData: FormData,
@@ -36,7 +36,7 @@ export async function updateTeamRole(
 	if (!(await canManageTeamRoles(parsed.data.teamId, applicationUser.id))) {
 		return {
 			status: "error",
-			message: "Only the project owner can edit team roles.",
+			message: "Only the project owner or a manager can edit team roles.",
 		};
 	}
 
@@ -52,7 +52,7 @@ export async function updateTeamRole(
 	return { status: "success", message: "Role updated." };
 }
 
-// Creates a team-scoped role after checking Project owner access.
+// Creates a team-scoped role after checking Project management access.
 export async function createTeamRole(
 	_previousState: TeamRoleActionState,
 	formData: FormData,
@@ -80,7 +80,7 @@ export async function createTeamRole(
 	if (!(await canManageTeamRoles(parsed.data.teamId, applicationUser.id))) {
 		return {
 			status: "error",
-			message: "Only the project owner can create team roles.",
+			message: "Only the project owner or a manager can create team roles.",
 		};
 	}
 

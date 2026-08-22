@@ -37,7 +37,7 @@ export async function getTeamListForUser(
 			id: teams.id,
 			name: projects.name,
 			description: projects.description,
-			isOwner: sql<boolean>`${projectMembers.accessRole} = 'owner'`,
+			accessRole: projectMembers.accessRole,
 			memberCount: sql<number>`(
 				select count(*)::int from ${projectMembers} memberships
 				where memberships.project_id = ${projects.id}
@@ -151,22 +151,15 @@ export async function getTeamDetailForUser(
 	]);
 
 	const isOwner = team.viewerRole === "owner";
+	const canManage = isOwner || team.viewerRole === "manager";
 	const members: TeamDetailMember[] = memberRows.map((member) => ({
 		id: member.id,
 		name: getMemberName(member),
 		email: member.email,
 		imageUrl: member.imageUrl,
 		projectRole: member.accessRole,
-		projects: [
-			{
-				projectId: team.projectId,
-				projectName: team.name,
-				accessRole: member.accessRole,
-				assignedRoleId: member.assignedRoleId,
-				assignedRoleName: member.assignedRoleName,
-				canManage: isOwner,
-			},
-		],
+		assignedRoleId: member.assignedRoleId,
+		assignedRoleName: member.assignedRoleName,
 	}));
 
 	return {
@@ -174,31 +167,9 @@ export async function getTeamDetailForUser(
 		projectId: team.projectId,
 		name: team.name,
 		isOwner,
+		canManage,
 		roles,
-		invitations: isOwner ? invitationRows : [],
+		invitations: canManage ? invitationRows : [],
 		members,
 	};
-}
-
-// Checks Team access through the generated Team's Project membership.
-export async function canAccessTeam(teamId: string, applicationUserId: string) {
-	const [membership] = await db
-		.select({ userId: projectMembers.userId })
-		.from(teams)
-		.innerJoin(
-			projectMembers,
-			and(
-				eq(projectMembers.projectId, teams.projectId),
-				eq(projectMembers.userId, applicationUserId),
-			),
-		)
-		.where(
-			and(
-				eq(teams.id, teamId),
-				isNull(teams.deletedAt),
-				isNull(teams.archivedAt),
-			),
-		)
-		.limit(1);
-	return Boolean(membership);
 }

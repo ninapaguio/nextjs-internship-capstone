@@ -36,7 +36,7 @@ function InviteProjectMemberSubmit() {
 	);
 }
 
-// Sends one pending Project invitation while keeping the Project OWNER unchanged.
+// Sends one pending Project invitation while keeping the Project owner unchanged.
 export function InviteProjectMemberModal({
 	projectId,
 	projectName,

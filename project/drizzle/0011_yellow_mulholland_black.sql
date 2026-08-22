@@ -1,0 +1,1 @@
+ALTER TYPE "public"."project_access_role" ADD VALUE 'manager' BEFORE 'member';

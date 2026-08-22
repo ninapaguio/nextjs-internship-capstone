@@ -46,8 +46,8 @@ import type {
 
 const DEFAULT_LABEL_COLOR = "#64748B";
 
-// Authenticates the current Clerk user and verifies access to a project board.
-async function authorizeBoardProject(projectId: string) {
+// Loads the signed-in application user and their accessible project membership.
+async function getBoardAuthorizationContext(projectId: string) {
 	const { userId: clerkId } = await auth();
 	if (!clerkId) return null;
 
@@ -55,7 +55,41 @@ async function authorizeBoardProject(projectId: string) {
 	if (!applicationUser) return null;
 
 	const project = await getAccessibleProjectById(projectId, applicationUser.id);
-	return project ? applicationUser : null;
+	if (!project) return null;
+
+	return { applicationUser, project };
+}
+
+// Allows task changes for managers, and for members only after the project starts.
+async function authorizeBoardMember(projectId: string) {
+	const context = await getBoardAuthorizationContext(projectId);
+	if (!context) return null;
+
+	const { applicationUser, project } = context;
+	if (
+		project.status === "completed" ||
+		(project.status === "inactive" && project.accessRole === "member")
+	) {
+		return null;
+	}
+
+	return applicationUser;
+}
+
+// Restricts structural column changes to the project owner and managers.
+async function authorizeBoardManager(projectId: string) {
+	const context = await getBoardAuthorizationContext(projectId);
+	if (!context) return null;
+
+	const { applicationUser, project } = context;
+	if (
+		project.status === "completed" ||
+		(project.accessRole !== "owner" && project.accessRole !== "manager")
+	) {
+		return null;
+	}
+
+	return applicationUser;
 }
 
 // Revalidates pages that display board tasks or project task totals.
@@ -88,7 +122,7 @@ export async function createBoardComment(
 	}
 
 	try {
-		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		const applicationUser = await authorizeBoardMember(parsed.data.projectId);
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot comment on this board." };
 		}
@@ -156,7 +190,7 @@ export async function createBoardLabel(
 	}
 
 	try {
-		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+		if (!(await authorizeBoardMember(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
 
@@ -198,7 +232,7 @@ export async function createBoardList(
 	}
 
 	try {
-		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+		if (!(await authorizeBoardManager(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
 
@@ -236,7 +270,7 @@ export async function updateBoardList(
 	}
 
 	try {
-		if (!(await authorizeBoardProject(identifiers.data))) {
+		if (!(await authorizeBoardManager(identifiers.data))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
 
@@ -268,7 +302,7 @@ export async function changeBoardListLifecycle(
 		return { status: "error", message: "Invalid column action." };
 
 	try {
-		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+		if (!(await authorizeBoardManager(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
 
@@ -312,7 +346,7 @@ export async function createBoardTask(
 	}
 
 	try {
-		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		const applicationUser = await authorizeBoardMember(parsed.data.projectId);
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot update this board." };
 		}
@@ -393,7 +427,7 @@ export async function updateBoardTask(
 	}
 
 	try {
-		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		const applicationUser = await authorizeBoardMember(parsed.data.projectId);
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot update this board." };
 		}
@@ -477,7 +511,7 @@ export async function changeBoardTaskLifecycle(
 		return { status: "error", message: "Invalid task action." };
 
 	try {
-		if (!(await authorizeBoardProject(parsed.data.projectId))) {
+		if (!(await authorizeBoardMember(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
 		const task = await changeBoardTaskLifecycleMutation(
@@ -516,7 +550,7 @@ export async function moveBoardTask(
 		return { status: "error", message: "Invalid task movement." };
 
 	try {
-		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		const applicationUser = await authorizeBoardMember(parsed.data.projectId);
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot update this board." };
 		}
@@ -552,7 +586,7 @@ export async function moveBoardTasks(
 	}
 
 	try {
-		const applicationUser = await authorizeBoardProject(parsed.data.projectId);
+		const applicationUser = await authorizeBoardMember(parsed.data.projectId);
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot update this board." };
 		}

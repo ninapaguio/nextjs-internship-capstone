@@ -30,6 +30,7 @@ import type { BoardTask } from "@/types";
 interface TaskCardProps {
 	task: BoardTask;
 	listId: string;
+	canEdit: boolean;
 	isOpening?: boolean;
 	isSelected?: boolean;
 	isGroupDragging?: boolean;
@@ -80,14 +81,21 @@ Features to implement:
 
 const priorityStyles: Record<BoardTask["priority"]["key"], string> = {
 	low: "bg-brand_mint-50 text-brand_mint-800 border border-brand_mint-200/80 dark:bg-brand_mint-950/40 dark:text-brand_mint-300 dark:border-brand_mint-800/50",
-	medium: "bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
+	medium:
+		"bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
 	high: "bg-rose-50 text-rose-800 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50",
 };
 
 // Returns the status icon used in the leading task marker.
 function TaskStatusIcon({ task }: Pick<TaskCardProps, "task">) {
-	if (task.completedAt) return <CheckCircle2 className="size-4 text-brand_mint-600 dark:text-brand_mint-400" />;
-	if (task.assignees.length > 0) return <Clock3 className="size-4 text-brand_teal-600 dark:text-brand_teal-400" />;
+	if (task.completedAt)
+		return (
+			<CheckCircle2 className="size-4 text-brand_mint-600 dark:text-brand_mint-400" />
+		);
+	if (task.assignees.length > 0)
+		return (
+			<Clock3 className="size-4 text-brand_teal-600 dark:text-brand_teal-400" />
+		);
 	return <Circle className="size-4" />;
 }
 
@@ -123,6 +131,7 @@ function getMemberInitials(name: string) {
 function TaskCardComponent({
 	task,
 	listId,
+	canEdit,
 	isOpening = false,
 	isSelected = false,
 	isGroupDragging = false,
@@ -139,11 +148,13 @@ function TaskCardComponent({
 		id: task.id,
 		type: "task",
 		data: { listId },
+		disabled: !canEdit || Boolean(task.archivedAt),
 	});
 	const { ref: droppableRef, isDropTarget } = useDroppable({
 		id: task.id,
 		accept: "task",
 		data: { listId },
+		disabled: !canEdit,
 	});
 
 	// Connects both dnd-kit roles to one stable card DOM node.
@@ -164,7 +175,8 @@ function TaskCardComponent({
 				isGroupDragging && "scale-[0.98] opacity-35 shadow-none",
 				isDragSource && "opacity-25",
 				isDropTarget && "ring-2 ring-brand_teal-500/60 ring-offset-2",
-				isSelected && "ring-2 ring-brand_navy-500 dark:ring-brand_mint-500 ring-inset",
+				isSelected &&
+					"ring-2 ring-brand_navy-500 dark:ring-brand_mint-500 ring-inset",
 			)}
 		>
 			<Button
@@ -193,7 +205,11 @@ function TaskCardComponent({
 							aria-pressed={isSelected}
 							onPress={() => onToggleSelection(task.id)}
 						>
-							{isSelected ? <SquareCheckBig className="text-brand_navy-500 dark:text-brand_mint-400" /> : <Square />}
+							{isSelected ? (
+								<SquareCheckBig className="text-brand_navy-500 dark:text-brand_mint-400" />
+							) : (
+								<Square />
+							)}
 						</Button>
 					) : null}
 					<span aria-hidden="true">
@@ -223,7 +239,7 @@ function TaskCardComponent({
 						className="m-1.5 size-4 animate-spin text-muted-foreground"
 						aria-label="Opening task details"
 					/>
-				) : (
+				) : !task.archivedAt || canEdit ? (
 					<DropdownMenuTrigger>
 						<TooltipTrigger delay={400}>
 							<Button
@@ -250,8 +266,8 @@ function TaskCardComponent({
 							)}
 						</DropdownMenu>
 					</DropdownMenuTrigger>
-				)}
-				{!task.archivedAt ? (
+				) : null}
+				{canEdit && !task.archivedAt ? (
 					<TooltipTrigger delay={400}>
 						<Button
 							ref={handleRef}
@@ -293,7 +309,11 @@ function TaskCardComponent({
 				{task.labels.length > 0 ? (
 					<div className="mt-3 flex flex-wrap gap-1">
 						{task.labels.slice(0, 3).map((label) => (
-							<Badge key={label.id} variant="secondary" className="max-w-full text-[10px] border-border/50">
+							<Badge
+								key={label.id}
+								variant="secondary"
+								className="max-w-full text-[10px] border-border/50"
+							>
 								<span className="truncate">{label.name}</span>
 							</Badge>
 						))}
