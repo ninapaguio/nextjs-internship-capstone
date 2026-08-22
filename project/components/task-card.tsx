@@ -169,7 +169,7 @@ function TaskCardComponent({
 			ref={setCardRef}
 			aria-busy={isOpening}
 			className={cn(
-				"relative isolate flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-3.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand_teal-500/50 hover:shadow-md",
+				"relative isolate flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card p-3.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand_teal-500/50 hover:shadow-md",
 				overdue &&
 					"border-rose-300 bg-rose-50/60 shadow-rose-100 dark:border-rose-900 dark:bg-rose-950/20 dark:shadow-none",
 				isGroupDragging && "scale-[0.98] opacity-35 shadow-none",

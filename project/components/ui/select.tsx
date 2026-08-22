@@ -70,7 +70,7 @@ function SelectValue<T extends object>({
 			{typeof children === "function"
 				? children
 				: ({ selectedItems, selectedText, defaultChildren }) =>
-						selectedItems.length > 1 ? selectedText : defaultChildren}
+					selectedItems.length > 1 ? selectedText : defaultChildren}
 		</SelectValuePrimitive>
 	);
 }
@@ -148,7 +148,7 @@ function SelectPopover({
 			offset={offset}
 			crossOffset={crossOffset}
 			className={cn(
-				"relative isolate z-50 w-(--trigger-width) min-w-36 origin-(--trigger-anchor-point) overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md duration-100 data-entering:animate-in data-entering:fade-in-0 data-entering:zoom-in-95 data-exiting:animate-out data-exiting:fade-out-0 data-exiting:zoom-out-95 data-[placement=bottom]:slide-in-from-top-2 data-[placement=left]:slide-in-from-right-2 data-[placement=right]:slide-in-from-left-2 data-[placement=top]:slide-in-from-bottom-2 **:data-[slot$=-item]:data-focused:bg-accent",
+				"relative isolate z-110 w-(--trigger-width) min-w-36 origin-(--trigger-anchor-point) overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md duration-100 data-entering:animate-in data-entering:fade-in-0 data-entering:zoom-in-95 data-exiting:animate-out data-exiting:fade-out-0 data-exiting:zoom-out-95 data-[placement=bottom]:slide-in-from-top-2 data-[placement=left]:slide-in-from-right-2 data-[placement=right]:slide-in-from-left-2 data-[placement=top]:slide-in-from-bottom-2 **:data-[slot$=-item]:data-focused:bg-accent",
 				className,
 			)}
 			{...props}

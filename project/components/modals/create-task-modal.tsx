@@ -42,7 +42,11 @@ interface CreateTaskModalProps {
 	isOpen: boolean;
 	onOpenChange: (isOpen: boolean) => void;
 	onCreateTask: (task: BoardTask) => void;
-	onCreateLabel: (projectId: string, name: string) => Promise<BoardLabelOption>;
+	onCreateLabel: (
+		projectId: string,
+		name: string,
+		color: string,
+	) => Promise<BoardLabelOption>;
 }
 
 // TODO: Task 4.4 - Build task creation and editing functionality
@@ -297,7 +301,9 @@ export function CreateTaskModal({
 								labels={labels}
 								value={labelIds}
 								onChange={setLabelIds}
-								onCreateLabel={(name) => onCreateLabel(projectId, name)}
+								onCreateLabel={(name, color) =>
+									onCreateLabel(projectId, name, color)
+								}
 							/>
 						</div>
 					</div>

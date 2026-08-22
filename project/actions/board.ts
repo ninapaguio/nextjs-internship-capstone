@@ -44,8 +44,6 @@ import type {
 	CreateBoardLabelActionState,
 } from "@/types";
 
-const DEFAULT_LABEL_COLOR = "#64748B";
-
 // Loads the signed-in application user and their accessible project membership.
 async function getBoardAuthorizationContext(projectId: string) {
 	const { userId: clerkId } = await auth();
@@ -179,12 +177,12 @@ export async function createBoardLabel(
 	const parsed = labelSchema.safeParse({
 		projectId: formData.get("projectId"),
 		name: formData.get("name"),
-		color: DEFAULT_LABEL_COLOR,
+		color: formData.get("color"),
 	});
 	if (!parsed.success) {
 		return {
 			status: "error",
-			message: "Enter a valid label name.",
+			message: "Enter a valid label name and color.",
 			fieldErrors: parsed.error.flatten().fieldErrors,
 		};
 	}

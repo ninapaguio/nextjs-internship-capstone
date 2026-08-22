@@ -64,7 +64,7 @@ export function KanbanColumn({
 					"bg-brand_teal-50/30 ring-2 ring-brand_teal-500/60 dark:bg-brand_teal-950/30",
 			)}
 		>
-			<header className="px-1.5 pt-1.5 pb-3">
+			<header className="shrink-0 px-1.5 pt-1.5 pb-3">
 				<div className="flex items-center justify-between gap-2">
 					<div className="flex items-center gap-2">
 						<h2
@@ -135,7 +135,7 @@ export function KanbanColumn({
 				) : null}
 			</header>
 
-			<div className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1">
+			<div className="scrollbar-thin flex h-0 min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
 				{list.tasks.map((task) => (
 					<TaskCard
 						key={task.id}
@@ -166,7 +166,7 @@ export function KanbanColumn({
 					variant="default"
 					size="sm"
 					onPress={() => onAddTask(list.id)}
-					className="pointer-events-none mt-3 w-full translate-y-1 rounded-xl text-xs opacity-0 shadow-xs transition-[opacity,transform] focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100 group-focus-within/column:pointer-events-auto group-focus-within/column:translate-y-0 group-focus-within/column:opacity-100 group-hover/column:pointer-events-auto group-hover/column:translate-y-0 group-hover/column:opacity-100"
+					className="pointer-events-none mt-3 w-full shrink-0 translate-y-1 rounded-xl text-xs opacity-0 shadow-xs transition-[opacity,transform] focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100 group-focus-within/column:pointer-events-auto group-focus-within/column:translate-y-0 group-focus-within/column:opacity-100 group-hover/column:pointer-events-auto group-hover/column:translate-y-0 group-hover/column:opacity-100"
 				>
 					<Plus data-icon="inline-start" /> Add task
 				</Button>

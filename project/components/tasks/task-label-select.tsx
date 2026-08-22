@@ -17,10 +17,11 @@ interface TaskLabelSelectProps {
 	labels: BoardLabelOption[];
 	value: string[];
 	onChange: (labelIds: string[]) => void;
-	onCreateLabel: (name: string) => Promise<BoardLabelOption>;
+	onCreateLabel: (name: string, color: string) => Promise<BoardLabelOption>;
 }
 
-const maximumTaskLabels = 3;
+const MAXIMUM_TASK_LABELS = 3;
+const DEFAULT_LABEL_COLOR = "#64748B";
 
 // Provides one selector for choosing up to three labels or creating a reusable label.
 export function TaskLabelSelect({
@@ -31,6 +32,7 @@ export function TaskLabelSelect({
 }: TaskLabelSelectProps) {
 	const [isCreatorOpen, setIsCreatorOpen] = useState(false);
 	const [newLabelName, setNewLabelName] = useState("");
+	const [newLabelColor, setNewLabelColor] = useState(DEFAULT_LABEL_COLOR);
 	const [error, setError] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 
@@ -41,9 +43,10 @@ export function TaskLabelSelect({
 		setIsCreating(true);
 		setError(null);
 		try {
-			const label = await onCreateLabel(name);
-			onChange([...value, label.id].slice(0, maximumTaskLabels));
+			const label = await onCreateLabel(name, newLabelColor);
+			onChange([...value, label.id].slice(0, MAXIMUM_TASK_LABELS));
 			setNewLabelName("");
+			setNewLabelColor(DEFAULT_LABEL_COLOR);
 			setIsCreatorOpen(false);
 		} catch (createError) {
 			setError(
@@ -59,6 +62,7 @@ export function TaskLabelSelect({
 	// Restores the label selector without creating the current draft.
 	function cancelCreateLabel() {
 		setNewLabelName("");
+		setNewLabelColor(DEFAULT_LABEL_COLOR);
 		setError(null);
 		setIsCreatorOpen(false);
 	}
@@ -66,7 +70,7 @@ export function TaskLabelSelect({
 	return (
 		<div className="grid gap-2">
 			{isCreatorOpen ? (
-				<div className="flex min-w-0 gap-2">
+				<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_4rem_auto]">
 					<Input
 						aria-label="New label name"
 						placeholder={
@@ -88,6 +92,14 @@ export function TaskLabelSelect({
 								cancelCreateLabel();
 							}
 						}}
+					/>
+					<Input
+						type="color"
+						aria-label="New label color"
+						value={newLabelColor}
+						onChange={(event) => setNewLabelColor(event.target.value)}
+						disabled={isCreating}
+						className="min-h-9 w-full cursor-pointer p-1"
 					/>
 					<Button
 						type="button"
@@ -114,7 +126,7 @@ export function TaskLabelSelect({
 							onChange([]);
 							return;
 						}
-						if (nextValues.length > maximumTaskLabels) {
+						if (nextValues.length > MAXIMUM_TASK_LABELS) {
 							setError("A task can have at most three labels.");
 							return;
 						}
@@ -131,7 +143,7 @@ export function TaskLabelSelect({
 						<SelectItem
 							id="create-label"
 							textValue="Create tag"
-							isDisabled={value.length >= maximumTaskLabels}
+							isDisabled={value.length >= MAXIMUM_TASK_LABELS}
 						>
 							Create tag
 						</SelectItem>
@@ -142,7 +154,7 @@ export function TaskLabelSelect({
 								key={label.id}
 								id={label.id}
 								isDisabled={
-									value.length >= maximumTaskLabels && !value.includes(label.id)
+									value.length >= MAXIMUM_TASK_LABELS && !value.includes(label.id)
 								}
 							>
 								{label.name}
