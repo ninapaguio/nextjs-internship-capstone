@@ -1,6 +1,18 @@
 import "server-only";
 
-import { and, count, eq, gt, inArray, isNull, lte } from "drizzle-orm";
+import {
+	and,
+	count,
+	eq,
+	exists,
+	gt,
+	inArray,
+	isNull,
+	lte,
+	or,
+	sql,
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
 	projectInvitations,
@@ -20,6 +32,74 @@ interface CreateProjectInvitationMutationInput {
 	email: string;
 	invitedById: string;
 	expiresAt: Date;
+}
+
+// Checks that an owner or manager can still change membership in an active project.
+function hasProjectManagementAccess(
+	projectId: string,
+	applicationUserId: string,
+) {
+	const manager = alias(projectMembers, "project_manager");
+	return exists(
+		db
+			.select({ userId: manager.userId })
+			.from(manager)
+			.innerJoin(projects, eq(projects.id, manager.projectId))
+			.where(
+				and(
+					eq(manager.projectId, projectId),
+					eq(manager.userId, applicationUserId),
+					inArray(manager.accessRole, ["owner", "manager"]),
+					isNull(projects.deletedAt),
+					isNull(projects.archivedAt),
+				),
+			),
+	);
+}
+
+// Locks one manageable project so membership requests are handled one at a time.
+function lockManagedProject(projectId: string, applicationUserId: string) {
+	return db
+		.select({ id: projects.id })
+		.from(projects)
+		.where(
+			and(
+				eq(projects.id, projectId),
+				hasProjectManagementAccess(projectId, applicationUserId),
+				isNull(projects.deletedAt),
+				isNull(projects.archivedAt),
+			),
+		)
+		.for("update");
+}
+
+// Checks whether the requester may remove the selected member's access level.
+function canRemoveProjectMember(projectId: string, removedById: string) {
+	const manager = alias(projectMembers, "removing_manager");
+	return exists(
+		db
+			.select({ userId: manager.userId })
+			.from(manager)
+			.innerJoin(projects, eq(projects.id, manager.projectId))
+			.where(
+				and(
+					eq(manager.projectId, projectId),
+					eq(manager.userId, removedById),
+					isNull(projects.deletedAt),
+					isNull(projects.archivedAt),
+					or(
+						and(
+							eq(manager.accessRole, "owner"),
+							inArray(projectMembers.accessRole, ["manager", "member"]),
+						),
+						and(
+							eq(manager.accessRole, "manager"),
+							eq(projectMembers.accessRole, "member"),
+						),
+					),
+				),
+			),
+	);
 }
 
 // Updates the assigned Team role for an existing Project member.
@@ -53,56 +133,66 @@ async function addProjectMember(
 	userId: string,
 	addedById: string,
 ) {
-	const [project] = await db
-		.select({
-			id: projects.id,
-		})
-		.from(projects)
-		.innerJoin(
-			projectMembers,
-			and(
-				eq(projectMembers.projectId, projects.id),
-				eq(projectMembers.userId, addedById),
-				inArray(projectMembers.accessRole, ["owner", "manager"]),
-			),
-		)
-		.where(
-			and(
-				eq(projects.id, projectId),
-				isNull(projects.deletedAt),
-				isNull(projects.archivedAt),
-			),
-		)
-		.limit(1);
-	if (!project) return null;
-
-	const [addedMember] = await db
-		.insert(projectMembers)
-		.values({ projectId, userId, accessRole: "member", addedById })
-		.onConflictDoNothing()
-		.returning({ userId: projectMembers.userId });
-
-	const [{ value: memberCount }] = await db
-		.select({ value: count() })
-		.from(projectMembers)
-		.where(eq(projectMembers.projectId, projectId));
-
-	if (memberCount >= 2) {
-		await db
+	const now = new Date();
+	const [managedProjects, addedMembers, memberCounts] = await db.batch([
+		lockManagedProject(projectId, addedById),
+		db
+			.insert(projectMembers)
+			.select(
+				db
+					.select({
+						projectId: projects.id,
+						userId: sql<string>`${userId}`.as("user_id"),
+						addedById: sql<string>`${addedById}`.as("added_by_id"),
+					})
+					.from(projects)
+					.where(
+						and(
+							eq(projects.id, projectId),
+							hasProjectManagementAccess(projectId, addedById),
+							isNull(projects.deletedAt),
+							isNull(projects.archivedAt),
+						),
+					),
+			)
+			.onConflictDoNothing()
+			.returning({ userId: projectMembers.userId }),
+		db
+			.select({ value: count() })
+			.from(projectMembers)
+			.where(eq(projectMembers.projectId, projectId)),
+		db
 			.insert(teams)
-			.values({ projectId })
+			.select(
+				db
+					.select({ projectId: projects.id })
+					.from(projects)
+					.where(
+						and(
+							eq(projects.id, projectId),
+							hasProjectManagementAccess(projectId, addedById),
+							sql`(
+								select count(*) from ${projectMembers}
+								where ${projectMembers.projectId} = ${projectId}
+							) >= 2`,
+						),
+					),
+			)
 			.onConflictDoUpdate({
 				target: teams.projectId,
 				set: {
 					status: "active",
 					archivedAt: null,
 					deletedAt: null,
-					updatedAt: new Date(),
+					updatedAt: now,
 				},
-			});
-	}
+			}),
+	] as const);
 
-	return { projectId, memberCount, wasAdded: Boolean(addedMember) };
+	const memberCount = memberCounts[0]?.value ?? 0;
+	if (managedProjects.length === 0) return null;
+
+	return { projectId, memberCount, wasAdded: addedMembers.length > 0 };
 }
 
 // Removes a member and archives the generated Team when the Project becomes SOLO.
@@ -111,44 +201,42 @@ export async function removeProjectMember(
 	userId: string,
 	removedById: string,
 ) {
-	const [manager] = await db
-		.select({ accessRole: projectMembers.accessRole })
-		.from(projectMembers)
-		.where(
-			and(
-				eq(projectMembers.projectId, projectId),
-				eq(projectMembers.userId, removedById),
-				inArray(projectMembers.accessRole, ["owner", "manager"]),
-			),
-		)
-		.limit(1);
-	if (!manager) return null;
-
-	const [removed] = await db
-		.delete(projectMembers)
-		.where(
-			and(
-				eq(projectMembers.projectId, projectId),
-				eq(projectMembers.userId, userId),
-				manager.accessRole === "owner"
-					? inArray(projectMembers.accessRole, ["manager", "member"])
-					: eq(projectMembers.accessRole, "member"),
-			),
-		)
-		.returning({ userId: projectMembers.userId });
-	if (!removed) return null;
-
-	const [{ value: memberCount }] = await db
-		.select({ value: count() })
-		.from(projectMembers)
-		.where(eq(projectMembers.projectId, projectId));
-	if (memberCount === 1) {
-		const now = new Date();
-		await db
+	const now = new Date();
+	const [managedProjects, removedMembers, memberCounts] = await db.batch([
+		lockManagedProject(projectId, removedById),
+		db
+			.delete(projectMembers)
+			.where(
+				and(
+					eq(projectMembers.projectId, projectId),
+					eq(projectMembers.userId, userId),
+					canRemoveProjectMember(projectId, removedById),
+				),
+			)
+			.returning({ userId: projectMembers.userId }),
+		db
+			.select({ value: count() })
+			.from(projectMembers)
+			.where(eq(projectMembers.projectId, projectId)),
+		db
 			.update(teams)
 			.set({ status: "archived", archivedAt: now, updatedAt: now })
-			.where(eq(teams.projectId, projectId));
-	}
+			.where(
+				and(
+					eq(teams.projectId, projectId),
+					isNull(teams.deletedAt),
+					hasProjectManagementAccess(projectId, removedById),
+					sql`(
+						select count(*) from ${projectMembers}
+						where ${projectMembers.projectId} = ${projectId}
+					) = 1`,
+				),
+			),
+	] as const);
+
+	const removed = removedMembers[0];
+	const memberCount = memberCounts[0]?.value ?? 0;
+	if (managedProjects.length === 0 || !removed) return null;
 
 	return { userId: removed.userId, memberCount };
 }
