@@ -1,7 +1,13 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import {
+	type ActivityEntity,
+	buildTaskSnapshotActivities,
+	type TaskActivitySnapshot,
+} from "@/lib/db/mutations/task-activity";
 import {
 	comments,
 	labels,
@@ -76,23 +82,6 @@ interface InsertBoardTaskInput {
 	position?: number;
 	assigneeIds: string[];
 	labelIds: string[];
-}
-
-interface ActivityEntity {
-	id: string;
-	name: string;
-}
-
-interface TaskActivitySnapshot {
-	title: string;
-	description: string | null;
-	dueDate: string | null;
-	completed: boolean;
-	list: ActivityEntity;
-	priority: ActivityEntity;
-	assignees: ActivityEntity[];
-	labels: ActivityEntity[];
-	dependencies: ActivityEntity[];
 }
 
 // Loads the saved task values needed to identify meaningful activity changes.
@@ -171,125 +160,152 @@ async function getTaskActivitySnapshot(
 	};
 }
 
-// Returns entities added to and removed from a task relationship.
-function compareActivityEntities(
-	previous: ActivityEntity[],
-	next: ActivityEntity[],
-) {
+// display values that will exist after a validated task update.
+async function buildNextTaskActivitySnapshot(
+	projectId: string,
+	previous: TaskActivitySnapshot,
+	input: UpdateBoardTaskInput,
+): Promise<TaskActivitySnapshot | null> {
+	const [listRows, priorityRows, assigneeRows, labelRows, dependencyRows] =
+		await Promise.all([
+			input.listId
+				? db
+					.select({ id: lists.id, name: lists.name })
+					.from(lists)
+					.where(
+						and(
+							eq(lists.id, input.listId),
+							eq(lists.projectId, projectId),
+							isNull(lists.archivedAt),
+							isNull(lists.deletedAt),
+						),
+					)
+				: Promise.resolve([]),
+			input.priorityId
+				? db
+					.select({ id: priorityOptions.id, name: priorityOptions.label })
+					.from(priorityOptions)
+					.where(eq(priorityOptions.id, input.priorityId))
+				: Promise.resolve([]),
+			input.assigneeIds
+				? input.assigneeIds.length > 0
+					? db
+						.select({
+							id: users.id,
+							firstName: users.firstName,
+							lastName: users.lastName,
+							email: users.email,
+						})
+						.from(users)
+						.where(
+							and(
+								inArray(users.id, input.assigneeIds),
+								isNull(users.deletedAt),
+							),
+						)
+					: Promise.resolve([])
+				: Promise.resolve(null),
+			input.labelIds
+				? input.labelIds.length > 0
+					? db
+						.select({ id: labels.id, name: labels.name })
+						.from(labels)
+						.where(
+							and(
+								eq(labels.projectId, projectId),
+								inArray(labels.id, input.labelIds),
+							),
+						)
+					: Promise.resolve([])
+				: Promise.resolve(null),
+			input.dependencyIds
+				? input.dependencyIds.length > 0
+					? db
+						.select({ id: tasks.id, name: tasks.title })
+						.from(tasks)
+						.where(
+							and(
+								eq(tasks.projectId, projectId),
+								inArray(tasks.id, input.dependencyIds),
+								isNull(tasks.archivedAt),
+								isNull(tasks.deletedAt),
+							),
+						)
+					: Promise.resolve([])
+				: Promise.resolve(null),
+		]);
+
+	if (input.listId && listRows.length !== 1) return null;
+	if (input.priorityId && priorityRows.length !== 1) return null;
+	if (input.assigneeIds && assigneeRows?.length !== input.assigneeIds.length) {
+		return null;
+	}
+	if (input.labelIds && labelRows?.length !== input.labelIds.length)
+		return null;
+	if (
+		input.dependencyIds &&
+		dependencyRows?.length !== input.dependencyIds.length
+	) {
+		return null;
+	}
+
+	const nextAssignees: ActivityEntity[] | null = assigneeRows
+		? assigneeRows.map((member) => ({
+			id: member.id,
+			name:
+				[member.firstName, member.lastName].filter(Boolean).join(" ") ||
+				member.email,
+		}))
+		: null;
+
 	return {
-		added: next.filter(
-			(entity) => !previous.some((item) => item.id === entity.id),
-		),
-		removed: previous.filter(
-			(entity) => !next.some((item) => item.id === entity.id),
-		),
+		title: input.title ?? previous.title,
+		description:
+			input.description === undefined
+				? previous.description
+				: input.description,
+		dueDate: input.dueDate === undefined ? previous.dueDate : input.dueDate,
+		completed: input.completed ?? previous.completed,
+		list: listRows[0] ?? previous.list,
+		priority: priorityRows[0] ?? previous.priority,
+		assignees: nextAssignees ?? previous.assignees,
+		labels: labelRows ?? previous.labels,
+		dependencies: dependencyRows ?? previous.dependencies,
 	};
 }
 
-// Stores only successful, user-visible changes in the task activity timeline.
-async function insertTaskSnapshotActivities(
-	taskId: string,
-	actorId: string,
+// Adds or removes the edited task from a blocked task's dependencies for activity tracking.
+function buildNextBlockingTaskSnapshot(
 	previous: TaskActivitySnapshot,
-	next: TaskActivitySnapshot,
+	dependencyTask: ActivityEntity,
+	shouldDependOnTask: boolean,
 ) {
-	const activityRows: (typeof taskActivities.$inferInsert)[] = [];
-	const addUpdate = (
-		fieldName: string,
-		oldValue: string | null,
-		newValue: string | null,
-	) => {
-		if (oldValue === newValue) return;
-		activityRows.push({
-			taskId,
-			actorId,
-			action: "updated",
-			fieldName,
-			oldValue,
-			newValue,
-		});
-	};
+	const dependencies = previous.dependencies.filter(
+		(dependency) => dependency.id !== dependencyTask.id,
+	);
+	if (shouldDependOnTask) dependencies.push(dependencyTask);
+	return { ...previous, dependencies };
+}
 
-	addUpdate("title", previous.title, next.title);
-	addUpdate("description", previous.description, next.description);
-	addUpdate("due_date", previous.dueDate, next.dueDate);
-	addUpdate("priority", previous.priority.name, next.priority.name);
-
-	if (previous.list.id !== next.list.id) {
-		activityRows.push({
-			taskId,
-			actorId,
-			action: "moved",
-			fieldName: "column",
-			oldValue: previous.list.name,
-			newValue: next.list.name,
-		});
-	}
-	if (previous.completed !== next.completed) {
-		activityRows.push({
-			taskId,
-			actorId,
-			action: next.completed ? "completed" : "updated",
-			fieldName: "completion",
-			oldValue: previous.completed,
-			newValue: next.completed,
-		});
-	}
-
-	const assignees = compareActivityEntities(previous.assignees, next.assignees);
-	for (const member of assignees.added) {
-		activityRows.push({
-			taskId,
-			actorId,
-			action: "assigned",
-			fieldName: "assignee",
-			oldValue: null,
-			newValue: member.name,
-		});
-	}
-	for (const member of assignees.removed) {
-		activityRows.push({
-			taskId,
-			actorId,
-			action: "unassigned",
-			fieldName: "assignee",
-			oldValue: member.name,
-			newValue: null,
-		});
-	}
-
-	for (const [fieldName, changes] of [
-		["label", compareActivityEntities(previous.labels, next.labels)],
-		[
-			"dependency",
-			compareActivityEntities(previous.dependencies, next.dependencies),
-		],
-	] as const) {
-		for (const entity of changes.added) {
-			activityRows.push({
-				taskId,
-				actorId,
-				action: "updated",
-				fieldName,
-				oldValue: null,
-				newValue: entity.name,
-			});
-		}
-		for (const entity of changes.removed) {
-			activityRows.push({
-				taskId,
-				actorId,
-				action: "updated",
-				fieldName,
-				oldValue: entity.name,
-				newValue: null,
-			});
-		}
-	}
-
-	if (activityRows.length > 0) {
-		await db.insert(taskActivities).values(activityRows);
-	}
+// Stops the update unless every expected task is still active and can be changed.
+function requireActiveTaskCount(
+	projectId: string,
+	taskIds: string[],
+	expectedCount: number,
+) {
+	return db
+		.select({
+			guard: sql<number>`1 / (case when count(*) = ${expectedCount} then 1 else 0 end)`,
+		})
+		.from(tasks)
+		.where(
+			and(
+				eq(tasks.projectId, projectId),
+				inArray(tasks.id, taskIds),
+				isNull(tasks.archivedAt),
+				isNull(tasks.deletedAt),
+			),
+		);
 }
 
 // Creates a reusable label within one project.
@@ -373,42 +389,48 @@ export async function changeBoardListLifecycle(
 // Inserts a task at the requested position or at the end of its target list.
 export async function insertBoardTask(input: InsertBoardTaskInput) {
 	const { assigneeIds, labelIds, ...taskInput } = input;
-	const [task] = await db
-		.insert(tasks)
-		.values({
-			...taskInput,
-			position:
-				input.position ??
-				sql<number>`coalesce((select max(${tasks.position}) + 1 from ${tasks} where ${tasks.listId} = ${input.listId} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null), 0)`,
-		})
-		.returning({ id: tasks.id });
-	if (task && assigneeIds.length > 0) {
-		await db.insert(taskAssignees).values(
-			assigneeIds.map((userId) => ({
-				taskId: task.id,
-				userId,
-				assignedById: input.createdById,
-			})),
-		);
-	}
-	if (task && labelIds.length > 0) {
-		await db.insert(taskLabels).values(
-			labelIds.map((labelId) => ({
-				projectId: input.projectId,
-				taskId: task.id,
-				labelId,
-			})),
-		);
-	}
-	if (task) {
-		await db.insert(taskActivities).values({
-			taskId: task.id,
+	const taskId = randomUUID();
+	const [taskRows] = await db.batch([
+		db
+			.insert(tasks)
+			.values({
+				...taskInput,
+				id: taskId,
+				position:
+					input.position ??
+					sql<number>`coalesce((select max(${tasks.position}) + 1 from ${tasks} where ${tasks.listId} = ${input.listId} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null), 0)`,
+			})
+			.returning({ id: tasks.id }),
+		...(assigneeIds.length > 0
+			? [
+				db.insert(taskAssignees).values(
+					assigneeIds.map((userId) => ({
+						taskId,
+						userId,
+						assignedById: input.createdById,
+					})),
+				),
+			]
+			: []),
+		...(labelIds.length > 0
+			? [
+				db.insert(taskLabels).values(
+					labelIds.map((labelId) => ({
+						projectId: input.projectId,
+						taskId,
+						labelId,
+					})),
+				),
+			]
+			: []),
+		db.insert(taskActivities).values({
+			taskId,
 			actorId: input.createdById,
 			action: "created",
-		});
-	}
+		}),
+	] as const);
 
-	return task ?? null;
+	return taskRows[0] ?? null;
 }
 
 // Updates editable task fields and replaces task relationships when provided.
@@ -420,17 +442,23 @@ export async function updateBoardTask(
 ) {
 	const previousSnapshot = await getTaskActivitySnapshot(projectId, taskId);
 	if (!previousSnapshot) return null;
+	const nextSnapshot = await buildNextTaskActivitySnapshot(
+		projectId,
+		previousSnapshot,
+		input,
+	);
+	if (!nextSnapshot) return null;
 
 	const previousBlockingRows = input.blockingTaskIds
 		? await db
-				.select({ taskId: taskDependencies.taskId })
-				.from(taskDependencies)
-				.where(
-					and(
-						eq(taskDependencies.projectId, projectId),
-						eq(taskDependencies.dependsOnTaskId, taskId),
-					),
-				)
+			.select({ taskId: taskDependencies.taskId })
+			.from(taskDependencies)
+			.where(
+				and(
+					eq(taskDependencies.projectId, projectId),
+					eq(taskDependencies.dependsOnTaskId, taskId),
+				),
+			)
 		: [];
 	const affectedBlockingTaskIds = [
 		...new Set([
@@ -441,7 +469,30 @@ export async function updateBoardTask(
 	const previousBlockingSnapshots = new Map<string, TaskActivitySnapshot>();
 	for (const blockingTaskId of affectedBlockingTaskIds) {
 		const snapshot = await getTaskActivitySnapshot(projectId, blockingTaskId);
-		if (snapshot) previousBlockingSnapshots.set(blockingTaskId, snapshot);
+		if (!snapshot) return null;
+		previousBlockingSnapshots.set(blockingTaskId, snapshot);
+	}
+	const activityRows = buildTaskSnapshotActivities(
+		taskId,
+		actorId,
+		previousSnapshot,
+		nextSnapshot,
+	);
+	const dependencyTask = { id: taskId, name: nextSnapshot.title };
+	const nextBlockingTaskIds = new Set(input.blockingTaskIds ?? []);
+	for (const [blockingTaskId, snapshot] of previousBlockingSnapshots) {
+		activityRows.push(
+			...buildTaskSnapshotActivities(
+				blockingTaskId,
+				actorId,
+				snapshot,
+				buildNextBlockingTaskSnapshot(
+					snapshot,
+					dependencyTask,
+					nextBlockingTaskIds.has(blockingTaskId),
+				),
+			),
+		);
 	}
 
 	const {
@@ -452,124 +503,118 @@ export async function updateBoardTask(
 		completed,
 		...changes
 	} = input;
-	const [task] = await db
-		.update(tasks)
-		.set({
-			...changes,
-			completedAt:
-				completed === undefined ? undefined : completed ? new Date() : null,
-			updatedAt: new Date(),
-		})
-		.where(
-			and(
-				eq(tasks.id, taskId),
-				eq(tasks.projectId, projectId),
-				isNull(tasks.archivedAt),
-				isNull(tasks.deletedAt),
-				changes.listId
-					? sql`exists (
-						select 1 from ${lists}
-						where ${lists.id} = ${changes.listId}
-						and ${lists.projectId} = ${projectId}
-						and ${lists.archivedAt} is null
-						and ${lists.deletedAt} is null
-					)`
-					: undefined,
-			),
-		)
-		.returning({ id: tasks.id });
-
-	if (task && assigneeIds) {
-		await db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId));
-		if (assigneeIds.length > 0) {
-			await db.insert(taskAssignees).values(
-				assigneeIds.map((userId) => ({
-					taskId,
-					userId,
-					assignedById: actorId,
-				})),
-			);
-		}
-	}
-
-	if (task && labelIds) {
-		await db.delete(taskLabels).where(eq(taskLabels.taskId, taskId));
-		if (labelIds.length > 0) {
-			await db
-				.insert(taskLabels)
-				.values(labelIds.map((labelId) => ({ projectId, taskId, labelId })));
-		}
-	}
-
-	if (task && dependencyIds) {
-		await db
-			.delete(taskDependencies)
+	const [, taskRows] = await db.batch([
+		requireActiveTaskCount(projectId, [taskId], 1),
+		db
+			.update(tasks)
+			.set({
+				...changes,
+				completedAt:
+					completed === undefined ? undefined : completed ? new Date() : null,
+				updatedAt: new Date(),
+			})
 			.where(
 				and(
-					eq(taskDependencies.projectId, projectId),
-					eq(taskDependencies.taskId, taskId),
+					eq(tasks.id, taskId),
+					eq(tasks.projectId, projectId),
+					isNull(tasks.archivedAt),
+					isNull(tasks.deletedAt),
+					changes.listId
+						? sql`exists (
+							select 1 from ${lists}
+							where ${lists.id} = ${changes.listId}
+							and ${lists.projectId} = ${projectId}
+							and ${lists.archivedAt} is null
+							and ${lists.deletedAt} is null
+						)`
+						: undefined,
 				),
-			);
-		if (dependencyIds.length > 0) {
-			await db.insert(taskDependencies).values(
-				dependencyIds.map((dependsOnTaskId) => ({
-					projectId,
-					taskId,
-					dependsOnTaskId,
-					createdById: actorId,
-				})),
-			);
-		}
-	}
+			)
+			.returning({ id: tasks.id }),
+		...(assigneeIds
+			? [
+				db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId)),
+				...(assigneeIds.length > 0
+					? [
+						db.insert(taskAssignees).values(
+							assigneeIds.map((userId) => ({
+								taskId,
+								userId,
+								assignedById: actorId,
+							})),
+						),
+					]
+					: []),
+			]
+			: []),
+		...(labelIds
+			? [
+				db.delete(taskLabels).where(eq(taskLabels.taskId, taskId)),
+				...(labelIds.length > 0
+					? [
+						db
+							.insert(taskLabels)
+							.values(
+								labelIds.map((labelId) => ({ projectId, taskId, labelId })),
+							),
+					]
+					: []),
+			]
+			: []),
+		...(dependencyIds
+			? [
+				db
+					.delete(taskDependencies)
+					.where(
+						and(
+							eq(taskDependencies.projectId, projectId),
+							eq(taskDependencies.taskId, taskId),
+						),
+					),
+				...(dependencyIds.length > 0
+					? [
+						db.insert(taskDependencies).values(
+							dependencyIds.map((dependsOnTaskId) => ({
+								projectId,
+								taskId,
+								dependsOnTaskId,
+								createdById: actorId,
+							})),
+						),
+					]
+					: []),
+			]
+			: []),
+		...(blockingTaskIds
+			? [
+				db
+					.delete(taskDependencies)
+					.where(
+						and(
+							eq(taskDependencies.projectId, projectId),
+							eq(taskDependencies.dependsOnTaskId, taskId),
+						),
+					),
+				...(blockingTaskIds.length > 0
+					? [
+						db.insert(taskDependencies).values(
+							blockingTaskIds.map((blockingTaskId) => ({
+								projectId,
+								taskId: blockingTaskId,
+								dependsOnTaskId: taskId,
+								createdById: actorId,
+							})),
+						),
+					]
+					: []),
+			]
+			: []),
+		...(activityRows.length > 0
+			? [db.insert(taskActivities).values(activityRows)]
+			: []),
+	] as const);
 
-	if (task && blockingTaskIds) {
-		await db
-			.delete(taskDependencies)
-			.where(
-				and(
-					eq(taskDependencies.projectId, projectId),
-					eq(taskDependencies.dependsOnTaskId, taskId),
-				),
-			);
-		if (blockingTaskIds.length > 0) {
-			await db.insert(taskDependencies).values(
-				blockingTaskIds.map((blockingTaskId) => ({
-					projectId,
-					taskId: blockingTaskId,
-					dependsOnTaskId: taskId,
-					createdById: actorId,
-				})),
-			);
-		}
-	}
-
-	if (task) {
-		const nextSnapshot = await getTaskActivitySnapshot(projectId, taskId);
-		if (nextSnapshot) {
-			await insertTaskSnapshotActivities(
-				taskId,
-				actorId,
-				previousSnapshot,
-				nextSnapshot,
-			);
-		}
-		for (const [blockingTaskId, snapshot] of previousBlockingSnapshots) {
-			const nextSnapshot = await getTaskActivitySnapshot(
-				projectId,
-				blockingTaskId,
-			);
-			if (nextSnapshot) {
-				await insertTaskSnapshotActivities(
-					blockingTaskId,
-					actorId,
-					snapshot,
-					nextSnapshot,
-				);
-			}
-		}
-	}
-
-	return task ?? null;
+	return taskRows[0] ?? null;
 }
 
 // Archives, restores, or soft-deletes one task from an authorized project board.
@@ -611,40 +656,52 @@ export async function moveBoardTask(
 ) {
 	const previousSnapshot = await getTaskActivitySnapshot(projectId, taskId);
 	if (!previousSnapshot) return null;
-
-	const [task] = await db
-		.update(tasks)
-		.set({ listId: targetListId, position, updatedAt: new Date() })
+	const [targetList] = await db
+		.select({ id: lists.id, name: lists.name })
+		.from(lists)
 		.where(
 			and(
-				eq(tasks.id, taskId),
-				eq(tasks.projectId, projectId),
-				isNull(tasks.archivedAt),
-				isNull(tasks.deletedAt),
-				sql`exists (
-					select 1 from ${lists}
-					where ${lists.id} = ${targetListId}
-					and ${lists.projectId} = ${projectId}
-					and ${lists.archivedAt} is null
-					and ${lists.deletedAt} is null
-				)`,
+				eq(lists.id, targetListId),
+				eq(lists.projectId, projectId),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 			),
 		)
-		.returning({ id: tasks.id });
+		.limit(1);
+	if (!targetList) return null;
+	const activityRows = buildTaskSnapshotActivities(
+		taskId,
+		actorId,
+		previousSnapshot,
+		{ ...previousSnapshot, list: targetList },
+	);
+	const [, taskRows] = await db.batch([
+		requireActiveTaskCount(projectId, [taskId], 1),
+		db
+			.update(tasks)
+			.set({ listId: targetListId, position, updatedAt: new Date() })
+			.where(
+				and(
+					eq(tasks.id, taskId),
+					eq(tasks.projectId, projectId),
+					isNull(tasks.archivedAt),
+					isNull(tasks.deletedAt),
+					sql`exists (
+						select 1 from ${lists}
+						where ${lists.id} = ${targetListId}
+						and ${lists.projectId} = ${projectId}
+						and ${lists.archivedAt} is null
+						and ${lists.deletedAt} is null
+					)`,
+				),
+			)
+			.returning({ id: tasks.id }),
+		...(activityRows.length > 0
+			? [db.insert(taskActivities).values(activityRows)]
+			: []),
+	] as const);
 
-	if (task && previousSnapshot.list.id !== targetListId) {
-		const nextSnapshot = await getTaskActivitySnapshot(projectId, taskId);
-		if (nextSnapshot) {
-			await insertTaskSnapshotActivities(
-				taskId,
-				actorId,
-				previousSnapshot,
-				nextSnapshot,
-			);
-		}
-	}
-
-	return task ?? null;
+	return taskRows[0] ?? null;
 }
 
 // Moves up to 10 active tasks together and normalizes every affected column in one update.
@@ -740,27 +797,6 @@ export async function moveBoardTasks(
 		),
 		sql` `,
 	);
-	const updatedTasks = await db
-		.update(tasks)
-		.set({
-			listId: sql`case ${tasks.id} ${listCase} else ${tasks.listId} end`,
-			position: sql`case ${tasks.id} ${positionCase} else ${tasks.position} end`,
-			updatedAt: new Date(),
-		})
-		.where(
-			and(
-				eq(tasks.projectId, projectId),
-				inArray(
-					tasks.id,
-					placements.map((placement) => placement.taskId),
-				),
-				isNull(tasks.archivedAt),
-				isNull(tasks.deletedAt),
-			),
-		)
-		.returning({ id: tasks.id });
-	if (updatedTasks.length !== placements.length) return null;
-
 	const activityRows = movingTasks
 		.filter((task) => task.listId !== targetListId)
 		.map((task) => ({
@@ -771,9 +807,36 @@ export async function moveBoardTasks(
 			oldValue: task.listName,
 			newValue: targetList.name,
 		}));
-	if (activityRows.length > 0) {
-		await db.insert(taskActivities).values(activityRows);
-	}
+	const [, updatedTasks] = await db.batch([
+		requireActiveTaskCount(
+			projectId,
+			placements.map((placement) => placement.taskId),
+			placements.length,
+		),
+		db
+			.update(tasks)
+			.set({
+				listId: sql`case ${tasks.id} ${listCase} else ${tasks.listId} end`,
+				position: sql`case ${tasks.id} ${positionCase} else ${tasks.position} end`,
+				updatedAt: new Date(),
+			})
+			.where(
+				and(
+					eq(tasks.projectId, projectId),
+					inArray(
+						tasks.id,
+						placements.map((placement) => placement.taskId),
+					),
+					isNull(tasks.archivedAt),
+					isNull(tasks.deletedAt),
+				),
+			)
+			.returning({ id: tasks.id }),
+		...(activityRows.length > 0
+			? [db.insert(taskActivities).values(activityRows)]
+			: []),
+	] as const);
+	if (updatedTasks.length !== placements.length) return null;
 
 	return { movedCount: movingTasks.length };
 }
