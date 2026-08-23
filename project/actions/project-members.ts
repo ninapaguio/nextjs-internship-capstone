@@ -12,6 +12,7 @@ import {
 	getProjectManagementAccessRole,
 	isTeamRole,
 } from "@/lib/db/queries/project-members";
+import { publishProjectBoardUpdate } from "@/lib/realtime/pusher-server";
 import {
 	removeProjectMemberSchema,
 	updateProjectMemberSchema,
@@ -52,6 +53,7 @@ export async function removeProjectMember(
 		};
 	}
 
+	await publishProjectBoardUpdate(parsed.data.projectId);
 	revalidatePath(`/team/${parsed.data.teamId}`);
 	revalidatePath("/team");
 	revalidatePath("/projects");
@@ -130,6 +132,7 @@ export async function updateProjectMember(
 		return { status: "error", message: "The project member was not found." };
 	}
 
+	await publishProjectBoardUpdate(parsed.data.projectId);
 	revalidatePath(`/team/${parsed.data.teamId}`);
 	revalidatePath("/team");
 	revalidatePath("/projects");

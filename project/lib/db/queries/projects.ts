@@ -29,6 +29,7 @@ export async function getAccessibleProjectById(
 	const [project] = await db
 		.select({
 			id: projects.id,
+			boardVersion: projects.boardVersion,
 			teamId: teams.id,
 			accessRole: projectMembers.accessRole,
 			createdById: projects.createdById,
@@ -59,6 +60,33 @@ export async function getAccessibleProjectById(
 				isNull(projects.deletedAt),
 				isNull(projects.archivedAt),
 				eq(projectMembers.userId, applicationUserId),
+			),
+		)
+		.limit(1);
+
+	return project ?? null;
+}
+
+// Loads the small revision value used by an authorized open board.
+export async function getAccessibleProjectBoardVersion(
+	projectId: string,
+	applicationUserId: string,
+) {
+	const [project] = await db
+		.select({ boardVersion: projects.boardVersion })
+		.from(projects)
+		.innerJoin(
+			projectMembers,
+			and(
+				eq(projectMembers.projectId, projects.id),
+				eq(projectMembers.userId, applicationUserId),
+			),
+		)
+		.where(
+			and(
+				eq(projects.id, projectId),
+				isNull(projects.deletedAt),
+				isNull(projects.archivedAt),
 			),
 		)
 		.limit(1);

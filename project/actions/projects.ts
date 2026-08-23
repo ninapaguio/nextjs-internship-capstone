@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/mutations/projects";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import { lists, tasks } from "@/lib/db/schema";
+import { publishProjectBoardUpdate } from "@/lib/realtime/pusher-server";
 import {
 	createProjectSchema,
 	projectLifecycleSchema,
@@ -193,6 +194,7 @@ export async function updateProject(
 		};
 	}
 
+	await publishProjectBoardUpdate(projectId);
 	revalidatePath("/projects");
 	revalidatePath(`/projects/${projectId}`);
 	return { status: "success", message: "Project updated successfully." };
@@ -231,6 +233,7 @@ export async function changeProjectLifecycle(
 		};
 	}
 
+	await publishProjectBoardUpdate(parsed.data.projectId);
 	revalidatePath("/projects");
 	revalidatePath("/dashboard");
 	return {

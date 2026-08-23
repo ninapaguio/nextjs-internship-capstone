@@ -17,6 +17,7 @@ import {
 	isProjectMemberByEmail,
 } from "@/lib/db/queries/project-members";
 import { createProjectHref } from "@/lib/project-slug";
+import { publishProjectBoardUpdate } from "@/lib/realtime/pusher-server";
 import {
 	projectInvitationCancellationSchema,
 	projectInvitationDecisionSchema,
@@ -177,6 +178,7 @@ export async function joinProjectInvitation(
 		membership.projectId,
 		membership.projectName,
 	);
+	await publishProjectBoardUpdate(membership.projectId);
 	revalidatePath("/projects");
 	revalidatePath("/team", "layout");
 	revalidatePath(projectHref);

@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
+import { advanceProjectBoardVersion } from "@/lib/db/mutations/board-sync";
 import {
 	projectInvitations,
 	projectMembers,
@@ -108,23 +109,26 @@ export async function updateProjectMemberAssignment(
 	userId: string,
 	input: UpdateProjectMemberAssignmentInput,
 ) {
-	const [member] = await db
-		.update(projectMembers)
-		.set({
-			assignedRoleId: input.assignedRoleId,
-			...(input.accessRole ? { accessRole: input.accessRole } : {}),
-			updatedAt: new Date(),
-		})
-		.where(
-			and(
-				eq(projectMembers.projectId, projectId),
-				eq(projectMembers.userId, userId),
-				inArray(projectMembers.accessRole, ["manager", "member"]),
-			),
-		)
-		.returning({ userId: projectMembers.userId });
+	const [memberRows] = await db.batch([
+		db
+			.update(projectMembers)
+			.set({
+				assignedRoleId: input.assignedRoleId,
+				...(input.accessRole ? { accessRole: input.accessRole } : {}),
+				updatedAt: new Date(),
+			})
+			.where(
+				and(
+					eq(projectMembers.projectId, projectId),
+					eq(projectMembers.userId, userId),
+					inArray(projectMembers.accessRole, ["manager", "member"]),
+				),
+			)
+			.returning({ userId: projectMembers.userId }),
+		advanceProjectBoardVersion(projectId),
+	] as const);
 
-	return member ?? null;
+	return memberRows[0] ?? null;
 }
 
 // Adds one member and creates the Project's generated Team when membership reaches two.
@@ -187,6 +191,7 @@ async function addProjectMember(
 					updatedAt: now,
 				},
 			}),
+		advanceProjectBoardVersion(projectId),
 	] as const);
 
 	const memberCount = memberCounts[0]?.value ?? 0;
@@ -232,6 +237,7 @@ export async function removeProjectMember(
 					) = 1`,
 				),
 			),
+		advanceProjectBoardVersion(projectId),
 	] as const);
 
 	const removed = removedMembers[0];

@@ -44,8 +44,9 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
-import { useSharedViewRefresh } from "@/hooks/use-shared-view-refresh";
+import { useBoardSync } from "@/hooks/use-board-sync";
 import { useTaskComments } from "@/hooks/use-task-comments";
+import type { ProjectRealtimeConfig } from "@/lib/realtime/project-board";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
 import type {
@@ -59,6 +60,8 @@ import type {
 
 interface KanbanBoardProps {
 	projectId: string;
+	initialBoardVersion: number;
+	realtimeConfig: ProjectRealtimeConfig | null;
 	currentUserId: string;
 	initialData: ProjectBoardData;
 	canEditTasks: boolean;
@@ -104,15 +107,17 @@ State management:
 // Provides persisted board filtering, task details, and optimistic dnd-kit movement.
 export function KanbanBoard({
 	projectId,
+	initialBoardVersion,
+	realtimeConfig,
 	currentUserId,
 	initialData,
 	canEditTasks,
 	canManageColumns,
 	initialSelectedTaskId,
 }: KanbanBoardProps) {
-	useSharedViewRefresh();
 	const columns = useBoardStore((state) => state.lists);
 	const draggedTaskIds = useBoardStore((state) => state.draggedTaskIds);
+	const hasPendingChanges = useBoardStore((state) => state.hasPendingChanges);
 	const hydrate = useBoardStore((state) => state.hydrate);
 	const addList = useBoardStore((state) => state.addList);
 	const updateList = useBoardStore((state) => state.updateList);
@@ -127,6 +132,12 @@ export function KanbanBoard({
 	const finishTaskDrag = useBoardStore((state) => state.finishTaskDrag);
 	const replaceLists = useBoardStore((state) => state.replaceLists);
 	const markPersisted = useBoardStore((state) => state.markPersisted);
+	useBoardSync({
+		projectId,
+		boardVersion: initialBoardVersion,
+		isPaused: hasPendingChanges || draggedTaskIds.length > 0,
+		realtimeConfig,
+	});
 	const [query, setQuery] = useState("");
 	const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
 	const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -191,7 +202,11 @@ export function KanbanBoard({
 			throw new Error(result.message);
 		}
 		const createdLabel = result.data;
-		setBoardLabels((current) => [...current, createdLabel]);
+		setBoardLabels((current) =>
+			current.some((label) => label.id === createdLabel.id)
+				? current
+				: [...current, createdLabel],
+		);
 		toast.success("Label created.");
 		return createdLabel;
 	}
@@ -200,6 +215,12 @@ export function KanbanBoard({
 	useEffect(() => {
 		hydrate(projectId, initialData.lists);
 	}, [hydrate, initialData.lists, projectId]);
+
+	// Reconciles labels included in a newer server-rendered board snapshot.
+	useEffect(() => {
+		if (hasPendingChanges) return;
+		setBoardLabels(initialData.labels);
+	}, [hasPendingChanges, initialData.labels]);
 
 	// Clears active-task selection when entering the archived search view.
 	useEffect(() => {
