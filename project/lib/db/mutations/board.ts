@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
+import { advanceProjectBoardVersion } from "@/lib/db/mutations/board-sync";
 import {
 	type ActivityEntity,
 	buildTaskSnapshotActivities,
@@ -30,20 +31,21 @@ interface InsertBoardLabelInput {
 
 // Inserts a comment written by an authorized project member.
 export async function insertBoardComment(
+	projectId: string,
 	taskId: string,
 	authorId: string,
 	content: string,
 ) {
-	const [comment] = await db
-		.insert(comments)
-		.values({ taskId, authorId, content })
-		.returning({
+	const [commentRows] = await db.batch([
+		db.insert(comments).values({ taskId, authorId, content }).returning({
 			id: comments.id,
 			body: comments.content,
 			createdAt: comments.createdAt,
-		});
+		}),
+		advanceProjectBoardVersion(projectId),
+	] as const);
 
-	return comment ?? null;
+	return commentRows[0] ?? null;
 }
 
 interface InsertBoardListInput {
@@ -353,29 +355,35 @@ function requireActiveList(projectId: string, listId: string) {
 
 // Creates a reusable label within one project.
 export async function insertBoardLabel(input: InsertBoardLabelInput) {
-	const [label] = await db
-		.insert(labels)
-		.values(input)
-		.returning({ id: labels.id, name: labels.name, color: labels.color });
+	const [labelRows] = await db.batch([
+		db
+			.insert(labels)
+			.values(input)
+			.returning({ id: labels.id, name: labels.name, color: labels.color }),
+		advanceProjectBoardVersion(input.projectId),
+	] as const);
 
-	return label ?? null;
+	return labelRows[0] ?? null;
 }
 
 // Inserts a list at the requested position or at the end of the project board.
 export async function insertBoardList(input: InsertBoardListInput) {
-	const [list] = await db
-		.insert(lists)
-		.values({
-			projectId: input.projectId,
-			name: input.name,
-			description: input.description,
-			position:
-				input.position ??
-				sql<number>`coalesce((select max(${lists.position}) + 1 from ${lists} where ${lists.projectId} = ${input.projectId} and ${lists.deletedAt} is null), 0)`,
-		})
-		.returning({ id: lists.id, name: lists.name, position: lists.position });
+	const [listRows] = await db.batch([
+		db
+			.insert(lists)
+			.values({
+				projectId: input.projectId,
+				name: input.name,
+				description: input.description,
+				position:
+					input.position ??
+					sql<number>`coalesce((select max(${lists.position}) + 1 from ${lists} where ${lists.projectId} = ${input.projectId} and ${lists.deletedAt} is null), 0)`,
+			})
+			.returning({ id: lists.id, name: lists.name, position: lists.position }),
+		advanceProjectBoardVersion(input.projectId),
+	] as const);
 
-	return list ?? null;
+	return listRows[0] ?? null;
 }
 
 // Updates one active list that belongs to the authorized project.
@@ -384,20 +392,23 @@ export async function updateBoardList(
 	listId: string,
 	input: UpdateBoardListInput,
 ) {
-	const [list] = await db
-		.update(lists)
-		.set({ ...input, updatedAt: new Date() })
-		.where(
-			and(
-				eq(lists.id, listId),
-				eq(lists.projectId, projectId),
-				isNull(lists.archivedAt),
-				isNull(lists.deletedAt),
-			),
-		)
-		.returning({ id: lists.id });
+	const [listRows] = await db.batch([
+		db
+			.update(lists)
+			.set({ ...input, updatedAt: new Date() })
+			.where(
+				and(
+					eq(lists.id, listId),
+					eq(lists.projectId, projectId),
+					isNull(lists.archivedAt),
+					isNull(lists.deletedAt),
+				),
+			)
+			.returning({ id: lists.id }),
+		advanceProjectBoardVersion(projectId),
+	] as const);
 
-	return list ?? null;
+	return listRows[0] ?? null;
 }
 
 // Archives, restores, or soft-deletes one list within an authorized project.
@@ -407,36 +418,39 @@ export async function changeBoardListLifecycle(
 	action: "archive" | "restore" | "delete",
 ) {
 	const now = new Date();
-	const [list] = await db
-		.update(lists)
-		.set({
-			status: action === "restore" ? "active" : "archived",
-			archivedAt: action === "restore" ? null : now,
-			deletedAt: action === "delete" ? now : undefined,
-			updatedAt: now,
-		})
-		.where(
-			and(
-				eq(lists.id, listId),
-				eq(lists.projectId, projectId),
-				action === "restore"
-					? and(isNull(lists.deletedAt), eq(lists.status, "archived"))
-					: and(
-							isNull(lists.deletedAt),
-							isNull(lists.archivedAt),
-							sql`not exists (
+	const [listRows] = await db.batch([
+		db
+			.update(lists)
+			.set({
+				status: action === "restore" ? "active" : "archived",
+				archivedAt: action === "restore" ? null : now,
+				deletedAt: action === "delete" ? now : undefined,
+				updatedAt: now,
+			})
+			.where(
+				and(
+					eq(lists.id, listId),
+					eq(lists.projectId, projectId),
+					action === "restore"
+						? and(isNull(lists.deletedAt), eq(lists.status, "archived"))
+						: and(
+								isNull(lists.deletedAt),
+								isNull(lists.archivedAt),
+								sql`not exists (
 								select 1 from ${tasks}
 								where ${tasks.projectId} = ${projectId}
 								and ${tasks.listId} = ${lists.id}
 								and ${tasks.archivedAt} is null
 								and ${tasks.deletedAt} is null
 							)`,
-						),
-			),
-		)
-		.returning({ id: lists.id });
+							),
+				),
+			)
+			.returning({ id: lists.id }),
+		advanceProjectBoardVersion(projectId),
+	] as const);
 
-	return list ?? null;
+	return listRows[0] ?? null;
 }
 
 // Inserts a task at the requested position or at the end of its target list.
@@ -482,6 +496,7 @@ export async function insertBoardTask(input: InsertBoardTaskInput) {
 			actorId: input.createdById,
 			action: "created",
 		}),
+		advanceProjectBoardVersion(input.projectId),
 	] as const);
 
 	return taskRows[0] ?? null;
@@ -666,6 +681,7 @@ export async function updateBoardTask(
 		...(activityRows.length > 0
 			? [db.insert(taskActivities).values(activityRows)]
 			: []),
+		advanceProjectBoardVersion(projectId),
 	] as const);
 
 	return taskRows[0] ?? null;
@@ -703,33 +719,36 @@ export async function changeBoardTaskLifecycle(
 				),
 			),
 	);
-	const [task] = await db
-		.update(tasks)
-		.set({
-			archivedAt: action === "restore" ? null : now,
-			deletedAt: action === "delete" ? now : undefined,
-			updatedAt: now,
-		})
-		.where(
-			and(
-				eq(tasks.id, taskId),
-				eq(tasks.projectId, projectId),
-				isNull(tasks.deletedAt),
-				sql`exists (
+	const [taskRows] = await db.batch([
+		db
+			.update(tasks)
+			.set({
+				archivedAt: action === "restore" ? null : now,
+				deletedAt: action === "delete" ? now : undefined,
+				updatedAt: now,
+			})
+			.where(
+				and(
+					eq(tasks.id, taskId),
+					eq(tasks.projectId, projectId),
+					isNull(tasks.deletedAt),
+					sql`exists (
 					select 1 from ${lists}
 					where ${lists.id} = ${tasks.listId}
 					and ${lists.projectId} = ${projectId}
 					and ${lists.archivedAt} is null
 					and ${lists.deletedAt} is null
 				)`,
-				action === "restore"
-					? sql`${tasks.archivedAt} is not null`
-					: and(isNull(tasks.archivedAt), hasNoActiveDependents),
-			),
-		)
-		.returning({ id: tasks.id });
+					action === "restore"
+						? sql`${tasks.archivedAt} is not null`
+						: and(isNull(tasks.archivedAt), hasNoActiveDependents),
+				),
+			)
+			.returning({ id: tasks.id }),
+		advanceProjectBoardVersion(projectId),
+	] as const);
 
-	return task ?? null;
+	return taskRows[0] ?? null;
 }
 
 // Moves one active task to a list belonging to the same authorized project.
@@ -785,6 +804,7 @@ export async function moveBoardTask(
 		...(activityRows.length > 0
 			? [db.insert(taskActivities).values(activityRows)]
 			: []),
+		advanceProjectBoardVersion(projectId),
 	] as const);
 
 	return taskRows[0] ?? null;
@@ -921,6 +941,7 @@ export async function moveBoardTasks(
 		...(activityRows.length > 0
 			? [db.insert(taskActivities).values(activityRows)]
 			: []),
+		advanceProjectBoardVersion(projectId),
 	] as const);
 	if (updatedTasks.length !== placements.length) return null;
 

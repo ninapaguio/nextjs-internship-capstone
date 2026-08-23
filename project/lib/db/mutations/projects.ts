@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, exists, inArray, isNull, notExists } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { lists, projectMembers, projects, tasks, teams } from "@/lib/db/schema";
 import type { CreateProjectInput, UpdateProjectInput } from "@/types";
@@ -102,7 +102,11 @@ export async function updateManagedProject(
 ) {
 	const [project] = await db
 		.update(projects)
-		.set({ ...input, updatedAt: new Date() })
+		.set({
+			...input,
+			boardVersion: sql`${projects.boardVersion} + 1`,
+			updatedAt: new Date(),
+		})
 		.where(
 			and(
 				eq(projects.id, projectId),
@@ -140,6 +144,7 @@ export async function changeOwnedProjectLifecycle(
 			.update(projects)
 			.set({
 				status: "archived",
+				boardVersion: sql`${projects.boardVersion} + 1`,
 				archivedAt: now,
 				deletedAt: action === "delete" ? now : undefined,
 				updatedAt: now,

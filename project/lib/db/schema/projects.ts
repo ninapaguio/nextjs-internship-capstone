@@ -29,6 +29,7 @@ export const projects = pgTable(
 		startDate: date("start_date"),
 		endDate: date("end_date"),
 		status: projectStatus("status").default("inactive").notNull(),
+		boardVersion: integer("board_version").default(0).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -56,6 +57,10 @@ export const projects = pgTable(
 		check(
 			"projects_delete_requires_archive",
 			sql`${table.deletedAt} is null or ${table.archivedAt} is not null`,
+		),
+		check(
+			"projects_board_version_nonnegative",
+			sql`${table.boardVersion} >= 0`,
 		),
 	],
 );

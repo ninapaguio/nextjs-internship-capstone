@@ -28,6 +28,7 @@ import {
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import { getBoardMemberOptionByUserId } from "@/lib/db/queries/users";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { publishProjectBoardUpdate } from "@/lib/realtime/pusher-server";
 import {
 	boardCommentSchema,
 	createListSchema,
@@ -93,15 +94,17 @@ async function authorizeBoardManager(projectId: string) {
 	return applicationUser;
 }
 
-// Revalidates pages that display board tasks or project task totals.
-async function revalidateBoardPages() {
+// Refreshes cached pages and notifies other clients of a committed board change.
+async function revalidateBoardPages(projectId: string) {
 	revalidatePath("/projects");
 	revalidatePath("/projects/[slug]", "page");
+	await publishProjectBoardUpdate(projectId);
 }
 
-// Refreshes project-card task totals without rerendering the open Zustand board.
-function revalidateProjectList() {
+// Refreshes project totals and notifies other clients after optimistic movement.
+async function revalidateProjectList(projectId: string) {
 	revalidatePath("/projects");
+	await publishProjectBoardUpdate(projectId);
 }
 
 // Validates and creates a task comment for an authorized project member.
@@ -149,6 +152,7 @@ export async function createBoardComment(
 			return { status: "error", message: "Your profile is not available." };
 		}
 		const comment = await insertBoardComment(
+			parsed.data.projectId,
 			parsed.data.taskId,
 			applicationUser.id,
 			parsed.data.content,
@@ -157,7 +161,7 @@ export async function createBoardComment(
 			return { status: "error", message: "The comment was not created." };
 		}
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(parsed.data.projectId);
 		return {
 			status: "success",
 			message: "Comment posted.",
@@ -199,7 +203,7 @@ export async function createBoardLabel(
 		if (!label)
 			return { status: "error", message: "The label was not created." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(parsed.data.projectId);
 		return {
 			status: "success",
 			message: "Label created successfully.",
@@ -241,7 +245,7 @@ export async function createBoardList(
 		if (!list)
 			return { status: "error", message: "The column was not created." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(parsed.data.projectId);
 		return {
 			status: "success",
 			message: "Column created successfully.",
@@ -283,7 +287,7 @@ export async function updateBoardList(
 		if (!list)
 			return { status: "error", message: "The column was not updated." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(identifiers.data);
 		return { status: "success", message: "Column updated successfully." };
 	} catch {
 		return { status: "error", message: "Could not update the column." };
@@ -325,7 +329,7 @@ export async function changeBoardListLifecycle(
 		if (!list)
 			return { status: "error", message: "The column was not changed." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(parsed.data.projectId);
 		return { status: "success", message: "Column updated successfully." };
 	} catch {
 		return { status: "error", message: "Could not change the column." };
@@ -393,7 +397,7 @@ export async function createBoardTask(
 		});
 		if (!task) return { status: "error", message: "The task was not created." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(parsed.data.projectId);
 		return {
 			status: "success",
 			message: "Task created successfully.",
@@ -513,7 +517,7 @@ export async function updateBoardTask(
 		);
 		if (!task) return { status: "error", message: "The task was not updated." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(projectId);
 		return { status: "success", message: "Task updated successfully." };
 	} catch {
 		return { status: "error", message: "Could not update the task." };
@@ -556,7 +560,7 @@ export async function changeBoardTaskLifecycle(
 		);
 		if (!task) return { status: "error", message: "The task was not changed." };
 
-		await revalidateBoardPages();
+		await revalidateBoardPages(parsed.data.projectId);
 		return {
 			status: "success",
 			message:
@@ -599,7 +603,7 @@ export async function moveBoardTask(
 		);
 		if (!task) return { status: "error", message: "The task was not moved." };
 
-		revalidateProjectList();
+		await revalidateProjectList(parsed.data.projectId);
 		return { status: "success", message: "Task moved successfully." };
 	} catch {
 		return { status: "error", message: "Could not move the task." };
@@ -637,7 +641,7 @@ export async function moveBoardTasks(
 			return { status: "error", message: "The selected tasks were not moved." };
 		}
 
-		revalidateProjectList();
+		await revalidateProjectList(parsed.data.projectId);
 		return {
 			status: "success",
 			message: `${result.movedCount} ${result.movedCount === 1 ? "task" : "tasks"} moved successfully.`,

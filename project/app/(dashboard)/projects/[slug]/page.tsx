@@ -14,6 +14,7 @@ import {
 	createProjectCompositeSlug,
 	extractProjectIdFromSlug,
 } from "@/lib/project-slug";
+import { getPusherPublicConfig } from "@/lib/realtime/pusher-server";
 import { uuidSchema } from "@/lib/validations";
 import type { ProjectPageProps } from "@/types";
 
@@ -52,6 +53,7 @@ export default async function ProjectPage({
 	);
 	if (!project) notFound();
 	const boardData = await getProjectBoardData(project.id);
+	const realtimeConfig = getPusherPublicConfig();
 	const canManageBoard =
 		project.accessRole === "owner" || project.accessRole === "manager";
 	const canEditTasks =
@@ -115,6 +117,8 @@ export default async function ProjectPage({
 				) : null}
 				<KanbanBoard
 					projectId={project.id}
+					initialBoardVersion={project.boardVersion}
+					realtimeConfig={realtimeConfig}
 					currentUserId={applicationUser.id}
 					initialData={boardData}
 					canEditTasks={canEditTasks}

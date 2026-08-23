@@ -65,25 +65,32 @@ export const useBoardStore = create<BoardState>((set) => ({
 	dragSnapshotHadPendingChanges: false,
 	hasPendingChanges: false,
 	hydrate: (projectId, lists) =>
+		set((state) => {
+			if (state.projectId === projectId) {
+				if (state.hasPendingChanges || state.draggedTaskId) return state;
+				return { ...state, lists };
+			}
+
+			return {
+				projectId,
+				lists,
+				draggedTaskId: null,
+				draggedTaskIds: [],
+				dragTargetId: null,
+				dragSnapshot: null,
+				dragSnapshotHadPendingChanges: false,
+				hasPendingChanges: false,
+			};
+		}),
+	addList: (list) =>
 		set((state) =>
-			state.projectId === projectId
+			state.lists.some((current) => current.id === list.id)
 				? state
 				: {
-						projectId,
-						lists,
-						draggedTaskId: null,
-						draggedTaskIds: [],
-						dragTargetId: null,
-						dragSnapshot: null,
-						dragSnapshotHadPendingChanges: false,
-						hasPendingChanges: false,
+						lists: [...state.lists, list],
+						hasPendingChanges: true,
 					},
 		),
-	addList: (list) =>
-		set((state) => ({
-			lists: [...state.lists, list],
-			hasPendingChanges: true,
-		})),
 	updateList: (listId, changes) =>
 		set((state) => ({
 			lists: state.lists.map((list) =>
@@ -104,12 +111,20 @@ export const useBoardStore = create<BoardState>((set) => ({
 			hasPendingChanges: true,
 		})),
 	addTask: (listId, task) =>
-		set((state) => ({
-			lists: state.lists.map((list) =>
-				list.id === listId ? { ...list, tasks: [...list.tasks, task] } : list,
-			),
-			hasPendingChanges: true,
-		})),
+		set((state) =>
+			state.lists.some((list) =>
+				list.tasks.some((current) => current.id === task.id),
+			)
+				? state
+				: {
+						lists: state.lists.map((list) =>
+							list.id === listId
+								? { ...list, tasks: [...list.tasks, task] }
+								: list,
+						),
+						hasPendingChanges: true,
+					},
+		),
 	updateTask: (taskId, changes) =>
 		set((state) => {
 			const sourceList = findTaskList(state.lists, taskId);
