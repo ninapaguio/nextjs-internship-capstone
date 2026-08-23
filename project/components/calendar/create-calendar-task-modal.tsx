@@ -27,6 +27,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type {
 	BoardActionState,
 	BoardLabelOption,
@@ -107,6 +108,7 @@ export function CreateCalendarTaskModal({
 		},
 		initialState,
 	);
+	useActionToast(state, { successMessage: "Task added to the calendar." });
 
 	// Selects a project and defaults the destination to its first active column.
 	function selectProject(value: Key | null) {
@@ -178,11 +180,14 @@ export function CreateCalendarTaskModal({
 					<div className="grid gap-4">
 						<div className="grid gap-4 sm:grid-cols-2">
 							<div className="grid gap-2 text-sm font-medium">
-								<span>Project</span>
+								<span>
+									Project <span className="text-destructive">*</span>
+								</span>
 								<Select
 									id="calendar-task-project"
 									name="projectId"
 									aria-label="Project"
+									isRequired
 									value={projectId}
 									onChange={selectProject}
 								>
@@ -200,11 +205,14 @@ export function CreateCalendarTaskModal({
 							</div>
 
 							<div className="grid gap-2 text-sm font-medium">
-								<span>Column</span>
+								<span>
+									Column <span className="text-destructive">*</span>
+								</span>
 								<Select
 									id="calendar-task-column"
 									name="listId"
 									aria-label="Column"
+									isRequired
 									value={listId}
 									onChange={(value) => setListId(String(value ?? ""))}
 									isDisabled={!selectedProject}
@@ -227,7 +235,9 @@ export function CreateCalendarTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="calendar-task-title"
 						>
-							Task title
+							<span>
+								Task title <span className="text-destructive">*</span>
+							</span>
 							<Input
 								id="calendar-task-title"
 								name="title"
@@ -241,8 +251,12 @@ export function CreateCalendarTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="calendar-task-description"
 						>
-							Description{" "}
-							<span className="text-muted-foreground">(optional)</span>
+							<span>
+								Description{" "}
+								<span className="font-normal text-muted-foreground">
+									(optional)
+								</span>
+							</span>
 							<Textarea
 								id="calendar-task-description"
 								name="description"
@@ -253,11 +267,14 @@ export function CreateCalendarTaskModal({
 
 						<div className="grid gap-4 sm:grid-cols-2">
 							<div className="grid gap-2 text-sm font-medium">
-								<span>Priority</span>
+								<span>
+									Priority <span className="text-destructive">*</span>
+								</span>
 								<Select
 									id="calendar-task-priority"
 									name="priorityId"
 									aria-label="Priority"
+									isRequired
 									value={priorityId}
 									onChange={(value) => setPriorityId(String(value ?? ""))}
 								>
@@ -275,7 +292,12 @@ export function CreateCalendarTaskModal({
 							</div>
 
 							<div className="grid gap-2 text-sm font-medium">
-								<span>Due date</span>
+								<span>
+									Due date{" "}
+									<span className="font-normal text-muted-foreground">
+										(optional)
+									</span>
+								</span>
 								<PopoverTrigger>
 									<Button
 										variant="outline"
@@ -296,7 +318,12 @@ export function CreateCalendarTaskModal({
 						</div>
 
 						<div className="grid gap-2 text-sm font-medium">
-							<span>Label</span>
+							<span>
+								Label{" "}
+								<span className="font-normal text-muted-foreground">
+									(optional)
+								</span>
+							</span>
 							<TaskLabelSelect
 								labels={selectedProjectLabels}
 								value={labelIds}

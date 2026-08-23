@@ -160,6 +160,8 @@ function CalendarInner({
 				</Button>
 			</header>
 			{Array.from({ length: numberOfMonths }, (_, count) => (
+				// The month offset is stable because this list is fixed and never reordered.
+				// biome-ignore lint/suspicious/noArrayIndexKey: No calendar month identifier is available here.
 				<div key={count} className="flex w-full flex-col gap-4">
 					<div className="flex h-(--cell-size) w-full items-center justify-center gap-1 px-(--cell-size)">
 						{captionLayout === "dropdown" ? (

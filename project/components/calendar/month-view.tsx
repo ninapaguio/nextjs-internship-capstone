@@ -52,7 +52,7 @@ export function MonthView({
 
 	return (
 		<div className="overflow-x-auto">
-			<div className="min-w-[700px]">
+			<div className="min-w-175">
 				{/* Day-of-week header row */}
 				<div className="grid grid-cols-7 border-b border-border bg-muted/30">
 					{DAYS_OF_WEEK.map((day) => (

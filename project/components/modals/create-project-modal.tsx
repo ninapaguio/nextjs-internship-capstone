@@ -31,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type { CreateProjectActionState } from "@/types";
 
 const initialCreateProjectState: CreateProjectActionState = {
@@ -73,6 +74,7 @@ export function CreateProjectModal() {
 		createProject,
 		initialCreateProjectState,
 	);
+	useActionToast(state, { successMessage: "Project created." });
 	const formRef = useRef<HTMLFormElement>(null);
 	useEffect(() => {
 		if (state.status === "success") {
@@ -96,7 +98,9 @@ export function CreateProjectModal() {
 				<form ref={formRef} action={formAction} className="space-y-6">
 					<FieldGroup className="gap-5">
 						<Field data-invalid={Boolean(state.fieldErrors?.name)}>
-							<FieldLabel htmlFor="project-name">Project title</FieldLabel>
+							<FieldLabel htmlFor="project-name">
+								Project title <span className="text-destructive">*</span>
+							</FieldLabel>
 							<Input
 								id="project-name"
 								name="name"
@@ -129,7 +133,10 @@ export function CreateProjectModal() {
 								state.fieldErrors?.startDate || state.fieldErrors?.endDate,
 							)}
 						>
-							<FieldLabel>Project timeline</FieldLabel>
+							<FieldLabel>
+								Project timeline{" "}
+								<span className="text-muted-foreground">(optional)</span>
+							</FieldLabel>
 							<input
 								type="hidden"
 								name="startDate"

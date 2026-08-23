@@ -71,39 +71,51 @@ export function TaskLabelSelect({
 	return (
 		<div className="grid gap-2">
 			{isCreatorOpen ? (
-				<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_4rem_auto]">
-					<Input
-						id={`${fieldId}-name`}
-						aria-label="New label name"
-						placeholder={
-							isCreating ? "Creating label…" : "Type a label and press Enter"
-						}
-						value={newLabelName}
-						onChange={(event) => setNewLabelName(event.target.value)}
-						maxLength={40}
-						disabled={isCreating}
-						autoFocus
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								handleCreateLabel();
+				<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_auto] sm:items-end">
+					<div className="grid gap-1">
+						<label htmlFor={`${fieldId}-name`} className="text-xs font-medium">
+							Label name <span className="text-destructive">*</span>
+						</label>
+						<Input
+							id={`${fieldId}-name`}
+							aria-label="New label name"
+							aria-required="true"
+							placeholder={
+								isCreating ? "Creating label…" : "Type a label and press Enter"
 							}
-							if (event.key === "Escape") {
-								event.preventDefault();
-								event.stopPropagation();
-								cancelCreateLabel();
-							}
-						}}
-					/>
-					<Input
-						id={`${fieldId}-color`}
-						type="color"
-						aria-label="New label color"
-						value={newLabelColor}
-						onChange={(event) => setNewLabelColor(event.target.value)}
-						disabled={isCreating}
-						className="min-h-9 w-full cursor-pointer p-1"
-					/>
+							value={newLabelName}
+							onChange={(event) => setNewLabelName(event.target.value)}
+							maxLength={40}
+							disabled={isCreating}
+							autoFocus
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault();
+									handleCreateLabel();
+								}
+								if (event.key === "Escape") {
+									event.preventDefault();
+									event.stopPropagation();
+									cancelCreateLabel();
+								}
+							}}
+						/>
+					</div>
+					<div className="grid gap-1">
+						<label htmlFor={`${fieldId}-color`} className="text-xs font-medium">
+							Color <span className="text-destructive">*</span>
+						</label>
+						<Input
+							id={`${fieldId}-color`}
+							type="color"
+							aria-label="New label color"
+							aria-required="true"
+							value={newLabelColor}
+							onChange={(event) => setNewLabelColor(event.target.value)}
+							disabled={isCreating}
+							className="min-h-9 w-full cursor-pointer p-1"
+						/>
+					</div>
 					<Button
 						type="button"
 						variant="outline"

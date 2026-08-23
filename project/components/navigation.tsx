@@ -15,11 +15,11 @@ export function Header({ sidebarOpen, onToggleNavigation }: HeaderProps) {
 	return (
 		<header className="pointer-events-none fixed inset-x-0 top-0 z-60 flex h-16 items-center justify-between pr-4 sm:pr-6">
 			<div
-				className={`pointer-events-auto flex h-11 w-62 items-center bg-muted/95 pr-3 backdrop-blur transition-[margin,border-radius,box-shadow] duration-200 ${
-					sidebarOpen
+				className={`pointer-events-auto flex h-11 w-62 items-center bg-muted/95 pr-3 backdrop-blur transition-[margin,border-radius,box-shadow] duration-200 
+					${sidebarOpen
 						? "rounded-r-full"
 						: "ml-4 rounded-full border shadow-lg shadow-black/5"
-				}`}
+					}`}
 			>
 				<Link href="/dashboard" className="flex min-w-0 flex-1 items-center">
 					<span className="flex w-18 shrink-0 items-center justify-center text-xl font-bold tracking-tight">

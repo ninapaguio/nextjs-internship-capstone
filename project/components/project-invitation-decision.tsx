@@ -9,6 +9,7 @@ import {
 	joinProjectInvitation,
 } from "@/actions/project-invitations";
 import { Button } from "@/components/ui/button";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type {
 	ProjectInvitationDecisionActionState,
 	ProjectInvitationDecisionProps,
@@ -53,6 +54,7 @@ export function ProjectInvitationDecision({
 		initialState,
 	);
 	const state = joinState.status !== "idle" ? joinState : declineState;
+	useActionToast(state);
 
 	useEffect(() => {
 		if (state.status === "success" && state.redirectTo) {
@@ -87,15 +89,8 @@ export function ProjectInvitationDecision({
 					<InvitationDecisionSubmit action="decline" />
 				</form>
 			</div>
-			{state.status !== "idle" ? (
-				<p
-					className={
-						state.status === "error"
-							? "mt-4 text-sm text-destructive"
-							: "mt-4 text-sm text-emerald-600"
-					}
-					role={state.status === "error" ? "alert" : "status"}
-				>
+			{state.status === "error" ? (
+				<p className="mt-4 text-sm text-destructive" role="alert">
 					{state.message}
 				</p>
 			) : null}

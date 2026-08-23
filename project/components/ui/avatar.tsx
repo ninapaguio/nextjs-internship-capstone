@@ -36,9 +36,11 @@ function AvatarImage({
 	onError,
 	...props
 }: AvatarImageProps) {
-	const [state, setState] = React.useState<ImageState>("loading");
-
-	React.useEffect(() => setState("loading"), [props.src]);
+	const [imageState, setImageState] = React.useState<{
+		src: ImageProps["src"];
+		status: ImageState;
+	}>({ src: props.src, status: "loading" });
+	const state = imageState.src === props.src ? imageState.status : "loading";
 
 	return (
 		<Image
@@ -49,11 +51,11 @@ function AvatarImage({
 			unoptimized
 			data-state={state}
 			onLoad={(event) => {
-				setState("loaded");
+				setImageState({ src: props.src, status: "loaded" });
 				onLoad?.(event);
 			}}
 			onError={(event) => {
-				setState("error");
+				setImageState({ src: props.src, status: "error" });
 				onError?.(event);
 			}}
 			className={cn(
