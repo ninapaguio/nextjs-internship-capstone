@@ -51,6 +51,10 @@ export async function getTaskComments(
 		})
 		.from(comments)
 		.innerJoin(tasks, eq(comments.taskId, tasks.id))
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
 		.innerJoin(users, eq(comments.authorId, users.id))
 		.where(
 			and(
@@ -59,6 +63,8 @@ export async function getTaskComments(
 				isNull(comments.deletedAt),
 				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 				isNull(users.deletedAt),
 			),
 		)
@@ -138,6 +144,10 @@ export async function getTaskActivities(
 		})
 		.from(taskActivities)
 		.innerJoin(tasks, eq(taskActivities.taskId, tasks.id))
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
 		.innerJoin(users, eq(taskActivities.actorId, users.id))
 		.where(
 			and(
@@ -145,6 +155,8 @@ export async function getTaskActivities(
 				eq(tasks.projectId, projectId),
 				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 			),
 		)
 		.orderBy(asc(taskActivities.createdAt));
@@ -223,8 +235,19 @@ export async function getProjectBoardData(
 					)`,
 				})
 				.from(tasks)
+				.innerJoin(
+					lists,
+					and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+				)
 				.innerJoin(priorityOptions, eq(tasks.priorityId, priorityOptions.id))
-				.where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
+				.where(
+					and(
+						eq(tasks.projectId, projectId),
+						isNull(tasks.deletedAt),
+						isNull(lists.archivedAt),
+						isNull(lists.deletedAt),
+					),
+				)
 				.orderBy(asc(tasks.position)),
 			db
 				.select({
@@ -378,12 +401,60 @@ export async function isActiveTaskInProject(projectId: string, taskId: string) {
 	const [task] = await db
 		.select({ id: tasks.id })
 		.from(tasks)
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
 		.where(
 			and(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
 				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
+			),
+		)
+		.limit(1);
+
+	return Boolean(task);
+}
+
+// Checks that a list is active and belongs to the selected project.
+export async function isActiveListInProject(projectId: string, listId: string) {
+	const [list] = await db
+		.select({ id: lists.id })
+		.from(lists)
+		.where(
+			and(
+				eq(lists.id, listId),
+				eq(lists.projectId, projectId),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
+			),
+		)
+		.limit(1);
+
+	return Boolean(list);
+}
+
+// Checks whether an active column still contains a task that must be moved or archived first.
+export async function hasActiveTasksInList(projectId: string, listId: string) {
+	const [task] = await db
+		.select({ id: tasks.id })
+		.from(tasks)
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
+		.where(
+			and(
+				eq(tasks.projectId, projectId),
+				eq(tasks.listId, listId),
+				isNull(tasks.archivedAt),
+				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 			),
 		)
 		.limit(1);
@@ -406,11 +477,17 @@ export async function validateTaskDependencies(
 	const activeTasks = await db
 		.select({ id: tasks.id })
 		.from(tasks)
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
 		.where(
 			and(
 				eq(tasks.projectId, projectId),
 				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 			),
 		);
 	const activeTaskIds = new Set(activeTasks.map((task) => task.id));
@@ -465,12 +542,20 @@ export async function hasIncompleteTaskDependencies(
 	taskId: string,
 ) {
 	const dependencyTask = alias(tasks, "dependency_task");
+	const dependencyList = alias(lists, "dependency_list");
 	const [incompleteDependency] = await db
 		.select({ id: taskDependencies.dependsOnTaskId })
 		.from(taskDependencies)
 		.innerJoin(
 			dependencyTask,
 			eq(taskDependencies.dependsOnTaskId, dependencyTask.id),
+		)
+		.innerJoin(
+			dependencyList,
+			and(
+				eq(dependencyTask.listId, dependencyList.id),
+				eq(dependencyTask.projectId, dependencyList.projectId),
+			),
 		)
 		.where(
 			and(
@@ -479,11 +564,41 @@ export async function hasIncompleteTaskDependencies(
 				isNull(dependencyTask.completedAt),
 				isNull(dependencyTask.archivedAt),
 				isNull(dependencyTask.deletedAt),
+				isNull(dependencyList.archivedAt),
+				isNull(dependencyList.deletedAt),
 			),
 		)
 		.limit(1);
 
 	return Boolean(incompleteDependency);
+}
+
+// Checks whether another active task still uses this task as a prerequisite.
+export async function hasActiveTasksDependingOnTask(
+	projectId: string,
+	taskId: string,
+) {
+	const [dependentTask] = await db
+		.select({ id: tasks.id })
+		.from(taskDependencies)
+		.innerJoin(tasks, eq(taskDependencies.taskId, tasks.id))
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
+		.where(
+			and(
+				eq(taskDependencies.projectId, projectId),
+				eq(taskDependencies.dependsOnTaskId, taskId),
+				isNull(tasks.archivedAt),
+				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
+			),
+		)
+		.limit(1);
+
+	return Boolean(dependentTask);
 }
 
 // Confirms every requested label belongs to the active project.

@@ -424,6 +424,7 @@ export function KanbanBoard({
 		listId: string,
 		action: "archive" | "delete",
 	) {
+		setBoardError(null);
 		const snapshot = useBoardStore.getState().lists;
 		if (action === "archive") archiveList(listId);
 		else deleteList(listId);
@@ -434,7 +435,7 @@ export function KanbanBoard({
 		const result = await changeBoardListLifecycle(formData);
 		if (result.status === "error") {
 			replaceLists(snapshot);
-			setBoardError(result.message);
+			toast.error(result.message);
 			return;
 		}
 		markPersisted();

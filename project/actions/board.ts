@@ -18,7 +18,10 @@ import {
 import {
 	canAssignUsersToProject,
 	canUseLabelsInProject,
+	hasActiveTasksDependingOnTask,
+	hasActiveTasksInList,
 	hasIncompleteTaskDependencies,
+	isActiveListInProject,
 	isActiveTaskInProject,
 	validateTaskDependencies,
 } from "@/lib/db/queries/board";
@@ -303,6 +306,16 @@ export async function changeBoardListLifecycle(
 		if (!(await authorizeBoardManager(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
 		}
+		if (
+			parsed.data.action !== "restore" &&
+			(await hasActiveTasksInList(parsed.data.projectId, parsed.data.listId))
+		) {
+			return {
+				status: "error",
+				message:
+					"This column still has active tasks. Move or archive them first.",
+			};
+		}
 
 		const list = await changeBoardListLifecycleMutation(
 			parsed.data.projectId,
@@ -347,6 +360,14 @@ export async function createBoardTask(
 		const applicationUser = await authorizeBoardMember(parsed.data.projectId);
 		if (!applicationUser) {
 			return { status: "error", message: "You cannot update this board." };
+		}
+		if (
+			!(await isActiveListInProject(parsed.data.projectId, parsed.data.listId))
+		) {
+			return {
+				status: "error",
+				message: "This column is archived, deleted, or unavailable.",
+			};
 		}
 
 		if (
@@ -511,6 +532,19 @@ export async function changeBoardTaskLifecycle(
 	try {
 		if (!(await authorizeBoardMember(parsed.data.projectId))) {
 			return { status: "error", message: "You cannot update this board." };
+		}
+		if (
+			parsed.data.action !== "restore" &&
+			(await hasActiveTasksDependingOnTask(
+				parsed.data.projectId,
+				parsed.data.taskId,
+			))
+		) {
+			return {
+				status: "error",
+				message:
+					"This task blocks other active tasks. Remove those dependencies first.",
+			};
 		}
 		const task = await changeBoardTaskLifecycleMutation(
 			parsed.data.projectId,

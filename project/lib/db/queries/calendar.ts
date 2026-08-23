@@ -182,12 +182,18 @@ export async function getCalendarDataForUser(
 			priorityLabel: priorityOptions.label,
 		})
 		.from(tasks)
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
 		.innerJoin(priorityOptions, eq(tasks.priorityId, priorityOptions.id))
 		.where(
 			and(
 				inArray(tasks.projectId, projectIds),
 				isNull(tasks.deletedAt),
 				isNull(tasks.archivedAt),
+				isNull(lists.deletedAt),
+				isNull(lists.archivedAt),
 				isNotNull(tasks.dueDate),
 			),
 		)
