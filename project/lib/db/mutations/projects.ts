@@ -1,9 +1,9 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, exists, inArray, isNull } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, notExists } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { lists, projectMembers, projects, teams } from "@/lib/db/schema";
+import { lists, projectMembers, projects, tasks, teams } from "@/lib/db/schema";
 import type { CreateProjectInput, UpdateProjectInput } from "@/types";
 
 type InsertProjectInput = CreateProjectInput & {
@@ -31,6 +31,40 @@ function hasProjectOwnerMembership(applicationUserId: string) {
 					eq(projectMembers.accessRole, "owner"),
 				),
 			),
+	);
+}
+
+// checks again if all tasks complete before marking completed
+function canCompleteProject() {
+	const activeTaskConditions = and(
+		eq(tasks.projectId, projects.id),
+		isNull(tasks.archivedAt),
+		isNull(tasks.deletedAt),
+		isNull(lists.archivedAt),
+		isNull(lists.deletedAt),
+	);
+
+	return and(
+		exists(
+			db
+				.select({ id: tasks.id })
+				.from(tasks)
+				.innerJoin(
+					lists,
+					and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+				)
+				.where(activeTaskConditions),
+		),
+		notExists(
+			db
+				.select({ id: tasks.id })
+				.from(tasks)
+				.innerJoin(
+					lists,
+					and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+				)
+				.where(and(activeTaskConditions, isNull(tasks.completedAt))),
+		),
 	);
 }
 
@@ -72,6 +106,7 @@ export async function updateManagedProject(
 		.where(
 			and(
 				eq(projects.id, projectId),
+				input.status === "completed" ? canCompleteProject() : undefined,
 				exists(
 					db
 						.select({ userId: projectMembers.userId })
