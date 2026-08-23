@@ -2,10 +2,13 @@ export {
 	activityAction,
 	invitationStatus,
 	listStatus,
+	notificationType,
 	projectAccessRole,
 	projectStatus,
 	teamStatus,
 } from "./enums";
+
+export { notifications } from "./notifications";
 
 export {
 	labels,
@@ -18,6 +21,7 @@ export {
 	commentsRelations,
 	labelsRelations,
 	listsRelations,
+	notificationsRelations,
 	priorityOptionsRelations,
 	projectInvitationsRelations,
 	projectMembersRelations,

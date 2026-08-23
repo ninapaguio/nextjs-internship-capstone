@@ -1,17 +1,26 @@
 "use client";
 
-import { Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Link from "next/link";
+import { NotificationPanel } from "@/components/notification-panel";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import type { ProjectRealtimeConfig } from "@/lib/realtime/project-board";
 
 interface HeaderProps {
 	sidebarOpen: boolean;
 	onToggleNavigation: () => void;
+	applicationUserId: string;
+	realtimeConfig: ProjectRealtimeConfig | null;
 }
 
 // Displays global actions and the single control for opening or closing navigation.
-export function Header({ sidebarOpen, onToggleNavigation }: HeaderProps) {
+export function Header({
+	sidebarOpen,
+	onToggleNavigation,
+	applicationUserId,
+	realtimeConfig,
+}: HeaderProps) {
 	return (
 		<header className="pointer-events-none fixed inset-x-0 top-0 z-60 flex h-16 items-center justify-between pr-4 sm:pr-6">
 			<div
@@ -46,17 +55,10 @@ export function Header({ sidebarOpen, onToggleNavigation }: HeaderProps) {
 				</TooltipTrigger>
 			</div>
 
-			<TooltipTrigger>
-				<Button
-					variant="outline"
-					size="icon-sm"
-					aria-label="View notifications"
-					className="pointer-events-auto rounded-full bg-background/95 shadow-sm backdrop-blur"
-				>
-					<Bell />
-				</Button>
-				<Tooltip placement="bottom">Notifications</Tooltip>
-			</TooltipTrigger>
+			<NotificationPanel
+				applicationUserId={applicationUserId}
+				realtimeConfig={realtimeConfig}
+			/>
 		</header>
 	);
 }

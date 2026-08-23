@@ -5,6 +5,7 @@ import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import { getProjectBoardChannelName } from "@/lib/realtime/project-board";
 import { getPusherServer } from "@/lib/realtime/pusher-server";
+import { getUserNotificationsChannelName } from "@/lib/realtime/user-notifications";
 import { uuidSchema } from "@/lib/validations";
 
 const channelAuthorizationSchema = z.object({
@@ -12,7 +13,14 @@ const channelAuthorizationSchema = z.object({
 	channel_name: z.string().max(200),
 });
 
-// Authorizes one private Pusher channel after checking Project membership.
+// Extracts a UUID only when a channel uses the expected private prefix.
+function parseChannelId(channelName: string, prefix: string) {
+	return uuidSchema.safeParse(
+		channelName.startsWith(prefix) ? channelName.slice(prefix.length) : "",
+	);
+}
+
+// Authorizes private board and notification channels after checking ownership.
 export async function POST(request: Request) {
 	const { userId: clerkId } = await auth();
 	if (!clerkId) {
@@ -29,16 +37,22 @@ export async function POST(request: Request) {
 		);
 	}
 
-	const channelPrefix = "private-project-";
-	const projectId = uuidSchema.safeParse(
-		parsed.data.channel_name.startsWith(channelPrefix)
-			? parsed.data.channel_name.slice(channelPrefix.length)
-			: "",
+	const projectId = parseChannelId(
+		parsed.data.channel_name,
+		"private-project-",
 	);
-	if (
-		!projectId.success ||
-		getProjectBoardChannelName(projectId.data) !== parsed.data.channel_name
-	) {
+	const notificationUserId = parseChannelId(
+		parsed.data.channel_name,
+		"private-user-",
+	);
+	const isProjectChannel =
+		projectId.success &&
+		getProjectBoardChannelName(projectId.data) === parsed.data.channel_name;
+	const isNotificationChannel =
+		notificationUserId.success &&
+		getUserNotificationsChannelName(notificationUserId.data) ===
+			parsed.data.channel_name;
+	if (!isProjectChannel && !isNotificationChannel) {
 		return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 	}
 
@@ -51,12 +65,24 @@ export async function POST(request: Request) {
 			);
 		}
 
-		const project = await getAccessibleProjectById(
-			projectId.data,
-			applicationUser.id,
-		);
-		if (!project) {
-			return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+		if (isNotificationChannel) {
+			if (
+				!notificationUserId.success ||
+				notificationUserId.data !== applicationUser.id
+			) {
+				return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+			}
+		} else {
+			if (!projectId.success) {
+				return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+			}
+			const project = await getAccessibleProjectById(
+				projectId.data,
+				applicationUser.id,
+			);
+			if (!project) {
+				return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+			}
 		}
 
 		const pusher = getPusherServer();

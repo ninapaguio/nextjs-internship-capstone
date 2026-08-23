@@ -46,6 +46,7 @@ export type {
 	NewComment,
 	NewLabel,
 	NewList,
+	NewNotification,
 	NewProject,
 	NewProjectMember,
 	NewTask,
@@ -53,6 +54,7 @@ export type {
 	NewTeam,
 	NewTeamRole,
 	NewUser,
+	Notification,
 	PriorityOption,
 	Project,
 	ProjectMember,
@@ -84,6 +86,11 @@ export type {
 	UserInput,
 	UserUpdateInput,
 } from "./inputs";
+export type {
+	NotificationItem,
+	NotificationKind,
+	NotificationPage,
+} from "./notifications";
 export type {
 	AcceptInvitationPageProps,
 	InvitationStateOption,

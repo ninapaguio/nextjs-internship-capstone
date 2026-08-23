@@ -1,0 +1,2 @@
+ALTER TABLE "projects" ADD COLUMN "board_version" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_board_version_nonnegative" CHECK ("projects"."board_version" >= 0);

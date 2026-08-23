@@ -33,3 +33,9 @@ export const activityAction = pgEnum("activity_action", [
 	"archived",
 	"unarchived",
 ]);
+export const notificationType = pgEnum("notification_type", [
+	"task_assigned",
+	"task_unassigned",
+	"task_unblocked",
+	"assigned_task_commented",
+]);

@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import { notifications } from "./notifications";
 import { labels, lists, priorityOptions, projects } from "./projects";
 import {
 	comments,
@@ -22,6 +23,12 @@ export const usersRelations = relations(users, ({ many }) => ({
 	}),
 	createdTasks: many(tasks),
 	comments: many(comments),
+	receivedNotifications: many(notifications, {
+		relationName: "notificationRecipient",
+	}),
+	createdNotifications: many(notifications, {
+		relationName: "notificationActor",
+	}),
 }));
 
 export const teamsRelations = relations(teams, ({ one, many }) => ({
@@ -68,6 +75,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 	labels: many(labels),
 	tasks: many(tasks),
 	members: many(projectMembers),
+	notifications: many(notifications),
 }));
 
 export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
@@ -139,6 +147,28 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
 	}),
 	comments: many(comments),
 	activities: many(taskActivities),
+	notifications: many(notifications),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+	recipient: one(users, {
+		fields: [notifications.recipientUserId],
+		references: [users.id],
+		relationName: "notificationRecipient",
+	}),
+	actor: one(users, {
+		fields: [notifications.actorUserId],
+		references: [users.id],
+		relationName: "notificationActor",
+	}),
+	project: one(projects, {
+		fields: [notifications.projectId],
+		references: [projects.id],
+	}),
+	task: one(tasks, {
+		fields: [notifications.taskId],
+		references: [tasks.id],
+	}),
 }));
 
 export const taskAssigneesRelations = relations(taskAssignees, ({ one }) => ({
