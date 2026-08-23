@@ -81,7 +81,7 @@ export function formatMonthYear(date: Date): string {
 	return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-// Formats a week range 
+// Formats a week range
 export function formatWeekRange(days: Date[]): string {
 	const first = days[0];
 	const last = days[6];
@@ -109,9 +109,7 @@ export function buildTaskMap(
 	for (const tasksForDay of map.values()) {
 		tasksForDay.sort((a, b) => {
 			if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
-			return (
-				a.title.localeCompare(b.title)
-			);
+			return a.title.localeCompare(b.title);
 		});
 	}
 	return map;

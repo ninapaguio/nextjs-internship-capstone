@@ -1,7 +1,7 @@
 "use client";
 
+import Image, { type ImageProps } from "next/image";
 import * as React from "react";
-
 import { cn } from "@/lib/utils";
 
 function Avatar({
@@ -26,17 +26,36 @@ function Avatar({
 
 type ImageState = "loading" | "loaded" | "error";
 
-function AvatarImage({ className, ...props }: React.ComponentProps<"img">) {
-	const [state, setState] = React.useState<ImageState>(
-		props.src ? "loading" : "error",
-	);
+type AvatarImageProps = Omit<ImageProps, "height" | "unoptimized" | "width">;
+
+// Renders an optimized avatar image and exposes its load state to the fallback.
+function AvatarImage({
+	className,
+	alt,
+	onLoad,
+	onError,
+	...props
+}: AvatarImageProps) {
+	const [state, setState] = React.useState<ImageState>("loading");
+
+	React.useEffect(() => setState("loading"), [props.src]);
+
 	return (
-		<img
+		<Image
 			data-slot="avatar-image"
-			alt={props.alt || ""}
+			alt={alt}
+			width={40}
+			height={40}
+			unoptimized
 			data-state={state}
-			onLoad={() => setState("loaded")}
-			onError={() => setState("error")}
+			onLoad={(event) => {
+				setState("loaded");
+				onLoad?.(event);
+			}}
+			onError={(event) => {
+				setState("error");
+				onError?.(event);
+			}}
 			className={cn(
 				"peer aspect-square size-full rounded-full object-cover data-[state=error]:hidden",
 				className,

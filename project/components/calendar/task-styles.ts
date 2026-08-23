@@ -16,12 +16,11 @@ export const DEADLINE_TYPE_CONFIG: Record<
 };
 
 /** Priority-based color variants used for calendar task bars and cards */
-export const PRIORITY_TASK_COLORS: Record<"low" | "medium" | "high", string> =
-	{
-		low: "priority-task-low",
-		medium: "priority-task-medium",
-		high: "priority-task-high",
-	};
+export const PRIORITY_TASK_COLORS: Record<"low" | "medium" | "high", string> = {
+	low: "priority-task-low",
+	medium: "priority-task-medium",
+	high: "priority-task-high",
+};
 
 /** Priority badge styling used across calendar views and cards */
 export const PRIORITY_BADGES: Record<string, string> = {

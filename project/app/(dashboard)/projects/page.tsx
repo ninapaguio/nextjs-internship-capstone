@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { CreateProjectModal } from "@/components/modals/create-project-modal";
 import { ProjectGrid } from "@/components/project-grid";
 import {

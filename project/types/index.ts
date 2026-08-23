@@ -30,7 +30,15 @@ export type {
 	TaskFeedTab,
 	TaskStatusFilter,
 } from "./board";
-
+export type {
+	CalendarData,
+	CalendarDeadlineType,
+	CalendarTaskCreationOptions,
+	CalendarTaskDestination,
+	CalendarTaskItem,
+	CalendarView,
+	UpcomingDeadlineItem,
+} from "./calendar";
 export type {
 	Comment,
 	Label,

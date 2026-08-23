@@ -21,7 +21,7 @@ interface WeekViewProps {
 	highlightedTaskId?: string;
 }
 
-// lists all tasks and deadlines grouped under each day column 
+// lists all tasks and deadlines grouped under each day column
 export function WeekView({
 	currentDate,
 	tasksByDate,
@@ -100,7 +100,7 @@ export function WeekView({
 														"group relative rounded-lg border border-border/80 p-2.5 shadow-2xs transition-all hover:shadow-xs hover:border-foreground/20",
 														colorClass,
 														task.id === highlightedTaskId &&
-														"ring-2 ring-brand_teal-500 ring-offset-1",
+															"ring-2 ring-brand_teal-500 ring-offset-1",
 														task.isCompleted && "opacity-60",
 													)}
 												>
