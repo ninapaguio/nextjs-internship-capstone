@@ -9,6 +9,7 @@ import {
 	PROJECT_BOARD_UPDATED_EVENT,
 	type ProjectRealtimeConfig,
 } from "@/lib/realtime/project-board";
+import { getPusherClient } from "@/lib/realtime/pusher-client";
 
 const BOARD_POLL_INTERVAL_MS = 5_000;
 const BOARD_RECOVERY_INTERVAL_MS = 120_000;
@@ -83,18 +84,9 @@ export function useBoardSync({
 
 		let isDisposed = false;
 		let cleanupConnection: (() => void) | null = null;
-		void import("pusher-js")
-			.then(({ default: PusherClient }) => {
+		void getPusherClient({ key: realtimeKey, cluster: realtimeCluster })
+			.then((pusher) => {
 				if (isDisposed) return;
-
-				const pusher = new PusherClient(realtimeKey, {
-					cluster: realtimeCluster,
-					forceTLS: true,
-					channelAuthorization: {
-						endpoint: "/api/pusher/auth",
-						transport: "ajax",
-					},
-				});
 				const channelName = getProjectBoardChannelName(projectId);
 				const channel = pusher.subscribe(channelName);
 				channel.bind(PROJECT_BOARD_UPDATED_EVENT, (event: unknown) => {
@@ -123,7 +115,6 @@ export function useBoardSync({
 				cleanupConnection = () => {
 					channel.unbind(PROJECT_BOARD_UPDATED_EVENT);
 					pusher.unsubscribe(channelName);
-					pusher.disconnect();
 				};
 			})
 			.catch(() => {

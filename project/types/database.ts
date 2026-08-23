@@ -2,6 +2,7 @@ import type {
 	comments,
 	labels,
 	lists,
+	notifications,
 	priorityOptions,
 	projectMembers,
 	projects,
@@ -30,6 +31,7 @@ export type TaskDependency = typeof taskDependencies.$inferSelect;
 export type TaskLabel = typeof taskLabels.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type TaskActivity = typeof taskActivities.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 
 // Insert types describe the values accepted by Drizzle.
 export type NewUser = typeof users.$inferInsert;
@@ -42,3 +44,4 @@ export type NewLabel = typeof labels.$inferInsert;
 export type NewTask = typeof tasks.$inferInsert;
 export type NewTaskDependency = typeof taskDependencies.$inferInsert;
 export type NewComment = typeof comments.$inferInsert;
+export type NewNotification = typeof notifications.$inferInsert;

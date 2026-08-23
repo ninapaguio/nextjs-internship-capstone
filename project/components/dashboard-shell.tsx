@@ -3,10 +3,21 @@
 import type React from "react";
 import { Header } from "@/components/navigation";
 import { Sidebar } from "@/components/sidebar";
+import type { ProjectRealtimeConfig } from "@/lib/realtime/project-board";
 import { useUIStore } from "@/stores/ui-store";
 
+interface DashboardShellProps {
+	children: React.ReactNode;
+	applicationUserId: string;
+	realtimeConfig: ProjectRealtimeConfig | null;
+}
+
 // Renders the shared dashboard around protected pages.
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+	children,
+	applicationUserId,
+	realtimeConfig,
+}: DashboardShellProps) {
 	const openNavigation = useUIStore((state) => state.sidebarOpen);
 	const toggleNavigation = useUIStore((state) => state.toggleSidebar);
 	const closeNavigation = useUIStore((state) => state.closeSidebar);
@@ -18,6 +29,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 			<Header
 				sidebarOpen={openNavigation}
 				onToggleNavigation={toggleNavigation}
+				applicationUserId={applicationUserId}
+				realtimeConfig={realtimeConfig}
 			/>
 
 			<main

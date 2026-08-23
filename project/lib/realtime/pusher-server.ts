@@ -9,6 +9,10 @@ import {
 	PROJECT_BOARD_UPDATED_EVENT,
 	type ProjectRealtimeConfig,
 } from "@/lib/realtime/project-board";
+import {
+	getUserNotificationsChannelName,
+	USER_NOTIFICATIONS_UPDATED_EVENT,
+} from "@/lib/realtime/user-notifications";
 
 interface PusherServerConfig extends ProjectRealtimeConfig {
 	appId: string;
@@ -66,6 +70,30 @@ export async function publishProjectBoardUpdate(projectId: string) {
 			getProjectBoardChannelName(projectId),
 			PROJECT_BOARD_UPDATED_EVENT,
 			{ projectId, boardVersion: project.boardVersion },
+		);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// Notifies each recipient to reload personal notifications from Neon.
+export async function publishUserNotificationUpdates(
+	recipientUserIds: string[],
+) {
+	const pusher = getPusherServer();
+	const uniqueRecipientIds = [...new Set(recipientUserIds)];
+	if (!pusher || uniqueRecipientIds.length === 0) return false;
+
+	try {
+		await Promise.all(
+			uniqueRecipientIds.map((recipientUserId) =>
+				pusher.trigger(
+					getUserNotificationsChannelName(recipientUserId),
+					USER_NOTIFICATIONS_UPDATED_EVENT,
+					{ recipientUserId },
+				),
+			),
 		);
 		return true;
 	} catch {

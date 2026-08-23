@@ -6,6 +6,10 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { advanceProjectBoardVersion } from "@/lib/db/mutations/board-sync";
 import {
+	findNewlyUnblockedTaskIds,
+	getTaskAssigneeIds,
+} from "@/lib/db/mutations/notification-events";
+import {
 	type ActivityEntity,
 	buildTaskSnapshotActivities,
 	type TaskActivitySnapshot,
@@ -14,6 +18,7 @@ import {
 	comments,
 	labels,
 	lists,
+	notifications,
 	priorityOptions,
 	taskActivities,
 	taskAssignees,
@@ -22,11 +27,36 @@ import {
 	tasks,
 	users,
 } from "@/lib/db/schema";
+import type { NewNotification } from "@/types";
 
 interface InsertBoardLabelInput {
 	projectId: string;
 	name: string;
 	color: string;
+}
+
+// Creates one notification row per recipient while excluding the person making the change.
+function buildNotificationRows(
+	type: NewNotification["type"],
+	recipientIds: string[],
+	actorUserId: string,
+	projectId: string,
+	taskId: string,
+) {
+	return [...new Set(recipientIds)]
+		.filter((recipientUserId) => recipientUserId !== actorUserId)
+		.map((recipientUserId) => ({
+			recipientUserId,
+			actorUserId,
+			projectId,
+			taskId,
+			type,
+		}));
+}
+
+// Returns unique users who need a live notification refresh after a committed batch.
+function getNotificationRecipientIds(rows: NewNotification[]) {
+	return [...new Set(rows.map((row) => row.recipientUserId))];
 }
 
 // Inserts a comment written by an authorized project member.
@@ -36,16 +66,33 @@ export async function insertBoardComment(
 	authorId: string,
 	content: string,
 ) {
+	const assigneesByTask = await getTaskAssigneeIds([taskId]);
+	const notificationRows = buildNotificationRows(
+		"assigned_task_commented",
+		assigneesByTask.get(taskId) ?? [],
+		authorId,
+		projectId,
+		taskId,
+	);
 	const [commentRows] = await db.batch([
 		db.insert(comments).values({ taskId, authorId, content }).returning({
 			id: comments.id,
 			body: comments.content,
 			createdAt: comments.createdAt,
 		}),
+		...(notificationRows.length > 0
+			? [db.insert(notifications).values(notificationRows)]
+			: []),
 		advanceProjectBoardVersion(projectId),
 	] as const);
 
-	return commentRows[0] ?? null;
+	const comment = commentRows[0];
+	return comment
+		? {
+				...comment,
+				notificationRecipientIds: getNotificationRecipientIds(notificationRows),
+			}
+		: null;
 }
 
 interface InsertBoardListInput {
@@ -457,6 +504,13 @@ export async function changeBoardListLifecycle(
 export async function insertBoardTask(input: InsertBoardTaskInput) {
 	const { assigneeIds, labelIds, ...taskInput } = input;
 	const taskId = randomUUID();
+	const notificationRows = buildNotificationRows(
+		"task_assigned",
+		assigneeIds,
+		input.createdById,
+		input.projectId,
+		taskId,
+	);
 	const [, taskRows] = await db.batch([
 		requireActiveList(input.projectId, input.listId),
 		db
@@ -496,10 +550,19 @@ export async function insertBoardTask(input: InsertBoardTaskInput) {
 			actorId: input.createdById,
 			action: "created",
 		}),
+		...(notificationRows.length > 0
+			? [db.insert(notifications).values(notificationRows)]
+			: []),
 		advanceProjectBoardVersion(input.projectId),
 	] as const);
 
-	return taskRows[0] ?? null;
+	const task = taskRows[0];
+	return task
+		? {
+				...task,
+				notificationRecipientIds: getNotificationRecipientIds(notificationRows),
+			}
+		: null;
 }
 
 // Updates editable task fields and replaces task relationships when provided.
@@ -517,6 +580,16 @@ export async function updateBoardTask(
 		input,
 	);
 	if (!nextSnapshot) return null;
+	const newlyUnblockedTaskIds = await findNewlyUnblockedTaskIds({
+		projectId,
+		taskId,
+		completed: input.completed,
+		dependencyIds: input.dependencyIds,
+		blockingTaskIds: input.blockingTaskIds,
+	});
+	const unblockedAssigneesByTask = await getTaskAssigneeIds(
+		newlyUnblockedTaskIds,
+	);
 
 	const previousBlockingRows = input.blockingTaskIds
 		? await db
@@ -572,6 +645,43 @@ export async function updateBoardTask(
 		completed,
 		...changes
 	} = input;
+	const previousAssigneeIds = new Set(
+		previousSnapshot.assignees.map((assignee) => assignee.id),
+	);
+	const nextAssigneeIds = new Set(
+		nextSnapshot.assignees.map((assignee) => assignee.id),
+	);
+	const notificationRows: NewNotification[] = [
+		...buildNotificationRows(
+			"task_assigned",
+			[...nextAssigneeIds].filter((id) => !previousAssigneeIds.has(id)),
+			actorId,
+			projectId,
+			taskId,
+		),
+		...buildNotificationRows(
+			"task_unassigned",
+			[...previousAssigneeIds].filter((id) => !nextAssigneeIds.has(id)),
+			actorId,
+			projectId,
+			taskId,
+		),
+	];
+	for (const unblockedTaskId of newlyUnblockedTaskIds) {
+		const recipientIds =
+			unblockedTaskId === taskId && assigneeIds !== undefined
+				? [...nextAssigneeIds]
+				: (unblockedAssigneesByTask.get(unblockedTaskId) ?? []);
+		notificationRows.push(
+			...buildNotificationRows(
+				"task_unblocked",
+				recipientIds,
+				actorId,
+				projectId,
+				unblockedTaskId,
+			),
+		);
+	}
 	const [, taskRows] = await db.batch([
 		requireActiveTaskCount(projectId, [taskId], 1),
 		db
@@ -681,10 +791,19 @@ export async function updateBoardTask(
 		...(activityRows.length > 0
 			? [db.insert(taskActivities).values(activityRows)]
 			: []),
+		...(notificationRows.length > 0
+			? [db.insert(notifications).values(notificationRows)]
+			: []),
 		advanceProjectBoardVersion(projectId),
 	] as const);
 
-	return taskRows[0] ?? null;
+	const task = taskRows[0];
+	return task
+		? {
+				...task,
+				notificationRecipientIds: getNotificationRecipientIds(notificationRows),
+			}
+		: null;
 }
 
 // Archives, restores, or soft-deletes one task from an authorized project board.

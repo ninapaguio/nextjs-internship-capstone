@@ -28,7 +28,10 @@ import {
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
 import { getBoardMemberOptionByUserId } from "@/lib/db/queries/users";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { publishProjectBoardUpdate } from "@/lib/realtime/pusher-server";
+import {
+	publishProjectBoardUpdate,
+	publishUserNotificationUpdates,
+} from "@/lib/realtime/pusher-server";
 import {
 	boardCommentSchema,
 	createListSchema,
@@ -95,10 +98,16 @@ async function authorizeBoardManager(projectId: string) {
 }
 
 // Refreshes cached pages and notifies other clients of a committed board change.
-async function revalidateBoardPages(projectId: string) {
+async function revalidateBoardPages(
+	projectId: string,
+	notificationRecipientIds: string[] = [],
+) {
 	revalidatePath("/projects");
 	revalidatePath("/projects/[slug]", "page");
-	await publishProjectBoardUpdate(projectId);
+	await Promise.all([
+		publishProjectBoardUpdate(projectId),
+		publishUserNotificationUpdates(notificationRecipientIds),
+	]);
 }
 
 // Refreshes project totals and notifies other clients after optimistic movement.
@@ -161,7 +170,10 @@ export async function createBoardComment(
 			return { status: "error", message: "The comment was not created." };
 		}
 
-		await revalidateBoardPages(parsed.data.projectId);
+		await revalidateBoardPages(
+			parsed.data.projectId,
+			comment.notificationRecipientIds,
+		);
 		return {
 			status: "success",
 			message: "Comment posted.",
@@ -397,7 +409,10 @@ export async function createBoardTask(
 		});
 		if (!task) return { status: "error", message: "The task was not created." };
 
-		await revalidateBoardPages(parsed.data.projectId);
+		await revalidateBoardPages(
+			parsed.data.projectId,
+			task.notificationRecipientIds,
+		);
 		return {
 			status: "success",
 			message: "Task created successfully.",
@@ -517,7 +532,7 @@ export async function updateBoardTask(
 		);
 		if (!task) return { status: "error", message: "The task was not updated." };
 
-		await revalidateBoardPages(projectId);
+		await revalidateBoardPages(projectId, task.notificationRecipientIds);
 		return { status: "success", message: "Task updated successfully." };
 	} catch {
 		return { status: "error", message: "Could not update the task." };
