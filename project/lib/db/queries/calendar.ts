@@ -16,8 +16,8 @@ import {
 import { createProjectHref } from "@/lib/project-slug";
 import type {
 	CalendarData,
-	CalendarTaskItem,
 	CalendarTaskCreationOptions,
+	CalendarTaskItem,
 	UpcomingDeadlineItem,
 } from "@/types";
 
@@ -170,7 +170,7 @@ export async function getCalendarDataForUser(
 	const projectIds = userProjects.map((p) => p.id);
 	const projectMap = new Map(userProjects.map((p) => [p.id, p]));
 
-	// Fetch all active tasks 
+	// Fetch all active tasks
 	const taskRows = await db
 		.select({
 			id: tasks.id,
@@ -206,32 +206,32 @@ export async function getCalendarDataForUser(
 	const [assignedTaskRows, assigneeRows] = await Promise.all([
 		taskIds.length
 			? db
-				.select({ taskId: taskAssignees.taskId })
-				.from(taskAssignees)
-				.where(
-					and(
-						inArray(taskAssignees.taskId, taskIds),
-						eq(taskAssignees.userId, applicationUserId),
-					),
-				)
+					.select({ taskId: taskAssignees.taskId })
+					.from(taskAssignees)
+					.where(
+						and(
+							inArray(taskAssignees.taskId, taskIds),
+							eq(taskAssignees.userId, applicationUserId),
+						),
+					)
 			: Promise.resolve([]),
 		upcomingTaskIds.length
 			? db
-				.select({
-					taskId: taskAssignees.taskId,
-					userId: users.id,
-					firstName: users.firstName,
-					lastName: users.lastName,
-					email: users.email,
-				})
-				.from(taskAssignees)
-				.innerJoin(users, eq(taskAssignees.userId, users.id))
-				.where(
-					and(
-						inArray(taskAssignees.taskId, upcomingTaskIds),
-						isNull(users.deletedAt),
-					),
-				)
+					.select({
+						taskId: taskAssignees.taskId,
+						userId: users.id,
+						firstName: users.firstName,
+						lastName: users.lastName,
+						email: users.email,
+					})
+					.from(taskAssignees)
+					.innerJoin(users, eq(taskAssignees.userId, users.id))
+					.where(
+						and(
+							inArray(taskAssignees.taskId, upcomingTaskIds),
+							isNull(users.deletedAt),
+						),
+					)
 			: Promise.resolve([]),
 	]);
 

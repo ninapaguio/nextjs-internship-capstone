@@ -159,8 +159,8 @@ function CalendarInner({
 					<ChevronRightIcon className="size-4" />
 				</Button>
 			</header>
-			{Array.from({ length: numberOfMonths }, (_, i) => (
-				<div key={i} className="flex w-full flex-col gap-4">
+			{Array.from({ length: numberOfMonths }, (_, count) => (
+				<div key={count} className="flex w-full flex-col gap-4">
 					<div className="flex h-(--cell-size) w-full items-center justify-center gap-1 px-(--cell-size)">
 						{captionLayout === "dropdown" ? (
 							<>
@@ -169,7 +169,7 @@ function CalendarInner({
 							</>
 						) : (
 							<CalendarHeading
-								offset={{ months: i }}
+								offset={{ months: count }}
 								format={headerFormat}
 								className="text-sm font-medium select-none"
 							/>
@@ -177,7 +177,7 @@ function CalendarInner({
 					</div>
 					<CalendarGrid
 						className="w-full border-collapse"
-						offset={{ months: i }}
+						offset={{ months: count }}
 					>
 						<AriaCalendarGridHeader>
 							{(day) => (

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarHeader } from "@/components/calendar/calendar-header";
-import { DEADLINE_TYPE_CONFIG } from "@/components/calendar/task-styles";
 import { MonthView } from "@/components/calendar/month-view";
+import { DEADLINE_TYPE_CONFIG } from "@/components/calendar/task-styles";
 import { WeekView } from "@/components/calendar/week-view";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,7 +67,7 @@ export function CalendarViewComponent({
 				.querySelector(`[data-calendar-task-id="${highlightedTaskId}"]`)
 				?.scrollIntoView({ behavior: "smooth", block: "center" });
 		});
-	}, [highlightedTaskId, tasksByDate]);
+	}, [highlightedTaskId]);
 
 	// Navigates backward by one month or week
 	function goToPrevious() {
@@ -154,7 +154,7 @@ export function CalendarViewComponent({
 					className={cn(
 						"rounded-xl border border-border overflow-hidden",
 						calendarData.upcomingDeadlines.length > 10 &&
-						"max-h-[520px] overflow-y-auto scrollbar-thin",
+							"max-h-130 overflow-y-auto scrollbar-thin",
 					)}
 				>
 					<Table aria-label="Upcoming deadlines">
@@ -207,7 +207,7 @@ export function CalendarViewComponent({
 												className={cn(
 													"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold tracking-wide capitalize shrink-0",
 													DEADLINE_TYPE_CONFIG[deadline.type]?.className ??
-													"bg-muted text-muted-foreground",
+														"bg-muted text-muted-foreground",
 												)}
 											>
 												{DEADLINE_TYPE_CONFIG[deadline.type]?.label ??

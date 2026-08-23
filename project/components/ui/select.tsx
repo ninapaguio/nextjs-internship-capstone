@@ -70,7 +70,7 @@ function SelectValue<T extends object>({
 			{typeof children === "function"
 				? children
 				: ({ selectedItems, selectedText, defaultChildren }) =>
-					selectedItems.length > 1 ? selectedText : defaultChildren}
+						selectedItems.length > 1 ? selectedText : defaultChildren}
 		</SelectValuePrimitive>
 	);
 }

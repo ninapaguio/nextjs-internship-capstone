@@ -161,7 +161,12 @@ export function CreateCalendarTaskModal({
 						value={dueDate?.toString() ?? ""}
 					/>
 					{labelIds.map((labelId) => (
-						<input key={labelId} type="hidden" name="labelIds" value={labelId} />
+						<input
+							key={labelId}
+							type="hidden"
+							name="labelIds"
+							value={labelId}
+						/>
 					))}
 					<DialogHeader>
 						<DialogTitle>Create a task</DialogTitle>
@@ -236,7 +241,8 @@ export function CreateCalendarTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="calendar-task-description"
 						>
-							Description <span className="text-muted-foreground">(optional)</span>
+							Description{" "}
+							<span className="text-muted-foreground">(optional)</span>
 							<Textarea
 								id="calendar-task-description"
 								name="description"
@@ -307,7 +313,11 @@ export function CreateCalendarTaskModal({
 					) : null}
 
 					<DialogFooter>
-						<Button type="button" variant="outline" onPress={() => setIsOpen(false)}>
+						<Button
+							type="button"
+							variant="outline"
+							onPress={() => setIsOpen(false)}
+						>
 							Cancel
 						</Button>
 						<CreateCalendarTaskSubmit />

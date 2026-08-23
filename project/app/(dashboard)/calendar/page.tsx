@@ -43,7 +43,9 @@ export const metadata: Metadata = {
 };
 
 // Loads the signed-in user's project schedules and task deadlines for the calendar.
-export default async function CalendarPage({ searchParams }: CalendarPageProps) {
+export default async function CalendarPage({
+	searchParams,
+}: CalendarPageProps) {
 	const { userId: clerkId } = await auth();
 	const applicationUser = clerkId ? await ensureApplicationUser(clerkId) : null;
 
@@ -75,9 +77,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
 			today={formatDateKey(new Date())}
 			initialDate={navigation.success ? navigation.data.date : undefined}
 			initialView={navigation.success ? navigation.data.view : undefined}
-			highlightedTaskId={
-				navigation.success ? navigation.data.task : undefined
-			}
+			highlightedTaskId={navigation.success ? navigation.data.task : undefined}
 			taskCreationOptions={taskCreationOptions}
 		/>
 	);
