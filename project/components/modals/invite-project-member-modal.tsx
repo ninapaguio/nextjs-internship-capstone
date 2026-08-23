@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type {
 	InviteProjectMemberActionState,
 	InviteProjectMemberModalProps,
@@ -43,6 +44,7 @@ export function InviteProjectMemberModal({
 }: InviteProjectMemberModalProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [state, formAction] = useActionState(inviteProjectMember, initialState);
+	useActionToast(state, { successMessage: "Invitation sent." });
 	const formRef = useRef<HTMLFormElement>(null);
 
 	useEffect(() => {
@@ -68,7 +70,7 @@ export function InviteProjectMemberModal({
 					<input type="hidden" name="projectId" value={projectId} />
 					<Field data-invalid={Boolean(state.fieldErrors?.email)}>
 						<FieldLabel htmlFor="project-member-email">
-							Email address
+							Email address <span className="text-destructive">*</span>
 						</FieldLabel>
 						<Input
 							id="project-member-email"

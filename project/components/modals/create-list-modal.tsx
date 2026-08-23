@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type { BoardActionState, BoardList } from "@/types";
 
 interface CreateListModalProps {
@@ -68,6 +69,9 @@ export function CreateListModal({
 		},
 		initialState,
 	);
+	useActionToast(state, {
+		successMessage: list ? "Column updated." : "Column created.",
+	});
 
 	return (
 		<Dialog isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -90,7 +94,9 @@ export function CreateListModal({
 					className="grid gap-2 text-sm font-medium"
 					htmlFor="column-title"
 				>
-					Column name
+					<span>
+						Column name <span className="text-destructive">*</span>
+					</span>
 					<Input
 						id="column-title"
 						name="name"
@@ -109,8 +115,12 @@ export function CreateListModal({
 					className="grid gap-2 text-sm font-medium"
 					htmlFor="column-description"
 				>
-					Description{" "}
-					<span className="font-normal text-muted-foreground">(optional)</span>
+					<span>
+						Description{" "}
+						<span className="font-normal text-muted-foreground">
+							(optional)
+						</span>
+					</span>
 					<Textarea
 						id="column-description"
 						name="description"

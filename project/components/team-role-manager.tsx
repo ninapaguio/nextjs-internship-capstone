@@ -23,6 +23,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type {
 	ProjectMemberActionState,
 	TeamDetailMember,
@@ -86,6 +87,7 @@ function CreateRoleForm({ teamId }: { teamId: string }) {
 	const router = useRouter();
 	const formRef = useRef<HTMLFormElement>(null);
 	const [state, formAction] = useActionState(createTeamRole, initialRoleState);
+	useActionToast(state, { successMessage: "Team role created." });
 
 	useEffect(() => {
 		if (state.status === "success") {
@@ -98,22 +100,25 @@ function CreateRoleForm({ teamId }: { teamId: string }) {
 		<form
 			ref={formRef}
 			action={formAction}
-			className="flex flex-col gap-2 sm:flex-row"
+			className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
 		>
 			<input type="hidden" name="teamId" value={teamId} />
-			<label htmlFor="new-team-role" className="sr-only">
-				New role name
-			</label>
-			<Input
-				id="new-team-role"
-				name="name"
-				placeholder="e.g. Backend Developer"
-				maxLength={80}
-				aria-invalid={Boolean(state.fieldErrors?.name)}
-			/>
+			<div className="grid gap-1">
+				<label htmlFor="new-team-role" className="text-xs font-medium">
+					New role name <span className="text-destructive">*</span>
+				</label>
+				<Input
+					id="new-team-role"
+					name="name"
+					placeholder="e.g. Backend Developer"
+					maxLength={80}
+					required
+					aria-invalid={Boolean(state.fieldErrors?.name)}
+				/>
+			</div>
 			<RoleSubmit label="Add role" />
 			{state.status === "error" ? (
-				<p className="text-xs text-destructive sm:self-center" role="alert">
+				<p className="text-xs text-destructive sm:col-span-2" role="alert">
 					{state.message}
 				</p>
 			) : null}
@@ -126,6 +131,7 @@ function RenameRoleForm({ teamId, role }: RenameRoleFormProps) {
 	const router = useRouter();
 	const [isEditing, setIsEditing] = useState(false);
 	const [state, formAction] = useActionState(updateTeamRole, initialRoleState);
+	useActionToast(state, { successMessage: "Team role updated." });
 
 	useEffect(() => {
 		if (state.status === "success") {
@@ -159,13 +165,14 @@ function RenameRoleForm({ teamId, role }: RenameRoleFormProps) {
 			<input type="hidden" name="teamId" value={teamId} />
 			<input type="hidden" name="roleId" value={role.id} />
 			<label htmlFor={`role-${role.id}`} className="text-xs font-medium">
-				Role name
+				Role name <span className="text-destructive">*</span>
 			</label>
 			<Input
 				id={`role-${role.id}`}
 				name="name"
 				defaultValue={role.name}
 				maxLength={80}
+				required
 				autoFocus
 			/>
 			{state.status === "error" ? (
@@ -205,6 +212,7 @@ function MemberRoleAssignment({
 		updateProjectMember,
 		initialMemberState,
 	);
+	useActionToast(state, { successMessage: "Member assignment updated." });
 
 	useEffect(() => {
 		if (state.status === "success") router.refresh();
@@ -238,43 +246,60 @@ function MemberRoleAssignment({
 				</div>
 			</div>
 			{canAssignManager ? (
+				<div className="grid gap-1">
+					<span className="text-xs font-medium">
+						Access <span className="text-destructive">*</span>
+					</span>
+					<Select
+						aria-label={`Board access for ${member.name}`}
+						isRequired
+						value={accessRole}
+						onChange={(value) =>
+							setAccessRole(String(value) as "manager" | "member")
+						}
+					>
+						<SelectTrigger className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem id="member">Member</SelectItem>
+							<SelectItem id="manager">Manager</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+			) : (
+				<div className="grid gap-1">
+					<span className="text-xs font-medium">
+						Access <span className="text-destructive">*</span>
+					</span>
+					<p className="px-2 text-sm text-muted-foreground capitalize">
+						{accessRole}
+					</p>
+				</div>
+			)}
+			<div className="grid gap-1">
+				<span className="text-xs font-medium">
+					Custom role{" "}
+					<span className="font-normal text-muted-foreground">(optional)</span>
+				</span>
 				<Select
-					aria-label={`Board access for ${member.name}`}
-					value={accessRole}
-					onChange={(value) =>
-						setAccessRole(String(value) as "manager" | "member")
-					}
+					aria-label={`Role for ${member.name}`}
+					value={roleId}
+					onChange={(value) => setRoleId(String(value))}
 				>
 					<SelectTrigger className="w-full">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem id="member">Member</SelectItem>
-						<SelectItem id="manager">Manager</SelectItem>
+						<SelectItem id="none">No custom role</SelectItem>
+						{roles.map((role) => (
+							<SelectItem key={role.id} id={role.id}>
+								{role.name}
+							</SelectItem>
+						))}
 					</SelectContent>
 				</Select>
-			) : (
-				<p className="px-2 text-sm text-muted-foreground capitalize">
-					{accessRole}
-				</p>
-			)}
-			<Select
-				aria-label={`Role for ${member.name}`}
-				value={roleId}
-				onChange={(value) => setRoleId(String(value))}
-			>
-				<SelectTrigger className="w-full">
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem id="none">No custom role</SelectItem>
-					{roles.map((role) => (
-						<SelectItem key={role.id} id={role.id}>
-							{role.name}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			</div>
 			<RoleSubmit label="Save" />
 			{state.status === "error" ? (
 				<p className="text-xs text-destructive sm:col-span-4" role="alert">

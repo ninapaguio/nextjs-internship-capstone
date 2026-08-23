@@ -32,6 +32,7 @@ import {
 	useState,
 } from "react";
 import { useFormStatus } from "react-dom";
+import { toast } from "sonner";
 import {
 	changeBoardTaskLifecycle,
 	createBoardComment,
@@ -74,6 +75,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActionToast } from "@/hooks/use-action-toast";
 import { useTaskActivity } from "@/hooks/use-task-activity";
 import { cn } from "@/lib/utils";
 import { useBoardStore } from "@/stores/board-store";
@@ -270,10 +272,12 @@ function DetailRow({
 	label,
 	children,
 	align = "center",
+	requirement,
 }: {
 	label: string;
 	children: ReactNode;
 	align?: "center" | "start";
+	requirement?: "optional" | "required";
 }) {
 	return (
 		<div
@@ -282,7 +286,14 @@ function DetailRow({
 				align === "start" ? "items-start" : "items-center",
 			)}
 		>
-			<span className="text-sm font-medium text-muted-foreground">{label}</span>
+			<span className="text-sm font-medium text-muted-foreground">
+				{label}{" "}
+				{requirement === "required" ? (
+					<span className="text-destructive">*</span>
+				) : requirement === "optional" ? (
+					<span className="font-normal">(optional)</span>
+				) : null}
+			</span>
 			<div className="min-w-0">{children}</div>
 		</div>
 	);
@@ -562,6 +573,7 @@ function CommentComposer({
 		submitComment,
 		initialCommentState,
 	);
+	useActionToast(state, { successMessage: "Comment posted." });
 
 	useEffect(() => {
 		if (state.status === "success") setDraft("");
@@ -584,13 +596,21 @@ function CommentComposer({
 				</AvatarFallback>
 			</Avatar>
 			<div className="min-w-0 flex-1 space-y-2">
+				<label
+					htmlFor="task-comment"
+					className="text-xs font-medium text-muted-foreground"
+				>
+					Comment <span className="text-destructive">*</span>
+				</label>
 				<Textarea
+					id="task-comment"
 					name="content"
 					aria-label="Add a comment"
 					aria-invalid={state.status === "error"}
 					placeholder="Add a comment…"
 					value={draft}
 					maxLength={5_000}
+					required
 					disabled={isPending}
 					onChange={(event) => setDraft(event.target.value)}
 					onKeyDown={(event) => {
@@ -955,6 +975,7 @@ export function TaskDetailsPanel({
 		},
 		initialState,
 	);
+	useActionToast(state, { successMessage: "Task updated." });
 
 	if (!task) return null;
 	const activeTask = task;
@@ -1027,9 +1048,9 @@ export function TaskDetailsPanel({
 	// Toggles completion immediately and restores the task if persistence fails.
 	async function handleCompletion() {
 		if (!activeTask.completedAt && isBlocked) {
-			setPanelError(
-				"Complete every blocking task before completing this task.",
-			);
+			const message =
+				"Complete every blocking task before completing this task.";
+			setPanelError(message);
 			return;
 		}
 		const snapshot = useBoardStore.getState().lists;
@@ -1048,6 +1069,7 @@ export function TaskDetailsPanel({
 		} else {
 			markPersisted();
 			void taskActivity.invalidate();
+			toast.success(completed ? "Task completed." : "Task reopened.");
 		}
 	}
 
@@ -1074,6 +1096,13 @@ export function TaskDetailsPanel({
 		}
 		markPersisted();
 		onOpenChange(false);
+		toast.success(
+			action === "archive"
+				? "Task archived."
+				: action === "restore"
+					? "Task restored."
+					: "Task deleted.",
+		);
 	}
 
 	return (
@@ -1155,14 +1184,23 @@ export function TaskDetailsPanel({
 					<SheetTitle className="sr-only">Task details</SheetTitle>
 					<div className="min-w-0 flex-1">
 						{editingField === "title" ? (
-							<Input
-								aria-label="Task title"
-								value={title}
-								onChange={(event) => setTitle(event.target.value)}
-								maxLength={200}
-								autoFocus
-								className="h-10 w-full text-lg font-semibold"
-							/>
+							<div className="grid gap-1">
+								<label
+									htmlFor="edit-task-title"
+									className="text-xs font-medium text-muted-foreground"
+								>
+									Task title <span className="text-destructive">*</span>
+								</label>
+								<Input
+									id="edit-task-title"
+									value={title}
+									onChange={(event) => setTitle(event.target.value)}
+									maxLength={200}
+									required
+									autoFocus
+									className="h-10 w-full text-lg font-semibold"
+								/>
+							</div>
 						) : (
 							<div className="max-w-full whitespace-normal py-1 text-left text-xl font-semibold wrap-anywhere">
 								<span>{title}</span>{" "}
@@ -1221,7 +1259,7 @@ export function TaskDetailsPanel({
 							<input key={id} type="hidden" name="blockingTaskIds" value={id} />
 						))}
 
-						<DetailRow label="Assignees">
+						<DetailRow label="Assignees" requirement="optional">
 							{editingField === "assignees" ? (
 								<Select
 									aria-label="Assignees"
@@ -1250,7 +1288,7 @@ export function TaskDetailsPanel({
 							)}
 						</DetailRow>
 
-						<DetailRow label="Label">
+						<DetailRow label="Label" requirement="optional">
 							{editingField === "labels" ? (
 								<TaskLabelSelect
 									labels={localLabels}
@@ -1278,7 +1316,11 @@ export function TaskDetailsPanel({
 							)}
 						</DetailRow>
 
-						<DetailRow label="Dependencies" align="start">
+						<DetailRow
+							label="Dependencies"
+							align="start"
+							requirement="optional"
+						>
 							{editingField === "dependencies" ? (
 								<div className="space-y-2">
 									<div className="grid min-w-0 grid-cols-[9rem_minmax(0,1fr)] items-center gap-2">
@@ -1430,10 +1472,11 @@ export function TaskDetailsPanel({
 							)}
 						</DetailRow>
 
-						<DetailRow label="Column">
+						<DetailRow label="Column" requirement="required">
 							{editingField === "column" ? (
 								<Select
 									aria-label="Column"
+									isRequired
 									value={selectedListId}
 									onChange={(value) => setSelectedListId(String(value))}
 								>
@@ -1460,7 +1503,7 @@ export function TaskDetailsPanel({
 							)}
 						</DetailRow>
 
-						<DetailRow label="Due date">
+						<DetailRow label="Due date" requirement="optional">
 							<PopoverTrigger>
 								<Button
 									type="button"
@@ -1480,10 +1523,11 @@ export function TaskDetailsPanel({
 							</PopoverTrigger>
 						</DetailRow>
 
-						<DetailRow label="Priority">
+						<DetailRow label="Priority" requirement="required">
 							{editingField === "priority" ? (
 								<Select
 									aria-label="Priority"
+									isRequired
 									value={selectedPriorityId}
 									onChange={(value) => setSelectedPriorityId(String(value))}
 								>
@@ -1521,7 +1565,8 @@ export function TaskDetailsPanel({
 						<div className="pt-5">
 							<Field>
 								<FieldLabel htmlFor="task-details-description">
-									Description
+									Description{" "}
+									<span className="text-muted-foreground">(optional)</span>
 								</FieldLabel>
 								{editingField === "description" ? (
 									<Textarea
@@ -1554,15 +1599,8 @@ export function TaskDetailsPanel({
 							</Field>
 						</div>
 
-						{state.status !== "idle" && (
-							<p
-								className={
-									state.status === "error"
-										? "text-sm text-destructive"
-										: "text-sm text-emerald-600"
-								}
-								role="status"
-							>
+						{state.status === "error" && (
+							<p className="text-sm text-destructive" role="alert">
 								{state.message}
 							</p>
 						)}

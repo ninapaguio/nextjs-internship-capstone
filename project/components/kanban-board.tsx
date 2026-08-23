@@ -11,6 +11,7 @@ import {
 	X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
 	changeBoardListLifecycle,
 	changeBoardTaskLifecycle,
@@ -191,6 +192,7 @@ export function KanbanBoard({
 		}
 		const createdLabel = result.data;
 		setBoardLabels((current) => [...current, createdLabel]);
+		toast.success("Label created.");
 		return createdLabel;
 	}
 
@@ -327,7 +329,8 @@ export function KanbanBoard({
 			position < 0
 		) {
 			replaceLists(snapshot);
-			setBoardError("The selected tasks could not be positioned.");
+			const message = "The selected tasks could not be positioned.";
+			setBoardError(message);
 			return false;
 		}
 
@@ -359,6 +362,9 @@ export function KanbanBoard({
 		if (succeeded) {
 			setSelectedTaskIds(new Set());
 			setBulkTargetListId("");
+			toast.success(
+				`${taskIds.length} task${taskIds.length === 1 ? "" : "s"} moved.`,
+			);
 		}
 	}
 
@@ -370,10 +376,12 @@ export function KanbanBoard({
 		formData.set("taskId", taskId);
 		formData.set("action", "restore");
 		const result = await changeBoardTaskLifecycle(formData);
-		if (result.status === "error") setBoardError(result.message);
-		else {
+		if (result.status === "error") {
+			setBoardError(result.message);
+		} else {
 			updateTask(taskId, { archivedAt: null });
 			markPersisted();
+			toast.success("Task restored.");
 		}
 	}
 
@@ -430,6 +438,9 @@ export function KanbanBoard({
 			return;
 		}
 		markPersisted();
+		toast.success(
+			action === "archive" ? "Column archived." : "Column deleted.",
+		);
 	}
 
 	// Opens a confirmation dialog before changing a column's lifecycle.

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RangeValue } from "react-aria-components";
+import { toast } from "sonner";
 import { changeProjectLifecycle, updateProject } from "@/actions/projects";
 import { ConfirmLifecycleDialog } from "@/components/modals/confirm-lifecycle-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -126,15 +127,16 @@ export function ProjectDetailsPanel({
 			formData.set("status", "active");
 			onUpdate(activeProject.id, { status: "active" }, async () => {
 				const result = await updateProject(formData);
-				if (result.status === "error") setError(result.message);
+				if (result.status === "error") {
+					setError(result.message);
+				} else toast.success("Project started.");
 				return result;
 			});
 			return;
 		}
 		if (!isCompleted && !allTasksComplete) {
-			setError(
-				`Complete all tasks (${remainingTasks} remaining) before marking this project as complete.`,
-			);
+			const message = `Complete all tasks (${remainingTasks} remaining) before marking this project as complete.`;
+			setError(message);
 			return;
 		}
 		setError(null);
@@ -147,7 +149,8 @@ export function ProjectDetailsPanel({
 			const result = await updateProject(formData);
 			if (result.status === "error") {
 				setError(result.message);
-			}
+			} else
+				toast.success(isCompleted ? "Project reopened." : "Project completed.");
 			return result;
 		});
 	}
@@ -161,7 +164,9 @@ export function ProjectDetailsPanel({
 
 		onUpdate(activeProject.id, { status: "inactive" }, async () => {
 			const result = await updateProject(formData);
-			if (result.status === "error") setError(result.message);
+			if (result.status === "error") {
+				setError(result.message);
+			} else toast.success("Project moved to planned.");
 			return result;
 		});
 	}
@@ -184,8 +189,12 @@ export function ProjectDetailsPanel({
 			},
 			async () => {
 				const result = await updateProject(formData);
-				if (result.status === "error") setError(result.message);
-				else onOpenChange(false);
+				if (result.status === "error") {
+					setError(result.message);
+				} else {
+					onOpenChange(false);
+					toast.success("Project updated.");
+				}
 				return result;
 			},
 		);
@@ -201,8 +210,14 @@ export function ProjectDetailsPanel({
 
 		onRemove(activeProject.id, async () => {
 			const result = await changeProjectLifecycle(formData);
-			if (result.status === "error") setError(result.message);
-			else onOpenChange(false);
+			if (result.status === "error") {
+				setError(result.message);
+			} else {
+				onOpenChange(false);
+				toast.success(
+					action === "archive" ? "Project archived." : "Project deleted.",
+				);
+			}
 			return result;
 		});
 	}
@@ -315,14 +330,23 @@ export function ProjectDetailsPanel({
 					<SheetTitle className="sr-only">Project details</SheetTitle>
 					<div className="min-w-0 flex-1">
 						{editingTitle ? (
-							<Input
-								aria-label="Project name"
-								value={name}
-								onChange={(event) => setName(event.target.value)}
-								maxLength={160}
-								autoFocus
-								className="h-10 w-full text-lg font-semibold"
-							/>
+							<div className="grid gap-1">
+								<label
+									htmlFor="edit-project-name"
+									className="text-xs font-medium text-muted-foreground"
+								>
+									Project title <span className="text-destructive">*</span>
+								</label>
+								<Input
+									id="edit-project-name"
+									value={name}
+									onChange={(event) => setName(event.target.value)}
+									maxLength={160}
+									required
+									autoFocus
+									className="h-10 w-full text-lg font-semibold"
+								/>
+							</div>
 						) : (
 							<div className="max-w-full whitespace-normal py-1 text-left text-xl font-bold tracking-tight text-foreground wrap-anywhere">
 								<span>{name}</span>{" "}
@@ -354,7 +378,8 @@ export function ProjectDetailsPanel({
 
 					<Field>
 						<FieldLabel htmlFor="edit-project-description">
-							Description
+							Description{" "}
+							<span className="text-muted-foreground">(optional)</span>
 						</FieldLabel>
 						<Textarea
 							id="edit-project-description"
@@ -367,7 +392,10 @@ export function ProjectDetailsPanel({
 					</Field>
 
 					<Field>
-						<FieldLabel>Project timeline</FieldLabel>
+						<FieldLabel>
+							Project timeline{" "}
+							<span className="text-muted-foreground">(optional)</span>
+						</FieldLabel>
 						<input
 							type="hidden"
 							name="startDate"

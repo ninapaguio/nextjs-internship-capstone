@@ -24,6 +24,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type {
 	BoardActionState,
 	BoardLabelOption,
@@ -164,6 +165,7 @@ export function CreateTaskModal({
 		},
 		initialState,
 	);
+	useActionToast(state, { successMessage: "Task created." });
 
 	return (
 		<Dialog isOpen={isOpen} onOpenChange={onOpenChange} className="sm:max-w-xl">
@@ -193,7 +195,9 @@ export function CreateTaskModal({
 						className="grid gap-2 text-sm font-medium"
 						htmlFor="task-title"
 					>
-						Task title
+						<span>
+							Task title <span className="text-destructive">*</span>
+						</span>
 						<Input
 							id="task-title"
 							name="title"
@@ -209,7 +213,12 @@ export function CreateTaskModal({
 						className="grid gap-2 text-sm font-medium"
 						htmlFor="task-description"
 					>
-						Description
+						<span>
+							Description{" "}
+							<span className="font-normal text-muted-foreground">
+								(optional)
+							</span>
+						</span>
 						<Textarea
 							id="task-description"
 							name="description"
@@ -224,11 +233,14 @@ export function CreateTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="task-priority"
 						>
-							<span>Priority</span>
+							<span>
+								Priority <span className="text-destructive">*</span>
+							</span>
 							<Select
 								className="w-full"
 								id="task-priority"
 								aria-label="Priority"
+								isRequired
 								value={priorityId}
 								onChange={(value) => setPriorityId(String(value))}
 							>
@@ -249,7 +261,12 @@ export function CreateTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="task-due-date"
 						>
-							<span>Due date</span>
+							<span>
+								Due date{" "}
+								<span className="font-normal text-muted-foreground">
+									(optional)
+								</span>
+							</span>
 							<PopoverTrigger>
 								<Button
 									variant="outline"
@@ -271,7 +288,12 @@ export function CreateTaskModal({
 							className="grid gap-2 text-sm font-medium"
 							htmlFor="task-assignee"
 						>
-							<span>Assignee</span>
+							<span>
+								Assignee{" "}
+								<span className="font-normal text-muted-foreground">
+									(optional)
+								</span>
+							</span>
 							<Select
 								className="w-full"
 								id="task-assignee"
@@ -296,7 +318,12 @@ export function CreateTaskModal({
 						</label>
 
 						<div className="grid gap-2 text-sm font-medium">
-							<span>Label</span>
+							<span>
+								Label{" "}
+								<span className="font-normal text-muted-foreground">
+									(optional)
+								</span>
+							</span>
 							<TaskLabelSelect
 								labels={labels}
 								value={labelIds}

@@ -3,6 +3,7 @@
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
+import { useFormStatus } from "react-dom";
 import { removeProjectMember } from "@/actions/project-members";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActionToast } from "@/hooks/use-action-toast";
 import { useSharedViewRefresh } from "@/hooks/use-shared-view-refresh";
 import type { ProjectMemberActionState, TeamDetailData } from "@/types";
 
@@ -34,6 +36,27 @@ const initialState: ProjectMemberActionState = {
 	status: "idle",
 	message: "",
 };
+
+// Shows pending feedback while a project member is removed.
+function RemoveProjectMemberSubmit() {
+	const { pending } = useFormStatus();
+	return (
+		<TooltipTrigger delay={400}>
+			<Button
+				type="submit"
+				variant="ghost"
+				size="icon-sm"
+				isDisabled={pending}
+				aria-label="Remove project member"
+			>
+				<UserRoundX />
+			</Button>
+			<Tooltip placement="top">
+				{pending ? "Removing member" : "Remove from project"}
+			</Tooltip>
+		</TooltipTrigger>
+	);
+}
 
 // Returns compact initials when a synchronized Clerk profile has no image.
 function memberInitials(name: string) {
@@ -53,6 +76,7 @@ function RemoveProjectMemberForm({
 }: RemoveProjectMemberFormProps) {
 	const [state, formAction] = useActionState(removeProjectMember, initialState);
 	const router = useRouter();
+	useActionToast(state, { successMessage: "Project member removed." });
 
 	useEffect(() => {
 		if (state.status === "success" && state.redirectTo) {
@@ -62,23 +86,16 @@ function RemoveProjectMemberForm({
 	}, [router, state.redirectTo, state.status]);
 
 	return (
-		<form action={formAction}>
+		<form action={formAction} className="flex flex-col items-end">
 			<input type="hidden" name="teamId" value={teamId} />
 			<input type="hidden" name="projectId" value={projectId} />
 			<input type="hidden" name="userId" value={userId} />
-			<TooltipTrigger delay={400}>
-				<Button
-					type="submit"
-					variant="ghost"
-					size="icon-sm"
-					aria-label="Remove project member"
-				>
-					<UserRoundX />
-				</Button>
-				<Tooltip placement="top">Remove from project</Tooltip>
-			</TooltipTrigger>
+			<RemoveProjectMemberSubmit />
 			{state.status === "error" ? (
-				<span className="sr-only" role="alert">
+				<span
+					className="mt-1 max-w-48 text-right text-xs text-destructive"
+					role="alert"
+				>
 					{state.message}
 				</span>
 			) : null}

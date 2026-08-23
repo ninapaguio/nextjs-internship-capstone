@@ -32,7 +32,7 @@ export function WeekView({
 
 	return (
 		<div className="overflow-x-auto">
-			<div className="min-w-[700px]">
+			<div className="min-w-175">
 				<div className="grid grid-cols-7 divide-x divide-border border-b border-border bg-muted/30">
 					{weekDays.map((day) => {
 						const isToday = isSameDay(day, today);
@@ -78,7 +78,7 @@ export function WeekView({
 							<div
 								key={day.toISOString()}
 								className={cn(
-									"flex min-h-[420px] flex-col p-2 transition-colors",
+									"flex min-h-105 flex-col p-2 transition-colors",
 									isToday
 										? "bg-brand_teal-50/15 dark:bg-brand_teal-950/10"
 										: "bg-card",

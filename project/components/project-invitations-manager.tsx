@@ -21,6 +21,7 @@ import {
 	EmptyTitle,
 } from "@/components/ui/empty";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActionToast } from "@/hooks/use-action-toast";
 import { cn } from "@/lib/utils";
 import type {
 	CancelProjectInvitationActionState,
@@ -74,17 +75,21 @@ function CancelInvitationForm({ invitationId }: { invitationId: string }) {
 		cancelProjectInvitationAction,
 		initialState,
 	);
+	useActionToast(state, { successMessage: "Invitation canceled." });
 
 	useEffect(() => {
 		if (state.status === "success") router.refresh();
 	}, [router, state.status]);
 
 	return (
-		<form action={formAction}>
+		<form action={formAction} className="flex flex-col items-end">
 			<input type="hidden" name="invitationId" value={invitationId} />
 			<CancelInvitationSubmit />
-			{state.status !== "idle" ? (
-				<span className="sr-only" role="status">
+			{state.status === "error" ? (
+				<span
+					className="mt-1 max-w-48 text-right text-xs text-destructive"
+					role="alert"
+				>
 					{state.message}
 				</span>
 			) : null}

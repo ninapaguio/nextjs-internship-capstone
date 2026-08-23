@@ -47,11 +47,10 @@ function InputGroupAddon({
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
 	return (
 		<div
-			role="group"
 			data-slot="input-group-addon"
 			data-align={align}
 			className={cn(inputGroupAddonVariants({ align }), className)}
-			onClick={(e) => {
+			onPointerDown={(e) => {
 				if ((e.target as HTMLElement).closest("button")) {
 					return;
 				}
