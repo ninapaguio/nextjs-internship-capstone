@@ -186,7 +186,10 @@ export async function updateProject(
 	if (!project) {
 		return {
 			status: "error",
-			message: "Only the project owner or a manager can edit it.",
+			message:
+				changes.status === "completed"
+					? "The project could not be completed. Check that every active task is complete and try again."
+					: "Only the project owner or a manager can edit it.",
 		};
 	}
 
