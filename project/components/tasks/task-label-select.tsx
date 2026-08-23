@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +30,7 @@ export function TaskLabelSelect({
 	onChange,
 	onCreateLabel,
 }: TaskLabelSelectProps) {
+	const fieldId = useId();
 	const [isCreatorOpen, setIsCreatorOpen] = useState(false);
 	const [newLabelName, setNewLabelName] = useState("");
 	const [newLabelColor, setNewLabelColor] = useState(DEFAULT_LABEL_COLOR);
@@ -72,6 +73,7 @@ export function TaskLabelSelect({
 			{isCreatorOpen ? (
 				<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_4rem_auto]">
 					<Input
+						id={`${fieldId}-name`}
 						aria-label="New label name"
 						placeholder={
 							isCreating ? "Creating label…" : "Type a label and press Enter"
@@ -94,6 +96,7 @@ export function TaskLabelSelect({
 						}}
 					/>
 					<Input
+						id={`${fieldId}-color`}
 						type="color"
 						aria-label="New label color"
 						value={newLabelColor}
@@ -112,6 +115,7 @@ export function TaskLabelSelect({
 				</div>
 			) : (
 				<Select
+					id={`${fieldId}-select`}
 					className="w-full"
 					aria-label="Label"
 					selectionMode="multiple"
@@ -154,7 +158,8 @@ export function TaskLabelSelect({
 								key={label.id}
 								id={label.id}
 								isDisabled={
-									value.length >= MAXIMUM_TASK_LABELS && !value.includes(label.id)
+									value.length >= MAXIMUM_TASK_LABELS &&
+									!value.includes(label.id)
 								}
 							>
 								{label.name}

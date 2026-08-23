@@ -38,6 +38,32 @@
 		-webkit-box-orient: vertical;
 		line-clamp: 3;
 	}
+
+	/* Priority badge styles */
+	.priority-badge-low {
+		@apply bg-brand_mint-50 text-brand_mint-800 border border-brand_mint-200/80 dark:bg-brand_mint-950/40 dark:text-brand_mint-300 dark:border-brand_mint-800/50;
+	}
+
+	.priority-badge-medium {
+		@apply bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50;
+	}
+
+	.priority-badge-high {
+		@apply bg-rose-50 text-rose-800 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50;
+	}
+
+	/* Priority calendar task bar styles */
+	.priority-task-low {
+		@apply bg-brand_mint-50 text-brand_mint-800 border-l-2 border-l-brand_mint-500 dark:bg-brand_mint-950/50 dark:text-brand_mint-200 dark:border-l-brand_mint-400;
+	}
+
+	.priority-task-medium {
+		@apply bg-amber-50 text-amber-800 border-l-2 border-l-amber-500 dark:bg-amber-950/50 dark:text-amber-200 dark:border-l-amber-400;
+	}
+
+	.priority-task-high {
+		@apply bg-rose-50 text-rose-800 border-l-2 border-l-rose-500 dark:bg-rose-950/50 dark:text-rose-200 dark:border-l-rose-400;
+	}
 }
 
 @layer components {

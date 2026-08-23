@@ -135,7 +135,7 @@ export function KanbanColumn({
 				) : null}
 			</header>
 
-			<div className="scrollbar-thin flex h-0 min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
+			<div className="scrollbar-thin flex h-0 min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1 scrollbar-gutter-stable">
 				{list.tasks.map((task) => (
 					<TaskCard
 						key={task.id}
