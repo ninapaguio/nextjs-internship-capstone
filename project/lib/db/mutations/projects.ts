@@ -18,6 +18,22 @@ const defaultKanbanLists = [
 	"Done",
 ] as const;
 
+// Checks that the selected application user owns the current project row.
+function hasProjectOwnerMembership(applicationUserId: string) {
+	return exists(
+		db
+			.select({ userId: projectMembers.userId })
+			.from(projectMembers)
+			.where(
+				and(
+					eq(projectMembers.projectId, projects.id),
+					eq(projectMembers.userId, applicationUserId),
+					eq(projectMembers.accessRole, "owner"),
+				),
+			),
+	);
+}
+
 // Inserts a solo project, its default workflow, and creator ownership.
 export async function insertProject(input: InsertProjectInput) {
 	const projectId = randomUUID();
@@ -84,37 +100,25 @@ export async function changeOwnedProjectLifecycle(
 	action: "archive" | "delete",
 ) {
 	const now = new Date();
-	const [project] = await db
-		.update(projects)
-		.set({
-			status: "archived",
-			archivedAt: now,
-			deletedAt: action === "delete" ? now : undefined,
-			updatedAt: now,
-		})
-		.where(
-			and(
-				eq(projects.id, projectId),
-				exists(
-					db
-						.select({ userId: projectMembers.userId })
-						.from(projectMembers)
-						.where(
-							and(
-								eq(projectMembers.projectId, projects.id),
-								eq(projectMembers.userId, applicationUserId),
-								eq(projectMembers.accessRole, "owner"),
-							),
-						),
+	const [projectRows] = await db.batch([
+		db
+			.update(projects)
+			.set({
+				status: "archived",
+				archivedAt: now,
+				deletedAt: action === "delete" ? now : undefined,
+				updatedAt: now,
+			})
+			.where(
+				and(
+					eq(projects.id, projectId),
+					hasProjectOwnerMembership(applicationUserId),
+					isNull(projects.deletedAt),
+					isNull(projects.archivedAt),
 				),
-				isNull(projects.deletedAt),
-				isNull(projects.archivedAt),
-			),
-		)
-		.returning({ id: projects.id });
-
-	if (project) {
-		await db
+			)
+			.returning({ id: projects.id }),
+		db
 			.update(teams)
 			.set({
 				status: "archived",
@@ -122,8 +126,29 @@ export async function changeOwnedProjectLifecycle(
 				deletedAt: action === "delete" ? now : undefined,
 				updatedAt: now,
 			})
-			.where(eq(teams.projectId, projectId));
-	}
+			.where(
+				and(
+					eq(teams.projectId, projectId),
+					exists(
+						db
+							.select({ id: projects.id })
+							.from(projects)
+							.where(
+								and(
+									eq(projects.id, projectId),
+									hasProjectOwnerMembership(applicationUserId),
+									eq(projects.status, "archived"),
+									eq(projects.archivedAt, now),
+									eq(projects.updatedAt, now),
+									action === "delete"
+										? eq(projects.deletedAt, now)
+										: isNull(projects.deletedAt),
+								),
+							),
+					),
+				),
+			),
+	] as const);
 
-	return project ?? null;
+	return projectRows[0] ?? null;
 }
