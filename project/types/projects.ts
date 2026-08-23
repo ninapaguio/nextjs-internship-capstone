@@ -61,4 +61,5 @@ export interface ProjectsPageProps {
 
 export interface ProjectPageProps {
 	params: Promise<{ slug: string }>;
+	searchParams?: Promise<{ task?: string }>;
 }

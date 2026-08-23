@@ -29,8 +29,13 @@ export const metadata: Metadata = {
 };
 
 // Loads an authorized project and renders its interactive Kanban workspace.
-export default async function ProjectPage({ params }: ProjectPageProps) {
+export default async function ProjectPage({
+	params,
+	searchParams,
+}: ProjectPageProps) {
 	const { slug } = await params;
+	const resolvedSearchParams = searchParams ? await searchParams : undefined;
+	const initialTaskId = resolvedSearchParams?.task;
 	const parsedProjectId = uuidSchema.safeParse(extractProjectIdFromSlug(slug));
 
 	if (!parsedProjectId.success) notFound();
@@ -62,7 +67,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 					: null;
 
 	const canonicalSlug = createProjectCompositeSlug(project.id, project.name);
-	if (slug !== canonicalSlug) redirect(`/projects/${canonicalSlug}`);
+	if (slug !== canonicalSlug) {
+		const redirectQuery = initialTaskId ? `?task=${initialTaskId}` : "";
+		redirect(`/projects/${canonicalSlug}${redirectQuery}`);
+	}
 
 	return (
 		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
@@ -111,6 +119,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 					initialData={boardData}
 					canEditTasks={canEditTasks}
 					canManageColumns={canManageBoard && canEditTasks}
+					initialSelectedTaskId={initialTaskId}
 				/>
 			</div>
 		</section>

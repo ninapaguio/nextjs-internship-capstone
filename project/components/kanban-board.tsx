@@ -62,6 +62,7 @@ interface KanbanBoardProps {
 	initialData: ProjectBoardData;
 	canEditTasks: boolean;
 	canManageColumns: boolean;
+	initialSelectedTaskId?: string | null;
 }
 
 // TODO: Task 5.1 - Design responsive Kanban board layout
@@ -106,6 +107,7 @@ export function KanbanBoard({
 	initialData,
 	canEditTasks,
 	canManageColumns,
+	initialSelectedTaskId,
 }: KanbanBoardProps) {
 	useSharedViewRefresh();
 	const columns = useBoardStore((state) => state.lists);
@@ -143,7 +145,15 @@ export function KanbanBoard({
 		"none",
 	);
 	const [activeListId, setActiveListId] = useState<string | null>(null);
-	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
+		initialSelectedTaskId ?? null,
+	);
+
+	useEffect(() => {
+		if (initialSelectedTaskId) {
+			setSelectedTaskId(initialSelectedTaskId);
+		}
+	}, [initialSelectedTaskId]);
 	const [isListModalOpen, setIsListModalOpen] = useState(false);
 	const [editingList, setEditingList] = useState<BoardList | null>(null);
 	const [boardError, setBoardError] = useState<string | null>(null);
@@ -766,7 +776,7 @@ export function KanbanBoard({
 				}}
 			>
 				{displayedColumns.length ? (
-					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(16rem,86vw)] gap-3.5 overflow-x-auto overscroll-x-contain pb-4 sm:auto-cols-80 lg:auto-cols-76 xl:auto-cols-80">
+					<div className="scrollbar-thin grid grid-flow-col auto-cols-[minmax(18rem,1fr)] sm:auto-cols-[minmax(20rem,1fr)] lg:auto-cols-[minmax(21rem,1fr)] gap-4 overflow-x-auto overscroll-x-contain pb-4 w-full">
 						{displayedColumns.map((column) => (
 							<KanbanColumn
 								key={column.id}
