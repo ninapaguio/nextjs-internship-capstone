@@ -12,7 +12,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectMembers, projects, tasks, teams } from "@/lib/db/schema";
+import { lists, projectMembers, projects, tasks, teams } from "@/lib/db/schema";
 
 interface ProjectListQueryInput {
 	applicationUserId: string;
@@ -116,6 +116,11 @@ export async function getProjectList({
 			totalTasks: sql<number>`(
 				select count(*)::int from ${tasks}
 				where ${tasks.projectId} = ${projects.id} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null
+				and exists (
+					select 1 from ${lists}
+					where ${lists.id} = ${tasks.listId} and ${lists.projectId} = ${projects.id}
+					and ${lists.archivedAt} is null and ${lists.deletedAt} is null
+				)
 			)`,
 			totalMembers: sql<number>`(
 				select count(*)::int from ${projectMembers}
@@ -127,6 +132,11 @@ export async function getProjectList({
 					/ nullif(count(*), 0)
 				)::int from ${tasks}
 				where ${tasks.projectId} = ${projects.id} and ${tasks.archivedAt} is null and ${tasks.deletedAt} is null
+				and exists (
+					select 1 from ${lists}
+					where ${lists.id} = ${tasks.listId} and ${lists.projectId} = ${projects.id}
+					and ${lists.archivedAt} is null and ${lists.deletedAt} is null
+				)
 			), 0)`,
 		})
 		.from(projects)

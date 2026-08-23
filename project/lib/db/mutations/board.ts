@@ -1,7 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
 	type ActivityEntity,
@@ -109,6 +110,8 @@ async function getTaskActivitySnapshot(
 				eq(tasks.projectId, projectId),
 				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 			),
 		)
 		.limit(1);
@@ -134,10 +137,18 @@ async function getTaskActivitySnapshot(
 			.select({ id: tasks.id, name: tasks.title })
 			.from(taskDependencies)
 			.innerJoin(tasks, eq(taskDependencies.dependsOnTaskId, tasks.id))
+			.innerJoin(
+				lists,
+				and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+			)
 			.where(
 				and(
 					eq(taskDependencies.projectId, projectId),
 					eq(taskDependencies.taskId, taskId),
+					isNull(tasks.archivedAt),
+					isNull(tasks.deletedAt),
+					isNull(lists.archivedAt),
+					isNull(lists.deletedAt),
 				),
 			),
 	]);
@@ -170,67 +181,76 @@ async function buildNextTaskActivitySnapshot(
 		await Promise.all([
 			input.listId
 				? db
-					.select({ id: lists.id, name: lists.name })
-					.from(lists)
-					.where(
-						and(
-							eq(lists.id, input.listId),
-							eq(lists.projectId, projectId),
-							isNull(lists.archivedAt),
-							isNull(lists.deletedAt),
-						),
-					)
+						.select({ id: lists.id, name: lists.name })
+						.from(lists)
+						.where(
+							and(
+								eq(lists.id, input.listId),
+								eq(lists.projectId, projectId),
+								isNull(lists.archivedAt),
+								isNull(lists.deletedAt),
+							),
+						)
 				: Promise.resolve([]),
 			input.priorityId
 				? db
-					.select({ id: priorityOptions.id, name: priorityOptions.label })
-					.from(priorityOptions)
-					.where(eq(priorityOptions.id, input.priorityId))
+						.select({ id: priorityOptions.id, name: priorityOptions.label })
+						.from(priorityOptions)
+						.where(eq(priorityOptions.id, input.priorityId))
 				: Promise.resolve([]),
 			input.assigneeIds
 				? input.assigneeIds.length > 0
 					? db
-						.select({
-							id: users.id,
-							firstName: users.firstName,
-							lastName: users.lastName,
-							email: users.email,
-						})
-						.from(users)
-						.where(
-							and(
-								inArray(users.id, input.assigneeIds),
-								isNull(users.deletedAt),
-							),
-						)
+							.select({
+								id: users.id,
+								firstName: users.firstName,
+								lastName: users.lastName,
+								email: users.email,
+							})
+							.from(users)
+							.where(
+								and(
+									inArray(users.id, input.assigneeIds),
+									isNull(users.deletedAt),
+								),
+							)
 					: Promise.resolve([])
 				: Promise.resolve(null),
 			input.labelIds
 				? input.labelIds.length > 0
 					? db
-						.select({ id: labels.id, name: labels.name })
-						.from(labels)
-						.where(
-							and(
-								eq(labels.projectId, projectId),
-								inArray(labels.id, input.labelIds),
-							),
-						)
+							.select({ id: labels.id, name: labels.name })
+							.from(labels)
+							.where(
+								and(
+									eq(labels.projectId, projectId),
+									inArray(labels.id, input.labelIds),
+								),
+							)
 					: Promise.resolve([])
 				: Promise.resolve(null),
 			input.dependencyIds
 				? input.dependencyIds.length > 0
 					? db
-						.select({ id: tasks.id, name: tasks.title })
-						.from(tasks)
-						.where(
-							and(
-								eq(tasks.projectId, projectId),
-								inArray(tasks.id, input.dependencyIds),
-								isNull(tasks.archivedAt),
-								isNull(tasks.deletedAt),
-							),
-						)
+							.select({ id: tasks.id, name: tasks.title })
+							.from(tasks)
+							.innerJoin(
+								lists,
+								and(
+									eq(tasks.listId, lists.id),
+									eq(tasks.projectId, lists.projectId),
+								),
+							)
+							.where(
+								and(
+									eq(tasks.projectId, projectId),
+									inArray(tasks.id, input.dependencyIds),
+									isNull(tasks.archivedAt),
+									isNull(tasks.deletedAt),
+									isNull(lists.archivedAt),
+									isNull(lists.deletedAt),
+								),
+							)
 					: Promise.resolve([])
 				: Promise.resolve(null),
 		]);
@@ -251,11 +271,11 @@ async function buildNextTaskActivitySnapshot(
 
 	const nextAssignees: ActivityEntity[] | null = assigneeRows
 		? assigneeRows.map((member) => ({
-			id: member.id,
-			name:
-				[member.firstName, member.lastName].filter(Boolean).join(" ") ||
-				member.email,
-		}))
+				id: member.id,
+				name:
+					[member.firstName, member.lastName].filter(Boolean).join(" ") ||
+					member.email,
+			}))
 		: null;
 
 	return {
@@ -298,12 +318,35 @@ function requireActiveTaskCount(
 			guard: sql<number>`1 / (case when count(*) = ${expectedCount} then 1 else 0 end)`,
 		})
 		.from(tasks)
+		.innerJoin(
+			lists,
+			and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+		)
 		.where(
 			and(
 				eq(tasks.projectId, projectId),
 				inArray(tasks.id, taskIds),
 				isNull(tasks.archivedAt),
 				isNull(tasks.deletedAt),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
+			),
+		);
+}
+
+// Stops task creation if its column is no longer active in the project.
+function requireActiveList(projectId: string, listId: string) {
+	return db
+		.select({
+			guard: sql<number>`1 / (case when count(*) = 1 then 1 else 0 end)`,
+		})
+		.from(lists)
+		.where(
+			and(
+				eq(lists.id, listId),
+				eq(lists.projectId, projectId),
+				isNull(lists.archivedAt),
+				isNull(lists.deletedAt),
 			),
 		);
 }
@@ -378,7 +421,17 @@ export async function changeBoardListLifecycle(
 				eq(lists.projectId, projectId),
 				action === "restore"
 					? and(isNull(lists.deletedAt), eq(lists.status, "archived"))
-					: and(isNull(lists.deletedAt), isNull(lists.archivedAt)),
+					: and(
+							isNull(lists.deletedAt),
+							isNull(lists.archivedAt),
+							sql`not exists (
+								select 1 from ${tasks}
+								where ${tasks.projectId} = ${projectId}
+								and ${tasks.listId} = ${lists.id}
+								and ${tasks.archivedAt} is null
+								and ${tasks.deletedAt} is null
+							)`,
+						),
 			),
 		)
 		.returning({ id: lists.id });
@@ -390,7 +443,8 @@ export async function changeBoardListLifecycle(
 export async function insertBoardTask(input: InsertBoardTaskInput) {
 	const { assigneeIds, labelIds, ...taskInput } = input;
 	const taskId = randomUUID();
-	const [taskRows] = await db.batch([
+	const [, taskRows] = await db.batch([
+		requireActiveList(input.projectId, input.listId),
 		db
 			.insert(tasks)
 			.values({
@@ -403,25 +457,25 @@ export async function insertBoardTask(input: InsertBoardTaskInput) {
 			.returning({ id: tasks.id }),
 		...(assigneeIds.length > 0
 			? [
-				db.insert(taskAssignees).values(
-					assigneeIds.map((userId) => ({
-						taskId,
-						userId,
-						assignedById: input.createdById,
-					})),
-				),
-			]
+					db.insert(taskAssignees).values(
+						assigneeIds.map((userId) => ({
+							taskId,
+							userId,
+							assignedById: input.createdById,
+						})),
+					),
+				]
 			: []),
 		...(labelIds.length > 0
 			? [
-				db.insert(taskLabels).values(
-					labelIds.map((labelId) => ({
-						projectId: input.projectId,
-						taskId,
-						labelId,
-					})),
-				),
-			]
+					db.insert(taskLabels).values(
+						labelIds.map((labelId) => ({
+							projectId: input.projectId,
+							taskId,
+							labelId,
+						})),
+					),
+				]
 			: []),
 		db.insert(taskActivities).values({
 			taskId,
@@ -451,14 +505,14 @@ export async function updateBoardTask(
 
 	const previousBlockingRows = input.blockingTaskIds
 		? await db
-			.select({ taskId: taskDependencies.taskId })
-			.from(taskDependencies)
-			.where(
-				and(
-					eq(taskDependencies.projectId, projectId),
-					eq(taskDependencies.dependsOnTaskId, taskId),
-				),
-			)
+				.select({ taskId: taskDependencies.taskId })
+				.from(taskDependencies)
+				.where(
+					and(
+						eq(taskDependencies.projectId, projectId),
+						eq(taskDependencies.dependsOnTaskId, taskId),
+					),
+				)
 		: [];
 	const affectedBlockingTaskIds = [
 		...new Set([
@@ -533,81 +587,81 @@ export async function updateBoardTask(
 			.returning({ id: tasks.id }),
 		...(assigneeIds
 			? [
-				db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId)),
-				...(assigneeIds.length > 0
-					? [
-						db.insert(taskAssignees).values(
-							assigneeIds.map((userId) => ({
-								taskId,
-								userId,
-								assignedById: actorId,
-							})),
-						),
-					]
-					: []),
-			]
+					db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId)),
+					...(assigneeIds.length > 0
+						? [
+								db.insert(taskAssignees).values(
+									assigneeIds.map((userId) => ({
+										taskId,
+										userId,
+										assignedById: actorId,
+									})),
+								),
+							]
+						: []),
+				]
 			: []),
 		...(labelIds
 			? [
-				db.delete(taskLabels).where(eq(taskLabels.taskId, taskId)),
-				...(labelIds.length > 0
-					? [
-						db
-							.insert(taskLabels)
-							.values(
-								labelIds.map((labelId) => ({ projectId, taskId, labelId })),
-							),
-					]
-					: []),
-			]
+					db.delete(taskLabels).where(eq(taskLabels.taskId, taskId)),
+					...(labelIds.length > 0
+						? [
+								db
+									.insert(taskLabels)
+									.values(
+										labelIds.map((labelId) => ({ projectId, taskId, labelId })),
+									),
+							]
+						: []),
+				]
 			: []),
 		...(dependencyIds
 			? [
-				db
-					.delete(taskDependencies)
-					.where(
-						and(
-							eq(taskDependencies.projectId, projectId),
-							eq(taskDependencies.taskId, taskId),
+					db
+						.delete(taskDependencies)
+						.where(
+							and(
+								eq(taskDependencies.projectId, projectId),
+								eq(taskDependencies.taskId, taskId),
+							),
 						),
-					),
-				...(dependencyIds.length > 0
-					? [
-						db.insert(taskDependencies).values(
-							dependencyIds.map((dependsOnTaskId) => ({
-								projectId,
-								taskId,
-								dependsOnTaskId,
-								createdById: actorId,
-							})),
-						),
-					]
-					: []),
-			]
+					...(dependencyIds.length > 0
+						? [
+								db.insert(taskDependencies).values(
+									dependencyIds.map((dependsOnTaskId) => ({
+										projectId,
+										taskId,
+										dependsOnTaskId,
+										createdById: actorId,
+									})),
+								),
+							]
+						: []),
+				]
 			: []),
 		...(blockingTaskIds
 			? [
-				db
-					.delete(taskDependencies)
-					.where(
-						and(
-							eq(taskDependencies.projectId, projectId),
-							eq(taskDependencies.dependsOnTaskId, taskId),
+					db
+						.delete(taskDependencies)
+						.where(
+							and(
+								eq(taskDependencies.projectId, projectId),
+								eq(taskDependencies.dependsOnTaskId, taskId),
+							),
 						),
-					),
-				...(blockingTaskIds.length > 0
-					? [
-						db.insert(taskDependencies).values(
-							blockingTaskIds.map((blockingTaskId) => ({
-								projectId,
-								taskId: blockingTaskId,
-								dependsOnTaskId: taskId,
-								createdById: actorId,
-							})),
-						),
-					]
-					: []),
-			]
+					...(blockingTaskIds.length > 0
+						? [
+								db.insert(taskDependencies).values(
+									blockingTaskIds.map((blockingTaskId) => ({
+										projectId,
+										taskId: blockingTaskId,
+										dependsOnTaskId: taskId,
+										createdById: actorId,
+									})),
+								),
+							]
+						: []),
+				]
 			: []),
 		...(activityRows.length > 0
 			? [db.insert(taskActivities).values(activityRows)]
@@ -624,6 +678,31 @@ export async function changeBoardTaskLifecycle(
 	action: "archive" | "restore" | "delete",
 ) {
 	const now = new Date();
+	const dependentTask = alias(tasks, "dependent_task");
+	const dependentList = alias(lists, "dependent_list");
+	const hasNoActiveDependents = notExists(
+		db
+			.select({ id: taskDependencies.taskId })
+			.from(taskDependencies)
+			.innerJoin(dependentTask, eq(taskDependencies.taskId, dependentTask.id))
+			.innerJoin(
+				dependentList,
+				and(
+					eq(dependentTask.listId, dependentList.id),
+					eq(dependentTask.projectId, dependentList.projectId),
+				),
+			)
+			.where(
+				and(
+					eq(taskDependencies.projectId, projectId),
+					eq(taskDependencies.dependsOnTaskId, tasks.id),
+					isNull(dependentTask.archivedAt),
+					isNull(dependentTask.deletedAt),
+					isNull(dependentList.archivedAt),
+					isNull(dependentList.deletedAt),
+				),
+			),
+	);
 	const [task] = await db
 		.update(tasks)
 		.set({
@@ -636,9 +715,16 @@ export async function changeBoardTaskLifecycle(
 				eq(tasks.id, taskId),
 				eq(tasks.projectId, projectId),
 				isNull(tasks.deletedAt),
+				sql`exists (
+					select 1 from ${lists}
+					where ${lists.id} = ${tasks.listId}
+					and ${lists.projectId} = ${projectId}
+					and ${lists.archivedAt} is null
+					and ${lists.deletedAt} is null
+				)`,
 				action === "restore"
 					? sql`${tasks.archivedAt} is not null`
-					: isNull(tasks.archivedAt),
+					: and(isNull(tasks.archivedAt), hasNoActiveDependents),
 			),
 		)
 		.returning({ id: tasks.id });

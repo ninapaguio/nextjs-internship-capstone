@@ -11,7 +11,7 @@ import {
 	updateManagedProject,
 } from "@/lib/db/mutations/projects";
 import { getAccessibleProjectById } from "@/lib/db/queries/projects";
-import { tasks } from "@/lib/db/schema";
+import { lists, tasks } from "@/lib/db/schema";
 import {
 	createProjectSchema,
 	projectLifecycleSchema,
@@ -149,11 +149,17 @@ export async function updateProject(
 				totalCount: sql<number>`count(*)::int`,
 			})
 			.from(tasks)
+			.innerJoin(
+				lists,
+				and(eq(tasks.listId, lists.id), eq(tasks.projectId, lists.projectId)),
+			)
 			.where(
 				and(
 					eq(tasks.projectId, projectId),
 					isNull(tasks.archivedAt),
 					isNull(tasks.deletedAt),
+					isNull(lists.archivedAt),
+					isNull(lists.deletedAt),
 				),
 			);
 
