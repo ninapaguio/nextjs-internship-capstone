@@ -464,14 +464,16 @@ export async function hasActiveTasksInList(projectId: string, listId: string) {
 
 export type TaskDependencyValidationResult = "valid" | "invalid" | "circular";
 
-// Validates both dependency directions against active project tasks and cycles.
+// Checks the full dependency chain while keeping relationships not included in the update.
 export async function validateTaskDependencies(
 	projectId: string,
 	taskId: string,
-	dependencyIds: string[],
-	blockingTaskIds: string[],
+	dependencyIds: string[] | undefined,
+	blockingTaskIds: string[] | undefined,
 ): Promise<TaskDependencyValidationResult> {
-	const relatedTaskIds = [...new Set([...dependencyIds, ...blockingTaskIds])];
+	const relatedTaskIds = [
+		...new Set([...(dependencyIds ?? []), ...(blockingTaskIds ?? [])]),
+	];
 	if (relatedTaskIds.includes(taskId)) return "invalid";
 
 	const activeTasks = await db
@@ -505,20 +507,23 @@ export async function validateTaskDependencies(
 	for (const dependency of dependencyRows) {
 		if (!activeTaskIds.has(dependency.taskId)) continue;
 		if (!activeTaskIds.has(dependency.dependsOnTaskId)) continue;
-		if (dependency.taskId === taskId) continue;
-		if (dependency.dependsOnTaskId === taskId) continue;
+		if (dependencyIds !== undefined && dependency.taskId === taskId) continue;
+		if (blockingTaskIds !== undefined && dependency.dependsOnTaskId === taskId)
+			continue;
 		const current = dependencyGraph.get(dependency.taskId) ?? [];
 		current.push(dependency.dependsOnTaskId);
 		dependencyGraph.set(dependency.taskId, current);
 	}
-	dependencyGraph.set(taskId, dependencyIds);
-	for (const blockingTaskId of blockingTaskIds) {
-		const current = dependencyGraph.get(blockingTaskId) ?? [];
-		current.push(taskId);
-		dependencyGraph.set(blockingTaskId, current);
+	if (dependencyIds !== undefined) dependencyGraph.set(taskId, dependencyIds);
+	if (blockingTaskIds !== undefined) {
+		for (const blockingTaskId of blockingTaskIds) {
+			const current = dependencyGraph.get(blockingTaskId) ?? [];
+			current.push(taskId);
+			dependencyGraph.set(blockingTaskId, current);
+		}
 	}
 
-	// Detects cycles after applying both proposed relationship lists.
+	// Rejects the update if following dependencies eventually loops back to a task.
 	const visiting = new Set<string>();
 	const visited = new Set<string>();
 	function hasCycle(currentTaskId: string): boolean {

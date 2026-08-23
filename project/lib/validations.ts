@@ -75,8 +75,7 @@ function uniqueIds(
 	return z
 		.array(z.uuid("Each ID must be a valid UUID"))
 		.max(maxValues, maxMessage)
-		.refine((ids) => new Set(ids).size === ids.length, message)
-		.default([]);
+		.refine((ids) => new Set(ids).size === ids.length, message);
 }
 
 export const uuidSchema = z.uuid("Invalid ID");

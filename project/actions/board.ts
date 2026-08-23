@@ -468,7 +468,10 @@ export async function updateBoardTask(
 		) {
 			return { status: "error", message: "One or more labels are invalid." };
 		}
-		if (parsed.data.dependencyIds && parsed.data.blockingTaskIds) {
+		if (
+			parsed.data.dependencyIds !== undefined ||
+			parsed.data.blockingTaskIds !== undefined
+		) {
 			const dependencyValidation = await validateTaskDependencies(
 				parsed.data.projectId,
 				parsed.data.taskId,
