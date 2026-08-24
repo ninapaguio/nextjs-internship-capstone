@@ -269,6 +269,7 @@ export function CreateTaskModal({
 							</span>
 							<PopoverTrigger>
 								<Button
+									id="task-due-date"
 									variant="outline"
 									className="h-9 w-full justify-start rounded-md border-border bg-background font-normal"
 								>

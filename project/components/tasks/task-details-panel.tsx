@@ -1354,6 +1354,7 @@ export function TaskDetailsPanel({
 												className="w-[min(32rem,calc(100vw-2rem))] gap-2 p-2"
 											>
 												<Input
+													id="task-dependency-search"
 													aria-label="Find a task dependency"
 													placeholder="Find a task"
 													value={dependencyQuery}
