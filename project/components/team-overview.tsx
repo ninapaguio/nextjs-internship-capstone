@@ -72,7 +72,7 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 					<Tooltip placement="bottom start">Back to dashboard</Tooltip>
 				</TooltipTrigger>
 
-				<InputGroup className="h-8.5 w-48 bg-card border-border shadow-2xs sm:w-56">
+				<InputGroup className="h-8.5 w-full bg-card border-border shadow-2xs sm:w-56">
 					<InputGroupAddon>
 						<Search aria-hidden="true" className="text-muted-foreground" />
 					</InputGroupAddon>
@@ -93,28 +93,30 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 						containerClassName="rounded-2xl border border-border shadow-xs"
 					>
 						<TableHeader>
-							<TableHead isRowHeader className="px-5 py-3 text-xs">
+							<TableHead isRowHeader className="px-3 sm:px-5 py-3 text-xs">
 								Team
 							</TableHead>
-							<TableHead className="px-5 py-3 text-xs w-32">
+							<TableHead className="hidden sm:table-cell px-5 py-3 text-xs w-32">
 								Your Role
 							</TableHead>
-							<TableHead className="px-5 py-3 text-xs w-36">Members</TableHead>
-							<TableHead className="w-24 px-5 py-3 text-right text-xs">
+							<TableHead className="hidden sm:table-cell px-5 py-3 text-xs w-36">
+								Members
+							</TableHead>
+							<TableHead className="w-16 sm:w-24 px-3 sm:px-5 py-3 text-right text-xs">
 								Action
 							</TableHead>
 						</TableHeader>
 						<TableBody>
 							{visibleTeams.map((team) => (
 								<TableRow key={team.id} id={team.id}>
-									<TableCell className="px-5 py-3.5">
-										<div className="flex min-w-56 items-center gap-3">
-											<Avatar size="sm">
+									<TableCell className="px-3 sm:px-5 py-3 sm:py-3.5">
+										<div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+											<Avatar size="sm" className="shrink-0">
 												<AvatarFallback className="bg-brand_navy-500/10 text-brand_navy-700 dark:bg-brand_mint-500/15 dark:text-brand_mint-300 text-[10px] font-semibold">
 													{teamInitials(team.name)}
 												</AvatarFallback>
 											</Avatar>
-											<div className="min-w-0">
+											<div className="min-w-0 flex-1">
 												<Link
 													href={`/team/${team.id}`}
 													className="truncate font-semibold text-foreground text-sm hover:text-brand-primary transition-colors block"
@@ -126,11 +128,30 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 														{team.description}
 													</p>
 												) : null}
+												<div className="flex sm:hidden items-center gap-2 mt-1">
+													<Badge
+														variant="secondary"
+														className="h-4 px-1.5 text-[9px] font-medium border-border/50 capitalize"
+													>
+														{team.accessRole === "owner"
+															? "Owner"
+															: team.accessRole === "manager"
+																? "Manager"
+																: "Member"}
+													</Badge>
+													<span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
+														<UsersRound
+															className="size-3 text-brand_teal-600 dark:text-brand_mint-400"
+															aria-hidden="true"
+														/>
+														{team.memberCount}
+													</span>
+												</div>
 											</div>
 										</div>
 									</TableCell>
 
-									<TableCell className="px-5 py-3.5 align-middle">
+									<TableCell className="hidden sm:table-cell px-5 py-3.5 align-middle">
 										<Badge
 											variant="secondary"
 											className="h-5 px-2 text-[10px] font-medium border-border/50 capitalize"
@@ -143,7 +164,7 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 										</Badge>
 									</TableCell>
 
-									<TableCell className="px-5 py-3.5 align-middle">
+									<TableCell className="hidden sm:table-cell px-5 py-3.5 align-middle">
 										<span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
 											<UsersRound
 												className="size-3.5 text-brand_teal-600 dark:text-brand_mint-400"
@@ -154,15 +175,17 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 										</span>
 									</TableCell>
 
-									<TableCell className="px-5 py-3.5 text-right align-middle">
+									<TableCell className="px-3 sm:px-5 py-3 sm:py-3.5 text-right align-middle">
 										<Link
 											href={`/team/${team.id}`}
+											aria-label={`Open ${team.name}`}
 											className={cn(
 												buttonVariants({ variant: "ghost", size: "sm" }),
-												"h-7 text-xs px-2.5 font-medium inline-flex items-center gap-1",
+												"h-7 text-xs px-2 sm:px-2.5 font-medium inline-flex items-center gap-1",
 											)}
 										>
-											Open <ChevronRight className="size-3.5" />
+											<span className="hidden sm:inline">Open</span>{" "}
+											<ChevronRight className="size-3.5" />
 										</Link>
 									</TableCell>
 								</TableRow>

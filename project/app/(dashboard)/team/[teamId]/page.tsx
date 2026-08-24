@@ -43,7 +43,7 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
 
 	return (
 		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
-			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
+			<header className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b py-3">
 				<div className="flex min-w-0 items-center gap-3">
 					<TooltipTrigger delay={400}>
 						<Link
@@ -57,9 +57,15 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
 						<Tooltip placement="bottom start">Back to teams</Tooltip>
 					</TooltipTrigger>
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<LinkButton href="/projects" size="sm">
-						<FolderKanban data-icon="inline-start" /> Projects
+				<div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 ml-auto sm:ml-0">
+					<LinkButton
+						href="/projects"
+						size="sm"
+						aria-label="Projects"
+						className="px-2.5 sm:px-3"
+					>
+						<FolderKanban data-icon="inline-start" />
+						<span className="hidden sm:inline">Projects</span>
 					</LinkButton>
 					{team.canManage ? (
 						<>

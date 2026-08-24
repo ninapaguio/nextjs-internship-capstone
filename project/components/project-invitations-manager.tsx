@@ -134,8 +134,9 @@ export function ProjectInvitationsManager({
 
 	return (
 		<DialogTrigger>
-			<Button size="sm">
-				<Mail data-icon="inline-start" /> Invitations
+			<Button size="sm" aria-label="Invitations" className="px-2.5 sm:px-3">
+				<Mail data-icon="inline-start" />
+				<span className="hidden sm:inline">Invitations</span>
 				{pendingCount > 0 ? (
 					<Badge className="ml-1 h-4 min-w-4 px-1 text-[10px] bg-brand_mint-500 text-brand_navy-950 font-bold dark:bg-brand_navy-900 dark:text-brand_mint-300">
 						{pendingCount}

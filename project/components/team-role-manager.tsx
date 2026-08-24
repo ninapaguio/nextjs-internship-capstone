@@ -320,8 +320,13 @@ export function TeamRoleManager({
 }: TeamRoleManagerProps) {
 	return (
 		<DialogTrigger>
-			<Button size="sm">
-				<ShieldCheck data-icon="inline-start" /> Roles & permissions
+			<Button
+				size="sm"
+				aria-label="Roles & permissions"
+				className="px-2.5 sm:px-3"
+			>
+				<ShieldCheck data-icon="inline-start" />
+				<span className="hidden sm:inline">Roles & permissions</span>
 			</Button>
 			<Dialog className="max-h-[90dvh] overflow-hidden sm:max-w-3xl">
 				<DialogHeader className="pr-10">

@@ -88,14 +88,19 @@ export default async function ProjectsPage({
 	return (
 		<section className="flex min-h-[calc(100dvh-5rem)] flex-col px-1 sm:px-0">
 			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
-				<TooltipTrigger delay={400}>
-					<h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
-						Projects
-					</h1>
-					<Tooltip placement="bottom start">Back to dashboard</Tooltip>
-				</TooltipTrigger>
+				<div className="flex items-center justify-between gap-3">
+					<TooltipTrigger delay={400}>
+						<h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
+							Projects
+						</h1>
+						<Tooltip placement="bottom start">Back to dashboard</Tooltip>
+					</TooltipTrigger>
+					<div className="sm:hidden">
+						<CreateProjectModal />
+					</div>
+				</div>
 
-				<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+				<div className="flex items-center gap-2.5">
 					<form action="/projects" className="w-full sm:w-auto">
 						<InputGroup className="h-9 w-full sm:w-56 bg-card border-border shadow-2xs">
 							<InputGroupAddon>
@@ -112,7 +117,7 @@ export default async function ProjectsPage({
 							/>
 						</InputGroup>
 					</form>
-					<div className="w-full sm:w-auto">
+					<div className="hidden sm:block">
 						<CreateProjectModal />
 					</div>
 				</div>

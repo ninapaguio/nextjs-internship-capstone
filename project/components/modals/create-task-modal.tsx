@@ -50,41 +50,6 @@ interface CreateTaskModalProps {
 	) => Promise<BoardLabelOption>;
 }
 
-// TODO: Task 4.4 - Build task creation and editing functionality
-// TODO: Task 5.6 - Create task detail modals and editing interfaces
-
-/*
-TODO: Implementation Notes for Interns:
-
-Modal for creating and editing tasks.
-
-Features to implement:
-- Task title and description
-- Priority selection
-- Assignee selection
-- Due date picker
-- Labels/tags
-- Attachments
-- Comments section (for edit mode)
-- Activity history (for edit mode)
-
-Form fields:
-- Title (required)
-- Description (rich text editor)
-- Priority (low/medium/high)
-- Assignee (team member selector)
-- Due date (date picker)
-- Labels (tag input)
-- Attachments (file upload)
-
-Integration:
-- Use task validation schema
-- Call task creation/update API
-- Update board state optimistically
-- Handle file uploads
-- Real-time updates for comments
-*/
-
 const initialState: BoardActionState = { status: "idle", message: "" };
 
 // Shows pending feedback while the create-task Server Action runs.
