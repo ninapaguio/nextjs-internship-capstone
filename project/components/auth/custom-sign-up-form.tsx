@@ -18,9 +18,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { getClerkErrorMessage } from "@/components/auth/clerk-error-message";
+import { buildAuthRoute, getSafeAuthRedirect } from "@/lib/auth/auth-redirect";
 
-// Compact, minimalist, borderless Sign-Up Form component matching EverFlow design.
-export function CustomSignUpForm() {
+interface CustomSignUpFormProps {
+	redirectUrl?: string;
+}
+
+export function CustomSignUpForm({ redirectUrl }: CustomSignUpFormProps) {
 	const { signUp, fetchStatus } = useSignUp();
 	const router = useRouter();
 
@@ -43,8 +47,15 @@ export function CustomSignUpForm() {
 		if (!signUp) return false;
 
 		const { error } = await signUp.finalize({
-			navigate: ({ decorateUrl }) => {
-				const destination = decorateUrl("/dashboard");
+			navigate: ({ session, decorateUrl }) => {
+				// ClerkProvider redirects pending sessions to the configured task URL.
+				if (session?.currentTask) return;
+
+				const safeRedirect = getSafeAuthRedirect(
+					redirectUrl,
+					window.location.origin,
+				);
+				const destination = decorateUrl(safeRedirect);
 				if (destination.startsWith("http")) {
 					window.location.href = destination;
 					return;
@@ -179,10 +190,17 @@ export function CustomSignUpForm() {
 		setErrorMessage(null);
 
 		try {
+			const safeRedirect = getSafeAuthRedirect(
+				redirectUrl,
+				window.location.origin,
+			);
 			const { error } = await signUp.sso({
 				strategy: "oauth_google",
-				redirectCallbackUrl: "/sign-up/sso-callback",
-				redirectUrl: "/dashboard",
+				redirectCallbackUrl: buildAuthRoute(
+					"/sign-up/sso-callback",
+					redirectUrl,
+				),
+				redirectUrl: safeRedirect,
 			});
 			if (error) {
 				setErrorMessage(
@@ -228,7 +246,10 @@ export function CustomSignUpForm() {
 
 			{/* Error Banner */}
 			{errorMessage && (
-				<div className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in-0 duration-200">
+				<div
+					role="alert"
+					className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in-0 duration-200"
+				>
 					<AlertCircle className="size-3.5 shrink-0 mt-0.5" />
 					<div className="flex-1 font-medium">{errorMessage}</div>
 				</div>
@@ -250,13 +271,15 @@ export function CustomSignUpForm() {
 						type="button"
 						onClick={handleGoogleSignUp}
 						disabled={isOAuthLoading || !signUp}
-						className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-background/80 py-2.5 px-3 text-xs sm:text-sm font-semibold text-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:border-brand-violet/40 hover:shadow-xs focus:outline-none focus:ring-2 focus:ring-brand-violet/30 disabled:opacity-50"
+						className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs sm:text-sm font-semibold text-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted/40 hover:border-brand-violet/40 hover:shadow-xs focus:outline-none focus:ring-2 focus:ring-brand-violet/30 disabled:opacity-50 cursor-pointer"
 					>
 						{isOAuthLoading && (
 							<Loader2 className="size-4 animate-spin text-brand-primary" />
 						)}
 						<span>
-							{isOAuthLoading ? "Connecting..." : "Continue with Google"}
+							{isOAuthLoading
+								? "Connecting to Google..."
+								: "Continue with Google"}
 						</span>
 					</button>
 
@@ -290,8 +313,8 @@ export function CustomSignUpForm() {
 										required
 										value={firstName}
 										onChange={(e) => setFirstName(e.target.value)}
-										placeholder="Jane"
-										className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+										placeholder="Juan"
+										className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
 									/>
 								</div>
 							</div>
@@ -310,8 +333,8 @@ export function CustomSignUpForm() {
 									required
 									value={lastName}
 									onChange={(e) => setLastName(e.target.value)}
-									placeholder="Doe"
-									className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+									placeholder="Cruz"
+									className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
 								/>
 							</div>
 						</div>
@@ -334,8 +357,8 @@ export function CustomSignUpForm() {
 									required
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
-									placeholder="jane.doe@company.com"
-									className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+									placeholder="example@gmail.com"
+									className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
 								/>
 							</div>
 						</div>
@@ -360,12 +383,12 @@ export function CustomSignUpForm() {
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
 									placeholder="At least 8 characters"
-									className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+									className="w-full rounded-xl border border-border bg-card pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+									className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors cursor-pointer"
 									aria-label={showPassword ? "Hide password" : "Show password"}
 								>
 									{showPassword ? (
@@ -390,7 +413,7 @@ export function CustomSignUpForm() {
 						<button
 							type="submit"
 							disabled={isLoading || !signUp}
-							className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-violet py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand_violet-600 hover:shadow-md hover:shadow-brand-violet/25 focus:outline-none focus:ring-2 focus:ring-brand-violet focus:ring-offset-2 active:scale-[0.99] disabled:opacity-50"
+							className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-violet py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand_violet-600 hover:shadow-md hover:shadow-brand-violet/25 focus:outline-none focus:ring-2 focus:ring-brand-violet focus:ring-offset-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
 						>
 							{isLoading ? (
 								<Loader2 className="size-3.5 animate-spin" />
@@ -431,7 +454,7 @@ export function CustomSignUpForm() {
 								value={verificationCode}
 								onChange={(e) => setVerificationCode(e.target.value)}
 								placeholder="123456"
-								className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-center text-base sm:text-lg font-bold tracking-widest text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+								className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-center text-base sm:text-lg font-bold tracking-widest text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
 							/>
 						</div>
 					</div>
@@ -439,7 +462,7 @@ export function CustomSignUpForm() {
 					<button
 						type="submit"
 						disabled={isLoading || !signUp || verificationCode.length < 6}
-						className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-violet py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-violet-hover focus:outline-none focus:ring-2 focus:ring-brand-violet disabled:opacity-50"
+						className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-violet py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand_violet-600 focus:outline-none focus:ring-2 focus:ring-brand-violet disabled:opacity-50 cursor-pointer"
 					>
 						{isLoading ? (
 							<Loader2 className="size-3.5 animate-spin" />
@@ -453,7 +476,7 @@ export function CustomSignUpForm() {
 							type="button"
 							onClick={handleResendCode}
 							disabled={isResending}
-							className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-violet dark:text-brand_violet-400 hover:underline disabled:opacity-50"
+							className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-violet dark:text-brand_violet-400 hover:underline disabled:opacity-50 cursor-pointer"
 						>
 							<RotateCw
 								className={`size-3 ${isResending ? "animate-spin" : ""}`}
@@ -464,7 +487,7 @@ export function CustomSignUpForm() {
 						<button
 							type="button"
 							onClick={handleChangeEmail}
-							className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+							className="text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer"
 						>
 							Change email
 						</button>
@@ -476,7 +499,7 @@ export function CustomSignUpForm() {
 			<div className="mt-5 border-t border-border pt-3.5 text-center text-xs text-muted-foreground">
 				<span>Already have an account?</span>
 				<Link
-					href="/sign-in"
+					href={buildAuthRoute("/sign-in", redirectUrl)}
 					className="ml-1.5 font-semibold text-brand-violet dark:text-brand_violet-400 hover:underline transition-colors"
 				>
 					Sign in

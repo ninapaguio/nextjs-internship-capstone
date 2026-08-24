@@ -1,21 +1,22 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { buildAuthRoute } from "@/lib/auth/auth-redirect";
 import { cn } from "@/lib/utils";
 
 interface AuthHeroProps {
 	mode: "sign-in" | "sign-up";
+	redirectUrl?: string;
 }
 
-// Hero panel with giant EverFlow app name, logo, signature tagline, and directly integrated action switch button.
-export function AuthHero({ mode }: AuthHeroProps) {
+// Auth Hero panel
+export function AuthHero({ mode, redirectUrl }: AuthHeroProps) {
 	const isSignIn = mode === "sign-in";
 
 	return (
-		<div className="relative flex h-full min-h-137.5 w-full flex-col justify-center overflow-hidden bg-brand-dark-surface p-8 text-white sm:p-12 lg:min-h-screen lg:p-16">
-			{/* Ambient Minimalist Radial Glow using centralized brand palette */}
+		<div className="relative flex h-full min-h-137.5 w-full flex-col items-center justify-center overflow-hidden bg-brand-dark-surface p-6 sm:p-10 lg:min-h-screen lg:p-12 select-none">
 			<div
 				className="pointer-events-none absolute -top-32 -left-32 h-137.5 w-137.5 rounded-full opacity-35 blur-[130px] transition-all duration-1000"
 				style={{
@@ -33,7 +34,6 @@ export function AuthHero({ mode }: AuthHeroProps) {
 				}}
 			/>
 
-			{/* Subtle Geometric Dot Texture */}
 			<div
 				className="pointer-events-none absolute inset-0 opacity-[0.03]"
 				style={{
@@ -43,67 +43,70 @@ export function AuthHero({ mode }: AuthHeroProps) {
 				}}
 			/>
 
-			{/* Centerpiece: Logo + Giant App Name + Tagline + Action Button */}
-			<div className="relative z-10 max-w-2xl space-y-8 my-auto">
-				{/* Logo & Giant App Name */}
-				<div className="flex items-center gap-4 sm:gap-6">
+			<div className="relative z-10 w-full max-w-md mx-auto flex flex-col items-center text-center space-y-6 px-4">
+				<div className="relative group">
+					<div
+						className={cn(
+							"absolute -inset-3 rounded-full opacity-40 blur-xl transition duration-500 group-hover:opacity-70",
+							isSignIn
+								? "bg-linear-to-r from-blue-600 to-cyan-500"
+								: "bg-linear-to-r from-violet-600 to-blue-500",
+						)}
+					/>
 					<Image
 						src="/ef-logo.png"
 						alt="EverFlow Logo"
-						width={96}
-						height={96}
-						className="size-16 sm:size-20 lg:size-24 object-contain drop-shadow-2xl transition-transform duration-300 hover:scale-105"
+						width={88}
+						height={88}
+						className="relative size-18 sm:size-20 lg:size-22 object-contain drop-shadow-2xl transition-transform duration-300 hover:scale-105"
 						priority
 					/>
-					<div className="flex flex-col">
-						<span className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight text-white drop-shadow-md">
-							EverFlow
-						</span>
-						<span
-							className={cn(
-								"text-xs sm:text-sm font-bold tracking-[0.25em] uppercase mt-0.5",
-								isSignIn ? "text-brand-cyan" : "text-brand_violet-300",
-							)}
-						>
-							Project Management Tool
-						</span>
-					</div>
 				</div>
 
-				{/* Signature Tagline */}
-				<div>
-					<h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.1]">
-						<span className="block text-slate-200 drop-shadow-sm">
-							Every project,
-						</span>
+				<div className="space-y-1.5 flex flex-col items-center">
+					<h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-md leading-none">
+						EverFlow
+					</h1>
+					<p
+						className={cn(
+							"text-[10px] sm:text-xs font-bold tracking-[0.28em] uppercase pt-0.5",
+							isSignIn ? "text-brand-cyan" : "text-brand_violet-300",
+						)}
+					>
+						Project Management Tool
+					</p>
+				</div>
+
+				<div className="pt-1">
+					<h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-200">
+						<span>Every project, </span>
 						<span
 							className={cn(
-								"mt-1 block font-black",
+								"font-black",
 								isSignIn ? "text-brand-gradient" : "text-brand-gradient-violet",
 							)}
 						>
 							Work in Flow.
 						</span>
-					</h1>
+					</h2>
 				</div>
 
-				{/* Action Switch Button directly below the Tagline */}
-				<div className="pt-2">
+				<div className="pt-2 flex flex-col items-center">
 					{isSignIn ? (
 						<Link
-							href="/sign-up"
-							className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md shadow-lg transition-all duration-300 hover:bg-white/20 hover:border-brand-cyan/50 hover:scale-105 hover:shadow-brand-cyan/20"
+							href={buildAuthRoute("/sign-up", redirectUrl)}
+							className="group inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/10 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md shadow-md transition-all duration-300 hover:bg-white/20 hover:border-brand-cyan/60 hover:scale-105 hover:shadow-brand-cyan/25 cursor-pointer"
 						>
-							<span>Sign Up</span>
-							<ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+							<span>Create an Account</span>
+							<ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
 						</Link>
 					) : (
 						<Link
-							href="/sign-in"
-							className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md shadow-lg transition-all duration-300 hover:bg-white/20 hover:border-brand-violet/50 hover:scale-105 hover:shadow-brand-violet/20"
+							href={buildAuthRoute("/sign-in", redirectUrl)}
+							className="group inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/10 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md shadow-md transition-all duration-300 hover:bg-white/20 hover:border-brand-violet/60 hover:scale-105 hover:shadow-brand-violet/25 cursor-pointer"
 						>
-							<span>Sign In</span>
-							<ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+							<ArrowLeft className="size-3.5 transition-transform group-hover:-translate-x-1" />
+							<span>Sign In to Account</span>
 						</Link>
 					)}
 				</div>
