@@ -15,10 +15,10 @@ name: Deploy to Vercel
 on:
   # ── Uncomment ONE of the blocks below to enable automatic deployments ──
 
-  # Option A: Deploy on every push to main
-  # push:
-  #   branches:
-  #     - main
+  Option A: Deploy on every push to main
+  push:
+     branches:
+       - main
 
   # Option B: Deploy on pull request (preview deployments)
   # pull_request:
