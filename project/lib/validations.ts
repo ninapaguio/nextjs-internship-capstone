@@ -542,3 +542,10 @@ export const taskFilterSchema = z
 		pageSize: z.coerce.number().int().min(1).max(100).default(50),
 	})
 	.strict();
+
+export const analyticsDateRangeSchema = z.enum(["today", "7d", "15d", "30d"]);
+
+export const analyticsFilterSchema = z.object({
+	project: z.union([z.literal("all"), uuidSchema]).catch("all"),
+	range: analyticsDateRangeSchema.catch("30d"),
+});

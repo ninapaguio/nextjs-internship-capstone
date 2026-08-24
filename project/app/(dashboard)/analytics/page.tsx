@@ -1,114 +1,120 @@
-import { BarChart3, Clock, TrendingUp, Users } from "lucide-react";
+import { auth } from "@clerk/nextjs/server";
+import type { Metadata } from "next";
+import { AnalyticsEmptyState } from "@/components/analytics/analytics-empty-state";
+import { AnalyticsFilters } from "@/components/analytics/analytics-filters";
+import { AnalyticsSummary } from "@/components/analytics/analytics-summary";
+import { AttentionNeeded } from "@/components/analytics/attention-needed";
+import { CompletionTrendChart } from "@/components/analytics/completion-trend-chart";
+import { ProjectProgressChart } from "@/components/analytics/project-progress-chart";
+import { WorkloadChart } from "@/components/analytics/workload-chart";
+import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
+import { getAnalyticsDataForUser } from "@/lib/db/queries/analytics";
+import { analyticsFilterSchema } from "@/lib/validations";
 
-export default function AnalyticsPage() {
+export const metadata: Metadata = {
+	title: "Analytics",
+	description:
+		"Track project performance, completion trends, and team workload.",
+	openGraph: {
+		title: "Analytics | EverFlow",
+		description:
+			"Track project performance, completion trends, and team workload.",
+	},
+};
+
+interface AnalyticsPageProps {
+	searchParams: Promise<{
+		project?: string;
+		range?: string;
+	}>;
+}
+
+// Loads analytics data for the current user
+export default async function AnalyticsPage({
+	searchParams,
+}: AnalyticsPageProps) {
+	const { userId: clerkId } = await auth();
+	const applicationUser = clerkId ? await ensureApplicationUser(clerkId) : null;
+
+	if (!applicationUser) {
+		return (
+			<section className="mx-auto max-w-7xl py-8">
+				<div className="rounded-3xl border border-border bg-card p-8 text-center">
+					<h1 className="text-xl font-semibold text-foreground">
+						We couldn't load your workspace
+					</h1>
+					<p className="mt-2 text-sm text-muted-foreground">
+						Refresh the page to try again. If the problem continues, sign out
+						and sign back in.
+					</p>
+				</div>
+			</section>
+		);
+	}
+
+	const rawParams = await searchParams;
+	const filter = analyticsFilterSchema.parse(rawParams);
+
+	const analytics = await getAnalyticsDataForUser(applicationUser.id, {
+		project: filter.project,
+		range: filter.range,
+	});
+
+	if (!analytics.hasAccessibleProjects) {
+		return (
+			<div className="space-y-4 sm:space-y-6">
+				<div>
+					<h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+						Analytics
+					</h1>
+				</div>
+				<AnalyticsEmptyState />
+			</div>
+		);
+	}
+
+	// Render the analytics page
 	return (
-		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold text-outer_space-500 dark:text-platinum-500">
-					Analytics
-				</h1>
-				<p className="text-paynes_gray-500 dark:text-french_gray-500 mt-2">
-					Track project performance and team productivity
-				</p>
-			</div>
-
-			{/* Implementation Tasks Banner */}
-			<div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-				<h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-					📊 Analytics Implementation Tasks
-				</h3>
-				<ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
-					<li>• Task 6.6: Optimize performance and implement loading states</li>
-					<li>• Task 8.5: Set up performance monitoring and analytics</li>
-				</ul>
-			</div>
-
-			{/* Analytics Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-				{[
-					{
-						title: "Project Velocity",
-						value: "8.5",
-						unit: "tasks/week",
-						icon: TrendingUp,
-						color: "blue",
-					},
-					{
-						title: "Team Efficiency",
-						value: "92%",
-						unit: "completion rate",
-						icon: BarChart3,
-						color: "green",
-					},
-					{
-						title: "Active Users",
-						value: "24",
-						unit: "this week",
-						icon: Users,
-						color: "purple",
-					},
-					{
-						title: "Avg. Task Time",
-						value: "2.3",
-						unit: "days",
-						icon: Clock,
-						color: "orange",
-					},
-				].map((metric, index) => (
-					<div
-						key={index}
-						className="bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 p-6"
-					>
-						<div className="flex items-center justify-between mb-4">
-							<div
-								className={`w-10 h-10 bg-${metric.color}-100 dark:bg-${metric.color}-900 rounded-lg flex items-center justify-center`}
-							>
-								<metric.icon className={`text-${metric.color}-500`} size={20} />
-							</div>
-						</div>
-						<div className="text-2xl font-bold text-outer_space-500 dark:text-platinum-500 mb-1">
-							{metric.value}
-						</div>
-						<div className="text-sm text-paynes_gray-500 dark:text-french_gray-400 mb-2">
-							{metric.unit}
-						</div>
-						<div className="text-xs font-medium text-outer_space-500 dark:text-platinum-500">
-							{metric.title}
-						</div>
-					</div>
-				))}
-			</div>
-
-			{/* Charts Placeholder */}
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<div className="bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 p-6">
-					<h3 className="text-lg font-semibold text-outer_space-500 dark:text-platinum-500 mb-4">
-						Project Progress
-					</h3>
-					<div className="h-64 bg-platinum-800 dark:bg-outer_space-400 rounded-lg flex items-center justify-center">
-						<div className="text-center text-paynes_gray-500 dark:text-french_gray-400">
-							<BarChart3 size={48} className="mx-auto mb-2" />
-							<p>Chart Component Placeholder</p>
-							<p className="text-sm">
-								TODO: Implement with Chart.js or Recharts
-							</p>
-						</div>
-					</div>
+		<div className="space-y-4 sm:space-y-6">
+			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 border-b border-border pb-3 sm:pb-4">
+				<div>
+					<h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+						Analytics
+					</h1>
 				</div>
 
-				<div className="bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 p-6">
-					<h3 className="text-lg font-semibold text-outer_space-500 dark:text-platinum-500 mb-4">
-						Team Activity
-					</h3>
-					<div className="h-64 bg-platinum-800 dark:bg-outer_space-400 rounded-lg flex items-center justify-center">
-						<div className="text-center text-paynes_gray-500 dark:text-french_gray-400">
-							<TrendingUp size={48} className="mx-auto mb-2" />
-							<p>Activity Chart Placeholder</p>
-							<p className="text-sm">TODO: Implement activity timeline</p>
-						</div>
-					</div>
-				</div>
+				<AnalyticsFilters
+					accessibleProjects={analytics.accessibleProjects}
+					currentFilter={analytics.normalizedFilter}
+				/>
 			</div>
+
+			{/* Summary Metric Cards */}
+			<AnalyticsSummary
+				summary={analytics.summary}
+				range={analytics.normalizedFilter.range}
+			/>
+
+			{/* Actionable Attention Items */}
+			<AttentionNeeded items={analytics.attentionItems} />
+
+			{/* Primary Visualizations */}
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+				<CompletionTrendChart
+					data={analytics.completionTrend}
+					range={analytics.normalizedFilter.range}
+				/>
+				<WorkloadChart
+					data={analytics.workload}
+					totalIncompleteTasks={Math.max(
+						0,
+						analytics.summary.totalTasks - analytics.summary.completedTasks,
+					)}
+				/>
+			</div>
+
+			{/* Project Progress Priority List */}
+			<ProjectProgressChart projects={analytics.projectProgress} />
 		</div>
 	);
 }
