@@ -20,11 +20,22 @@ import {
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: TableProps) {
+interface TableComponentProps extends TableProps {
+	containerClassName?: string;
+}
+
+function Table({
+	className,
+	containerClassName,
+	...props
+}: TableComponentProps) {
 	return (
 		<div
 			data-slot="table-container"
-			className="relative w-full overflow-x-auto"
+			className={cn(
+				"relative w-full overflow-auto bg-muted/20 dark:bg-[#141417]",
+				containerClassName,
+			)}
 		>
 			<TablePrimitive
 				data-slot="table"
@@ -39,7 +50,10 @@ function TableHeader<T>({ className, ...props }: TableHeaderProps<T>) {
 	return (
 		<TableHeaderPrimitive
 			data-slot="table-header"
-			className={cn("[&_tr]:border-b", className)}
+			className={cn(
+				"sticky top-0 z-10 bg-muted/90 dark:bg-[#222228] backdrop-blur-xs [&_tr]:border-b border-border",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -50,7 +64,7 @@ function TableBody<T>({ className, ...props }: TableBodyProps<T>) {
 		<TableBodyPrimitive
 			data-slot="table-body"
 			className={cn(
-				"data-empty:h-24 data-empty:text-center [&_tr:last-child]:border-0",
+				"bg-muted/15 dark:bg-[#141417] data-empty:h-24 data-empty:text-center [&_tr:last-child]:border-0",
 				className,
 			)}
 			{...props}
@@ -63,7 +77,7 @@ function TableFooter<T>({ className, ...props }: TableFooterProps<T>) {
 		<TableFooterPrimitive
 			data-slot="table-footer"
 			className={cn(
-				"border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
+				"border-t bg-muted/60 dark:bg-[#222228] font-medium [&>tr]:last:border-b-0",
 				className,
 			)}
 			{...props}
@@ -76,7 +90,7 @@ function TableRow<T>({ className, ...props }: RowProps<T>) {
 		<RowPrimitive
 			data-slot="table-row"
 			className={cn(
-				"border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted data-selected:bg-muted",
+				"border-b border-border/50 transition-colors hover:bg-muted/50 dark:hover:bg-[#1E1E24] has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted data-selected:bg-muted",
 				className,
 			)}
 			{...props}
@@ -89,7 +103,7 @@ function TableHead({ className, ...props }: ColumnProps) {
 		<ColumnPrimitive
 			data-slot="table-head"
 			className={cn(
-				"h-12 px-3 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([data-slot=checkbox])]:pr-0 [&:has([role=checkbox])]:pr-0",
+				"sticky top-0 z-10 bg-muted/90 dark:bg-[#222228] backdrop-blur-xs h-10 px-3 text-left align-middle font-semibold whitespace-nowrap text-foreground/90 dark:text-gray-300 border-b border-border [&:has([data-slot=checkbox])]:pr-0 [&:has([role=checkbox])]:pr-0",
 				className,
 			)}
 			{...props}

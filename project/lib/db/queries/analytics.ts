@@ -31,6 +31,7 @@ import {
 	tasks,
 	users,
 } from "@/lib/db/schema";
+import { createProjectHref } from "@/lib/project-slug";
 import type {
 	AccessibleProjectOption,
 	AnalyticsData,
@@ -503,6 +504,7 @@ export async function getAnalyticsDataForUser(
 			return {
 				projectId: row.projectId,
 				projectName: row.projectName,
+				href: createProjectHref(row.projectId, row.projectName),
 				totalTasks: rowTotal,
 				completedTasks: rowCompleted,
 				progressPercentage: calculateCompletionRate(rowCompleted, rowTotal),

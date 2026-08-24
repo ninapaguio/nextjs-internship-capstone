@@ -150,82 +150,81 @@ export function CalendarViewComponent({
 					</Badge>
 				</div>
 
-				<div
-					className={cn(
-						"rounded-xl border border-border overflow-hidden",
+				<Table
+					aria-label="Upcoming deadlines"
+					containerClassName={cn(
+						"rounded-xl border border-border",
 						calendarData.upcomingDeadlines.length > 10 &&
-							"max-h-130 overflow-y-auto scrollbar-thin",
+							"max-h-130 scrollbar-thin",
 					)}
 				>
-					<Table aria-label="Upcoming deadlines">
-						<TableHeader className="bg-muted/80 sticky top-0 z-10 backdrop-blur-xs">
-							<TableHead isRowHeader>Task / Milestone</TableHead>
-							<TableHead>Project</TableHead>
-							<TableHead>Type</TableHead>
-							<TableHead>Due Date</TableHead>
-							<TableHead>Assignee</TableHead>
-						</TableHeader>
-						<TableBody>
-							{calendarData.upcomingDeadlines.length === 0 ? (
-								<TableRow>
-									<TableCell
-										className="text-center text-muted-foreground py-8"
-										colSpan={5}
-									>
-										No upcoming deadlines found for your projects.
+					<TableHeader>
+						<TableHead isRowHeader>Task / Milestone</TableHead>
+						<TableHead>Project</TableHead>
+						<TableHead>Type</TableHead>
+						<TableHead>Due Date</TableHead>
+						<TableHead>Assignee</TableHead>
+					</TableHeader>
+					<TableBody>
+						{calendarData.upcomingDeadlines.length === 0 ? (
+							<TableRow>
+								<TableCell
+									className="text-center text-muted-foreground py-8"
+									colSpan={5}
+								>
+									No upcoming deadlines found for your projects.
+								</TableCell>
+							</TableRow>
+						) : (
+							calendarData.upcomingDeadlines.map((deadline) => (
+								<TableRow key={deadline.id}>
+									<TableCell className="font-medium text-foreground">
+										{deadline.href ? (
+											<Link
+												href={deadline.href}
+												className="hover:underline hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
+											>
+												{deadline.title}
+											</Link>
+										) : (
+											deadline.title
+										)}
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{deadline.projectHref ? (
+											<Link
+												href={deadline.projectHref}
+												className="hover:underline hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
+											>
+												{deadline.project}
+											</Link>
+										) : (
+											deadline.project
+										)}
+									</TableCell>
+									<TableCell>
+										<span
+											className={cn(
+												"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold tracking-wide capitalize shrink-0",
+												DEADLINE_TYPE_CONFIG[deadline.type]?.className ??
+													"bg-muted text-muted-foreground",
+											)}
+										>
+											{DEADLINE_TYPE_CONFIG[deadline.type]?.label ??
+												deadline.type}
+										</span>
+									</TableCell>
+									<TableCell className="text-muted-foreground text-xs sm:text-sm">
+										{deadline.date}
+									</TableCell>
+									<TableCell className="text-muted-foreground text-xs sm:text-sm">
+										{deadline.assignee}
 									</TableCell>
 								</TableRow>
-							) : (
-								calendarData.upcomingDeadlines.map((deadline) => (
-									<TableRow key={deadline.id}>
-										<TableCell className="font-medium text-foreground">
-											{deadline.href ? (
-												<Link
-													href={deadline.href}
-													className="hover:underline hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
-												>
-													{deadline.title}
-												</Link>
-											) : (
-												deadline.title
-											)}
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{deadline.projectHref ? (
-												<Link
-													href={deadline.projectHref}
-													className="hover:underline hover:text-brand_teal-600 dark:hover:text-brand_mint-400 transition-colors"
-												>
-													{deadline.project}
-												</Link>
-											) : (
-												deadline.project
-											)}
-										</TableCell>
-										<TableCell>
-											<span
-												className={cn(
-													"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold tracking-wide capitalize shrink-0",
-													DEADLINE_TYPE_CONFIG[deadline.type]?.className ??
-														"bg-muted text-muted-foreground",
-												)}
-											>
-												{DEADLINE_TYPE_CONFIG[deadline.type]?.label ??
-													deadline.type}
-											</span>
-										</TableCell>
-										<TableCell className="text-muted-foreground text-xs sm:text-sm">
-											{deadline.date}
-										</TableCell>
-										<TableCell className="text-muted-foreground text-xs sm:text-sm">
-											{deadline.assignee}
-										</TableCell>
-									</TableRow>
-								))
-							)}
-						</TableBody>
-					</Table>
-				</div>
+							))
+						)}
+					</TableBody>
+				</Table>
 			</div>
 		</div>
 	);

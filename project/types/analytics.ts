@@ -30,6 +30,7 @@ export interface CompletionTrendPoint {
 export interface ProjectProgressItem {
 	projectId: string;
 	projectName: string;
+	href: string;
 	completedTasks: number;
 	totalTasks: number;
 	progressPercentage: number;

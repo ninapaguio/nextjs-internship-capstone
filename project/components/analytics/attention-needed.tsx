@@ -1,3 +1,5 @@
+"use client";
+
 import {
 	AlertCircle,
 	AlertTriangle,
@@ -14,7 +16,14 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import type { AttentionNeededItem } from "@/types/analytics";
 
 interface AttentionNeededProps {
@@ -25,18 +34,16 @@ export function AttentionNeeded({ items }: AttentionNeededProps) {
 	function getIcon(type: AttentionNeededItem["type"]) {
 		switch (type) {
 			case "overdue":
-				return (
-					<AlertTriangle className="size-4 text-rose-500 shrink-0 mt-0.5" />
-				);
+				return <AlertTriangle className="size-3.5 text-rose-500 shrink-0" />;
 			case "unassigned":
-				return <UserX className="size-4 text-amber-500 shrink-0 mt-0.5" />;
+				return <UserX className="size-3.5 text-amber-500 shrink-0" />;
 			case "stalled":
-				return <Clock className="size-4 text-amber-500 shrink-0 mt-0.5" />;
+				return <Clock className="size-3.5 text-amber-500 shrink-0" />;
 			case "high_backlog":
-				return <Layers className="size-4 text-blue-500 shrink-0 mt-0.5" />;
+				return <Layers className="size-3.5 text-blue-500 shrink-0" />;
 			default:
 				return (
-					<AlertCircle className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+					<AlertCircle className="size-3.5 text-muted-foreground shrink-0" />
 				);
 		}
 	}
@@ -47,7 +54,7 @@ export function AttentionNeeded({ items }: AttentionNeededProps) {
 				return (
 					<Badge
 						variant="destructive"
-						className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0"
+						className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 h-4"
 					>
 						High
 					</Badge>
@@ -56,7 +63,7 @@ export function AttentionNeeded({ items }: AttentionNeededProps) {
 				return (
 					<Badge
 						variant="secondary"
-						className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
+						className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 h-4 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
 					>
 						Medium
 					</Badge>
@@ -65,7 +72,7 @@ export function AttentionNeeded({ items }: AttentionNeededProps) {
 				return (
 					<Badge
 						variant="outline"
-						className="text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0 text-muted-foreground"
+						className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0 h-4 text-muted-foreground"
 					>
 						Info
 					</Badge>
@@ -107,34 +114,47 @@ export function AttentionNeeded({ items }: AttentionNeededProps) {
 						</div>
 					</div>
 				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						{items.map((item) => (
-							<div
-								key={item.id}
-								className={cn(
-									"flex items-start gap-3 rounded-xl border p-3.5 transition-colors",
-									item.severity === "high"
-										? "border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/10"
-										: item.severity === "medium"
-											? "border-amber-500/30 bg-amber-500/5 dark:bg-amber-950/10"
-											: "border-border bg-card",
-								)}
+					<Table
+						aria-label="Attention needed items"
+						containerClassName="rounded-xl border border-border"
+					>
+						<TableHeader>
+							<TableHead
+								isRowHeader
+								className="px-3 sm:px-4 text-xs w-28 sm:w-32"
 							>
-								{getIcon(item.type)}
-								<div className="flex-1 min-w-0 space-y-1">
-									<div className="flex items-center justify-between gap-2">
-										<h4 className="text-sm font-semibold text-foreground truncate">
+								Severity
+							</TableHead>
+							<TableHead className="px-3 sm:px-4 text-xs w-44 sm:w-56">
+								Item
+							</TableHead>
+							<TableHead className="px-3 sm:px-4 text-xs">
+								Description
+							</TableHead>
+						</TableHeader>
+						<TableBody>
+							{items.map((item) => (
+								<TableRow key={item.id} id={item.id}>
+									<TableCell className="px-3 sm:px-4 py-3 align-middle">
+										<div className="flex items-center gap-2">
+											{getIcon(item.type)}
+											{getSeverityBadge(item.severity)}
+										</div>
+									</TableCell>
+
+									<TableCell className="px-3 sm:px-4 py-3 align-middle">
+										<span className="text-xs sm:text-sm font-semibold text-foreground">
 											{item.title}
-										</h4>
-										{getSeverityBadge(item.severity)}
-									</div>
-									<p className="text-xs text-muted-foreground leading-relaxed">
+										</span>
+									</TableCell>
+
+									<TableCell className="px-3 sm:px-4 py-3 text-xs text-muted-foreground leading-relaxed">
 										{item.description}
-									</p>
-								</div>
-							</div>
-						))}
-					</div>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
 				)}
 			</CardContent>
 		</Card>
