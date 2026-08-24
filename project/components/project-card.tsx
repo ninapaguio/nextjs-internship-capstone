@@ -69,11 +69,11 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 			</Link>
 			<Card
 				size="sm"
-				className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-card py-0 shadow-2xs ring-1 ring-border transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand_teal-500/40 group-hover:shadow-md dark:group-hover:ring-brand_teal-500/30"
+				className="pointer-events-none relative z-20 h-full gap-0 rounded-2xl bg-card py-0 shadow-2xs ring-1 ring-border transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand-primary/50 group-hover:shadow-md dark:group-hover:border-brand-cyan/40 dark:group-hover:ring-brand-cyan/20"
 			>
 				<CardHeader className="gap-3 px-4 pt-4 pb-3">
 					<div className="relative flex items-center justify-between gap-3 pointer-events-none">
-						<CardTitle className="line-clamp-1 text-sm font-semibold tracking-tight transition-colors group-hover:text-brand_teal-600 dark:group-hover:text-brand_mint-400">
+						<CardTitle className="line-clamp-1 text-sm font-semibold tracking-tight transition-colors group-hover:text-brand-primary dark:group-hover:text-brand-cyan">
 							{project.name}
 						</CardTitle>
 						<div className="relative z-20 flex items-center gap-1 pointer-events-auto">
