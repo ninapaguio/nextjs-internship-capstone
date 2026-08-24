@@ -15,6 +15,18 @@ export type {
 	TeamRoleActionState,
 } from "./action-states";
 export type {
+	AccessibleProjectOption,
+	AnalyticsData,
+	AnalyticsDateRange,
+	AnalyticsFilterState,
+	AnalyticsSummaryMetrics,
+	AttentionInsightType,
+	AttentionNeededItem,
+	CompletionTrendPoint,
+	ProjectProgressItem,
+	WorkloadMemberItem,
+} from "./analytics";
+export type {
 	BoardActivityItem,
 	BoardActivityType,
 	BoardComment,
