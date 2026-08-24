@@ -1,14 +1,7 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
-import {
-	ExternalLink,
-	KeyRound,
-	LogOut,
-	ShieldCheck,
-	Smartphone,
-	UsersRound,
-} from "lucide-react";
+import { ExternalLink, LogOut, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,33 +24,6 @@ import {
 export function SecuritySettingsCard() {
 	const { openUserProfile, signOut } = useClerk();
 
-	const securityFeatures = [
-		{
-			id: "auth",
-			name: "Sign-in Methods",
-			description: "Review the sign-in methods available for your account",
-			icon: ShieldCheck,
-		},
-		{
-			id: "2fa",
-			name: "Two-Factor Authentication",
-			description: "Review the multi-factor options available for your account",
-			icon: Smartphone,
-		},
-		{
-			id: "sessions",
-			name: "Active Device Sessions",
-			description: "Inspect or revoke active logins across other devices",
-			icon: KeyRound,
-		},
-		{
-			id: "oauth",
-			name: "Connected Accounts",
-			description: "Third-party social authentication providers",
-			icon: UsersRound,
-		},
-	];
-
 	return (
 		<Card className="rounded-2xl border-border bg-card shadow-xs overflow-hidden">
 			<CardHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border">
@@ -67,8 +33,7 @@ export function SecuritySettingsCard() {
 							Account & Security
 						</CardTitle>
 						<CardDescription className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-							Manage sign-in methods, multi-factor protection, and active
-							sessions through Clerk.
+							Review the sign-in methods available for your EverFlow account.
 						</CardDescription>
 					</div>
 					<Button
@@ -78,7 +43,7 @@ export function SecuritySettingsCard() {
 						className="w-fit text-xs font-medium self-start sm:self-center"
 					>
 						Manage in Clerk
-						<ExternalLink className="size-3.5 ml-1.5" />
+						<ExternalLink aria-hidden="true" className="size-3.5 ml-1.5" />
 					</Button>
 				</div>
 			</CardHeader>
@@ -99,32 +64,27 @@ export function SecuritySettingsCard() {
 						</TableHead>
 					</TableHeader>
 					<TableBody>
-						{securityFeatures.map((item) => {
-							const Icon = item.icon;
-							return (
-								<TableRow key={item.id} id={item.id}>
-									<TableCell className="px-4 py-3 text-xs font-medium text-foreground">
-										<span className="inline-flex items-center gap-2.5">
-											<div className="size-6 rounded-md bg-muted/60 flex items-center justify-center text-muted-foreground shrink-0">
-												<Icon className="size-3.5 text-brand-primary dark:text-brand-cyan" />
-											</div>
-											{item.name}
-										</span>
-									</TableCell>
-									<TableCell className="px-4 py-3 text-xs text-muted-foreground">
-										{item.description}
-									</TableCell>
-									<TableCell className="px-4 py-3 text-right">
-										<Badge
-											variant="secondary"
-											className="text-[10px] font-normal"
-										>
-											Managed in Clerk
-										</Badge>
-									</TableCell>
-								</TableRow>
-							);
-						})}
+						<TableRow id="auth">
+							<TableCell className="px-4 py-3 text-xs font-medium text-foreground">
+								<span className="inline-flex items-center gap-2.5">
+									<span className="size-6 rounded-md bg-muted/60 flex items-center justify-center text-muted-foreground shrink-0">
+										<ShieldCheck
+											aria-hidden="true"
+											className="size-3.5 text-brand-primary dark:text-brand-cyan"
+										/>
+									</span>
+									Sign-in Methods
+								</span>
+							</TableCell>
+							<TableCell className="px-4 py-3 text-xs text-muted-foreground">
+								Email or username with password, and Google
+							</TableCell>
+							<TableCell className="px-4 py-3 text-right">
+								<Badge variant="secondary" className="text-[10px] font-normal">
+									Managed in Clerk
+								</Badge>
+							</TableCell>
+						</TableRow>
 					</TableBody>
 				</Table>
 
@@ -144,7 +104,7 @@ export function SecuritySettingsCard() {
 						onPress={() => signOut({ redirectUrl: "/" })}
 						className="text-xs font-medium shrink-0"
 					>
-						<LogOut className="size-3.5 mr-1.5" />
+						<LogOut aria-hidden="true" className="size-3.5 mr-1.5" />
 						Sign out of EverFlow
 					</Button>
 				</div>
