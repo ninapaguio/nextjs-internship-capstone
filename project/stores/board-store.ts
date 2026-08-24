@@ -37,10 +37,10 @@ function moveTasks(lists: BoardList[], taskIds: string[], targetId: string) {
 		const nextTasks =
 			list.id === targetList.id
 				? [
-					...remainingTasks.slice(0, targetIndex),
-					...movingTasks.map((task) => ({ ...task, listId: targetList.id })),
-					...remainingTasks.slice(targetIndex),
-				]
+						...remainingTasks.slice(0, targetIndex),
+						...movingTasks.map((task) => ({ ...task, listId: targetList.id })),
+						...remainingTasks.slice(targetIndex),
+					]
 				: remainingTasks;
 		if (nextTasks.length === list.tasks.length && list.id !== targetList.id) {
 			return list;
@@ -87,9 +87,9 @@ export const useBoardStore = create<BoardState>((set) => ({
 			state.lists.some((current) => current.id === list.id)
 				? state
 				: {
-					lists: [...state.lists, list],
-					hasPendingChanges: true,
-				},
+						lists: [...state.lists, list],
+						hasPendingChanges: true,
+					},
 		),
 	updateList: (listId, changes) =>
 		set((state) => ({
@@ -117,13 +117,13 @@ export const useBoardStore = create<BoardState>((set) => ({
 			)
 				? state
 				: {
-					lists: state.lists.map((list) =>
-						list.id === listId
-							? { ...list, tasks: [...list.tasks, task] }
-							: list,
-					),
-					hasPendingChanges: true,
-				},
+						lists: state.lists.map((list) =>
+							list.id === listId
+								? { ...list, tasks: [...list.tasks, task] }
+								: list,
+						),
+						hasPendingChanges: true,
+					},
 		),
 	updateTask: (taskId, changes) =>
 		set((state) => {
@@ -147,8 +147,8 @@ export const useBoardStore = create<BoardState>((set) => ({
 							tasks:
 								list.id === sourceList.id
 									? list.tasks.map((item) =>
-										item.id === taskId ? updatedTask : item,
-									)
+											item.id === taskId ? updatedTask : item,
+										)
 									: [...list.tasks, updatedTask],
 						};
 					}

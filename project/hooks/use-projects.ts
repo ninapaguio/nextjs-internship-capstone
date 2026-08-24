@@ -86,9 +86,9 @@ export function useProjects({
 			queryClient.setQueryData<ProjectListData>(queryKey, (currentData) =>
 				currentData
 					? {
-						...currentData,
-						projectRows: reduceProjects(currentData.projectRows, action),
-					}
+							...currentData,
+							projectRows: reduceProjects(currentData.projectRows, action),
+						}
 					: currentData,
 			);
 
