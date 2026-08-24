@@ -19,12 +19,23 @@ export const metadata: Metadata = {
 
 interface SignUpPageProps {
 	params: Promise<{ "sign-up"?: string[] }>;
+	searchParams: Promise<{ redirect_url?: string | string[] }>;
 }
 
 // split-screen sign-up
-export default async function SignUpPage({ params }: SignUpPageProps) {
-	const resolvedParams = await params;
+export default async function SignUpPage({
+	params,
+	searchParams,
+}: SignUpPageProps) {
+	const [resolvedParams, resolvedSearchParams] = await Promise.all([
+		params,
+		searchParams,
+	]);
 	const isSsoCallback = resolvedParams["sign-up"]?.[0] === "sso-callback";
+	const redirectValue = resolvedSearchParams.redirect_url;
+	const redirectUrl = Array.isArray(redirectValue)
+		? redirectValue[0]
+		: redirectValue;
 
 	if (isSsoCallback) {
 		return (
@@ -40,15 +51,10 @@ export default async function SignUpPage({ params }: SignUpPageProps) {
 				<ThemeToggle />
 			</div>
 
-			{/* Left Column: Hero Panel (Desktop only) */}
-			<div className="order-2 lg:order-1 relative hidden lg:block h-full animate-in fade-in-0 slide-in-from-left-6 duration-700">
-				<AuthHero mode="sign-up" />
-			</div>
-
-			{/* Right Column: Hero Panel (Desktop only) */}
-			<div className="order-1 lg:order-2 relative flex min-h-screen w-full flex-col items-center justify-center px-8 py-10 sm:px-12 md:px-16 lg:px-12 xl:px-16 animate-in fade-in-0 slide-in-from-right-6 duration-700">
+			{/* Left Column: Sign Up Form (Desktop) */}
+			<div className="order-1 lg:order-1 relative flex min-h-screen w-full flex-col items-center justify-center px-8 py-10 sm:px-12 md:px-16 lg:px-12 xl:px-16 animate-in fade-in-0 slide-in-from-left-8 duration-700 ease-out">
 				<div className="pointer-events-none absolute inset-0 overflow-hidden">
-					<div className="absolute top-1/3 right-1/4 size-72 sm:size-96 rounded-full bg-violet-500/5 blur-3xl dark:bg-violet-500/10" />
+					<div className="absolute top-1/3 left-1/4 size-72 sm:size-96 rounded-full bg-violet-500/5 blur-3xl dark:bg-violet-500/10" />
 				</div>
 
 				<div className="relative z-10 w-full max-w-85 sm:max-w-95 md:max-w-100 mx-auto flex flex-col items-center">
@@ -77,15 +83,20 @@ export default async function SignUpPage({ params }: SignUpPageProps) {
 						</Link>
 
 						<h2 className="text-sm sm:text-base font-bold tracking-tight text-foreground">
-							<span>Ideas in Motion. </span>
+							<span>Every project, </span>
 							<span className="bg-linear-to-r from-violet-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
 								Work in Flow.
 							</span>
 						</h2>
 					</div>
 
-					<CustomSignUpForm />
+					<CustomSignUpForm redirectUrl={redirectUrl} />
 				</div>
+			</div>
+
+			{/* Right Column: Hero Panel (Desktop) */}
+			<div className="order-2 lg:order-2 relative hidden lg:block h-full animate-in fade-in-0 slide-in-from-right-8 duration-700 ease-out">
+				<AuthHero mode="sign-up" redirectUrl={redirectUrl} />
 			</div>
 		</main>
 	);

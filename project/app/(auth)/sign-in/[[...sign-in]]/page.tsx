@@ -19,11 +19,22 @@ export const metadata: Metadata = {
 
 interface SignInPageProps {
 	params: Promise<{ "sign-in"?: string[] }>;
+	searchParams: Promise<{ redirect_url?: string | string[] }>;
 }
 
-export default async function SignInPage({ params }: SignInPageProps) {
-	const resolvedParams = await params;
+export default async function SignInPage({
+	params,
+	searchParams,
+}: SignInPageProps) {
+	const [resolvedParams, resolvedSearchParams] = await Promise.all([
+		params,
+		searchParams,
+	]);
 	const isSsoCallback = resolvedParams["sign-in"]?.[0] === "sso-callback";
+	const redirectValue = resolvedSearchParams.redirect_url;
+	const redirectUrl = Array.isArray(redirectValue)
+		? redirectValue[0]
+		: redirectValue;
 
 	if (isSsoCallback) {
 		return (
@@ -39,13 +50,13 @@ export default async function SignInPage({ params }: SignInPageProps) {
 				<ThemeToggle />
 			</div>
 
-			{/* Left Column: Hero Panel (Desktop only) */}
-			<div className="order-2 lg:order-1 relative hidden lg:block h-full animate-in fade-in-0 slide-in-from-left-6 duration-700">
-				<AuthHero mode="sign-in" />
+			{/* Left Column: Hero Panel (Desktop) */}
+			<div className="order-2 lg:order-1 relative hidden lg:block h-full animate-in fade-in-0 slide-in-from-left-8 duration-700 ease-out">
+				<AuthHero mode="sign-in" redirectUrl={redirectUrl} />
 			</div>
 
-			{/* Right Column: Hero Panel (Desktop only) */}
-			<div className="order-1 lg:order-2 relative flex min-h-screen w-full flex-col items-center justify-center px-8 py-10 sm:px-12 md:px-16 lg:px-12 xl:px-16 animate-in fade-in-0 slide-in-from-right-6 duration-700">
+			{/* Right Column: Sign In Form */}
+			<div className="order-1 lg:order-2 relative flex min-h-screen w-full flex-col items-center justify-center px-8 py-10 sm:px-12 md:px-16 lg:px-12 xl:px-16 animate-in fade-in-0 slide-in-from-right-8 duration-700 ease-out">
 				<div className="pointer-events-none absolute inset-0 overflow-hidden">
 					<div className="absolute top-1/3 right-1/4 size-72 sm:size-96 rounded-full bg-blue-500/5 blur-3xl dark:bg-blue-500/10" />
 				</div>
@@ -76,14 +87,14 @@ export default async function SignInPage({ params }: SignInPageProps) {
 						</Link>
 
 						<h2 className="text-sm sm:text-base font-bold tracking-tight text-foreground">
-							<span>Ideas in Motion. </span>
+							<span>Every project, </span>
 							<span className="bg-linear-to-r from-blue-600 via-cyan-500 to-violet-500 bg-clip-text text-transparent">
 								Work in Flow.
 							</span>
 						</h2>
 					</div>
 
-					<CustomSignInForm />
+					<CustomSignInForm redirectUrl={redirectUrl} />
 				</div>
 			</div>
 		</main>

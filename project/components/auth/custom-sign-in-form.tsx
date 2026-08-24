@@ -16,9 +16,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { getClerkErrorMessage } from "@/components/auth/clerk-error-message";
+import { buildAuthRoute, getSafeAuthRedirect } from "@/lib/auth/auth-redirect";
 
-// Compact, minimalist, borderless Sign-In Form component matching EverFlow design.
-export function CustomSignInForm() {
+type PasswordResetStep = "request" | "verify" | "password";
+
+interface CustomSignInFormProps {
+	redirectUrl?: string;
+}
+
+export function CustomSignInForm({ redirectUrl }: CustomSignInFormProps) {
 	const { signIn, fetchStatus } = useSignIn();
 	const router = useRouter();
 
@@ -28,12 +34,15 @@ export function CustomSignInForm() {
 	const [isOAuthLoading, setIsOAuthLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const isLoading = fetchStatus === "fetching";
+	const [isVerifyingDevice, setIsVerifyingDevice] = useState(false);
+	const [deviceTrustCode, setDeviceTrustCode] = useState("");
 
 	// Forgot password state
 	const [isResetMode, setIsResetMode] = useState(false);
 	const [resetCode, setResetCode] = useState("");
 	const [newPassword, setNewPassword] = useState("");
-	const [resetSent, setResetSent] = useState(false);
+	const [passwordResetStep, setPasswordResetStep] =
+		useState<PasswordResetStep>("request");
 	const [resetSuccess, setResetSuccess] = useState(false);
 
 	// Activates a completed Clerk session and preserves Clerk's Safari-safe redirect URL.
@@ -42,7 +51,11 @@ export function CustomSignInForm() {
 
 		const { error } = await signIn.finalize({
 			navigate: ({ decorateUrl }) => {
-				const destination = decorateUrl("/dashboard");
+				const safeRedirect = getSafeAuthRedirect(
+					redirectUrl,
+					window.location.origin,
+				);
+				const destination = decorateUrl(safeRedirect);
 				if (destination.startsWith("http")) {
 					window.location.href = destination;
 					return;
@@ -59,6 +72,32 @@ export function CustomSignInForm() {
 			),
 		);
 		return false;
+	}
+
+	// Sends Clerk's email verification code when a new browser needs Device Trust.
+	async function prepareDeviceTrust() {
+		if (!signIn) return;
+
+		const supportsEmailCode = signIn.supportedSecondFactors.some(
+			(factor) => factor.strategy === "email_code",
+		);
+		if (!supportsEmailCode) {
+			setErrorMessage(
+				"This account requires a verification method that EverFlow does not support.",
+			);
+			return;
+		}
+
+		const { error } = await signIn.mfa.sendEmailCode();
+		if (error) {
+			setErrorMessage(
+				getClerkErrorMessage(error, "Could not send the verification code."),
+			);
+			return;
+		}
+
+		setDeviceTrustCode("");
+		setIsVerifyingDevice(true);
 	}
 
 	// Handles standard email + password sign-in
@@ -88,11 +127,13 @@ export function CustomSignInForm() {
 				return;
 			}
 
+			if (signIn.status === "needs_client_trust") {
+				await prepareDeviceTrust();
+				return;
+			}
+
 			setErrorMessage(
-				signIn.status === "needs_second_factor" ||
-					signIn.status === "needs_client_trust"
-					? "This account requires an additional verification step that this form does not support yet."
-					: "Clerk requires another sign-in step. Please try Google or contact support.",
+				"Clerk requires another sign-in step. Please try Google or contact support.",
 			);
 		} catch (error: unknown) {
 			setErrorMessage(
@@ -104,6 +145,53 @@ export function CustomSignInForm() {
 		}
 	}
 
+	// Verifies the email code Clerk issued for Device Trust.
+	async function handleDeviceTrustVerification(
+		event: React.FormEvent<HTMLFormElement>,
+	) {
+		event.preventDefault();
+		if (!signIn) return;
+
+		setErrorMessage(null);
+		const { error } = await signIn.mfa.verifyEmailCode({
+			code: deviceTrustCode.trim(),
+		});
+		if (error) {
+			setErrorMessage(
+				getClerkErrorMessage(error, "The verification code is invalid."),
+			);
+			return;
+		}
+
+		if (signIn.status === "complete") {
+			await finalizeSignIn();
+			return;
+		}
+
+		setErrorMessage("Clerk could not verify this device.");
+	}
+
+	// Resends Clerk's Device Trust email code.
+	async function handleResendDeviceTrustCode() {
+		if (!signIn) return;
+
+		setErrorMessage(null);
+		const { error } = await signIn.mfa.sendEmailCode();
+		if (error) {
+			setErrorMessage(
+				getClerkErrorMessage(error, "Could not resend the verification code."),
+			);
+		}
+	}
+
+	// Cancels Device Trust verification and resets the active Clerk attempt.
+	async function handleCancelDeviceTrust() {
+		if (signIn) await signIn.reset();
+		setDeviceTrustCode("");
+		setIsVerifyingDevice(false);
+		setErrorMessage(null);
+	}
+
 	// Handles Google OAuth sign-in redirect
 	async function handleGoogleSignIn() {
 		if (!signIn) return;
@@ -111,10 +199,17 @@ export function CustomSignInForm() {
 		setErrorMessage(null);
 
 		try {
+			const safeRedirect = getSafeAuthRedirect(
+				redirectUrl,
+				window.location.origin,
+			);
 			const { error } = await signIn.sso({
 				strategy: "oauth_google",
-				redirectCallbackUrl: "/sign-in/sso-callback",
-				redirectUrl: "/dashboard",
+				redirectCallbackUrl: buildAuthRoute(
+					"/sign-in/sso-callback",
+					redirectUrl,
+				),
+				redirectUrl: safeRedirect,
 			});
 			if (error) {
 				setErrorMessage(
@@ -168,7 +263,7 @@ export function CustomSignInForm() {
 				);
 				return;
 			}
-			setResetSent(true);
+			setPasswordResetStep("verify");
 		} catch (error: unknown) {
 			setErrorMessage(
 				getClerkErrorMessage(
@@ -179,8 +274,10 @@ export function CustomSignInForm() {
 		}
 	}
 
-	// Confirms code & updates password
-	async function handleResetPassword(event: React.FormEvent<HTMLFormElement>) {
+	// Verifies the reset code before collecting a replacement password.
+	async function handleVerifyResetCode(
+		event: React.FormEvent<HTMLFormElement>,
+	) {
 		event.preventDefault();
 		if (!signIn) return;
 
@@ -201,6 +298,29 @@ export function CustomSignInForm() {
 				return;
 			}
 
+			if (signIn.status !== "needs_new_password") {
+				setErrorMessage("Clerk could not continue the password reset.");
+				return;
+			}
+
+			setPasswordResetStep("password");
+		} catch (error: unknown) {
+			setErrorMessage(
+				getClerkErrorMessage(error, "The reset code is invalid or expired."),
+			);
+		}
+	}
+
+	// Submits the new password after Clerk has accepted the reset code.
+	async function handleSubmitNewPassword(
+		event: React.FormEvent<HTMLFormElement>,
+	) {
+		event.preventDefault();
+		if (!signIn) return;
+
+		setErrorMessage(null);
+
+		try {
 			const { error: passwordError } =
 				await signIn.resetPasswordEmailCode.submitPassword({
 					password: newPassword,
@@ -224,7 +344,7 @@ export function CustomSignInForm() {
 			}
 		} catch (error: unknown) {
 			setErrorMessage(
-				getClerkErrorMessage(error, "Invalid reset code or password format."),
+				getClerkErrorMessage(error, "The new password could not be saved."),
 			);
 		}
 	}
@@ -234,18 +354,31 @@ export function CustomSignInForm() {
 			{/* Form Header */}
 			<div className="mb-4 text-left">
 				<h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-					{isResetMode ? "Reset your password" : "Sign In"}
+					{isVerifyingDevice
+						? "Verify your device"
+						: isResetMode
+							? "Reset your password"
+							: "Sign In"}
 				</h1>
 				<p className="mt-0.5 text-xs text-muted-foreground">
-					{isResetMode
-						? "Enter your account email to receive a reset code."
-						: "Enter your credentials to access your account."}
+					{isVerifyingDevice
+						? "Enter the email code Clerk sent for this browser."
+						: isResetMode
+							? passwordResetStep === "request"
+								? "Enter your account email to receive a reset code."
+								: passwordResetStep === "verify"
+									? "Enter the code sent to your email."
+									: "Choose a secure replacement password."
+							: "Enter your credentials to access your account."}
 				</p>
 			</div>
 
 			{/* Error Banner */}
 			{errorMessage && (
-				<div className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in-0 duration-200">
+				<div
+					role="alert"
+					className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in-0 duration-200"
+				>
 					<AlertCircle className="size-3.5 shrink-0 mt-0.5" />
 					<div className="flex-1 font-medium">{errorMessage}</div>
 				</div>
@@ -259,7 +392,62 @@ export function CustomSignInForm() {
 				</div>
 			)}
 
-			{!isResetMode ? (
+			{isVerifyingDevice ? (
+				<form onSubmit={handleDeviceTrustVerification} className="space-y-3">
+					<div>
+						<label
+							htmlFor="device-trust-code"
+							className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+						>
+							Verification code
+						</label>
+						<div className="relative">
+							<KeyRound className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+							<input
+								id="device-trust-code"
+								name="code"
+								type="text"
+								autoComplete="one-time-code"
+								inputMode="numeric"
+								required
+								value={deviceTrustCode}
+								onChange={(event) => setDeviceTrustCode(event.target.value)}
+								placeholder="123456"
+								className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-sm tracking-widest text-foreground placeholder:text-muted-foreground focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+							/>
+						</div>
+					</div>
+
+					<button
+						type="submit"
+						disabled={isLoading || !deviceTrustCode.trim()}
+						className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-brand_primary-600 focus:outline-none focus:ring-2 focus:ring-brand-primary disabled:opacity-50 sm:text-sm"
+					>
+						{isLoading ? (
+							<Loader2 className="size-3.5 animate-spin" />
+						) : (
+							"Verify and continue"
+						)}
+					</button>
+
+					<div className="flex items-center justify-between gap-3">
+						<button
+							type="button"
+							onClick={handleResendDeviceTrustCode}
+							className="text-[11px] font-medium text-brand-primary hover:underline dark:text-brand-cyan"
+						>
+							Resend code
+						</button>
+						<button
+							type="button"
+							onClick={handleCancelDeviceTrust}
+							className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+						>
+							Use another account
+						</button>
+					</div>
+				</form>
+			) : !isResetMode ? (
 				/* Main Sign-In View */
 				<div className="space-y-3.5">
 					{/* Google OAuth Button */}
@@ -267,13 +455,15 @@ export function CustomSignInForm() {
 						type="button"
 						onClick={handleGoogleSignIn}
 						disabled={isOAuthLoading || !signIn}
-						className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-background/80 py-2.5 px-3 text-xs sm:text-sm font-semibold text-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:border-brand-primary/40 hover:shadow-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/30 disabled:opacity-50"
+						className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-card py-2.5 px-3 text-xs sm:text-sm font-semibold text-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted/40 hover:border-brand-primary/40 hover:shadow-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/30 disabled:opacity-50 cursor-pointer"
 					>
 						{isOAuthLoading && (
 							<Loader2 className="size-4 animate-spin text-brand-primary" />
 						)}
 						<span>
-							{isOAuthLoading ? "Connecting..." : "Continue with Google"}
+							{isOAuthLoading
+								? "Connecting to Google..."
+								: "Continue with Google"}
 						</span>
 					</button>
 
@@ -307,7 +497,7 @@ export function CustomSignInForm() {
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
 									placeholder="you@company.com"
-									className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+									className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
 								/>
 							</div>
 						</div>
@@ -326,7 +516,7 @@ export function CustomSignInForm() {
 										setIsResetMode(true);
 										setErrorMessage(null);
 									}}
-									className="text-[11px] font-medium text-brand-primary dark:text-brand-cyan hover:underline transition-colors"
+									className="text-[11px] font-medium text-brand-primary dark:text-brand-cyan hover:underline transition-colors cursor-pointer"
 								>
 									Forgot password?
 								</button>
@@ -342,12 +532,12 @@ export function CustomSignInForm() {
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
 									placeholder="••••••••"
-									className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+									className="w-full rounded-xl border border-border bg-card pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+									className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors cursor-pointer"
 									aria-label={showPassword ? "Hide password" : "Show password"}
 								>
 									{showPassword ? (
@@ -362,7 +552,7 @@ export function CustomSignInForm() {
 						<button
 							type="submit"
 							disabled={isLoading || !signIn}
-							className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand_primary-600 hover:shadow-md hover:shadow-brand-primary/25 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 active:scale-[0.99] disabled:opacity-50"
+							className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand_primary-600 hover:shadow-md hover:shadow-brand-primary/25 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
 						>
 							{isLoading ? (
 								<Loader2 className="size-3.5 animate-spin" />
@@ -378,7 +568,7 @@ export function CustomSignInForm() {
 			) : (
 				/* Password Reset Flow */
 				<div className="space-y-3.5">
-					{!resetSent ? (
+					{passwordResetStep === "request" ? (
 						<form onSubmit={handleSendResetCode} className="space-y-3">
 							<div>
 								<label
@@ -398,7 +588,7 @@ export function CustomSignInForm() {
 										value={email}
 										onChange={(e) => setEmail(e.target.value)}
 										placeholder="you@company.com"
-										className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+										className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
 									/>
 								</div>
 							</div>
@@ -406,7 +596,7 @@ export function CustomSignInForm() {
 							<button
 								type="submit"
 								disabled={isLoading || !signIn}
-								className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-primary-hover focus:outline-none focus:ring-2 focus:ring-brand-primary disabled:opacity-50"
+								className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand_primary-600 focus:outline-none focus:ring-2 focus:ring-brand-primary disabled:opacity-50 cursor-pointer"
 							>
 								{isLoading ? (
 									<Loader2 className="size-3.5 animate-spin" />
@@ -419,15 +609,16 @@ export function CustomSignInForm() {
 								type="button"
 								onClick={() => {
 									setIsResetMode(false);
+									setPasswordResetStep("request");
 									setErrorMessage(null);
 								}}
-								className="w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+								className="w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
 							>
 								Back to Sign In
 							</button>
 						</form>
-					) : (
-						<form onSubmit={handleResetPassword} className="space-y-3">
+					) : passwordResetStep === "verify" ? (
+						<form onSubmit={handleVerifyResetCode} className="space-y-3">
 							<div className="rounded-xl bg-brand-primary/10 p-2.5 border border-brand-primary/20 text-xs text-brand-primary dark:text-brand-cyan">
 								A 6-digit code has been sent to <strong>{email}</strong>.
 							</div>
@@ -451,15 +642,42 @@ export function CustomSignInForm() {
 										value={resetCode}
 										onChange={(e) => setResetCode(e.target.value)}
 										placeholder="123456"
-										className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs sm:text-sm tracking-widest text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+										className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-xs sm:text-sm tracking-widest text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
 									/>
 								</div>
 							</div>
 
+							<button
+								type="submit"
+								disabled={isLoading || !signIn || !resetCode.trim()}
+								className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand_primary-600 focus:outline-none focus:ring-2 focus:ring-brand-primary disabled:opacity-50 cursor-pointer"
+							>
+								{isLoading ? (
+									<Loader2 className="size-3.5 animate-spin" />
+								) : (
+									<span>Verify Reset Code</span>
+								)}
+							</button>
+
+							<button
+								type="button"
+								onClick={() => {
+									setIsResetMode(false);
+									setPasswordResetStep("request");
+									setResetCode("");
+									setErrorMessage(null);
+								}}
+								className="w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+							>
+								Cancel
+							</button>
+						</form>
+					) : (
+						<form onSubmit={handleSubmitNewPassword} className="space-y-3">
 							<div>
 								<label
 									htmlFor="new-password"
-									className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1"
+									className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
 								>
 									New Password
 								</label>
@@ -473,9 +691,9 @@ export function CustomSignInForm() {
 										required
 										minLength={8}
 										value={newPassword}
-										onChange={(e) => setNewPassword(e.target.value)}
+										onChange={(event) => setNewPassword(event.target.value)}
 										placeholder="At least 8 characters"
-										className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+										className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 sm:text-sm"
 									/>
 								</div>
 							</div>
@@ -483,25 +701,13 @@ export function CustomSignInForm() {
 							<button
 								type="submit"
 								disabled={isLoading || !signIn}
-								className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-primary-hover focus:outline-none focus:ring-2 focus:ring-brand-primary disabled:opacity-50"
+								className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-brand_primary-600 focus:outline-none focus:ring-2 focus:ring-brand-primary disabled:opacity-50 sm:text-sm"
 							>
 								{isLoading ? (
 									<Loader2 className="size-3.5 animate-spin" />
 								) : (
-									<span>Update Password & Sign In</span>
+									"Update Password & Sign In"
 								)}
-							</button>
-
-							<button
-								type="button"
-								onClick={() => {
-									setIsResetMode(false);
-									setResetSent(false);
-									setErrorMessage(null);
-								}}
-								className="w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-							>
-								Cancel
 							</button>
 						</form>
 					)}
@@ -512,7 +718,7 @@ export function CustomSignInForm() {
 			<div className="mt-5 border-t border-border pt-3.5 text-center text-xs text-muted-foreground">
 				<span>Don't have an account?</span>
 				<Link
-					href="/sign-up"
+					href={buildAuthRoute("/sign-up", redirectUrl)}
 					className="ml-1.5 font-semibold text-brand-primary dark:text-brand-cyan hover:underline transition-colors"
 				>
 					Create an account
