@@ -192,8 +192,7 @@ export default function HomePage() {
 								Ready to put your work with EverFlow?
 							</h2>
 							<p className="mt-2 sm:mt-3 text-xs leading-relaxed text-slate-300 sm:text-base">
-								Create an account or return to your workspace already
-								shares.
+								Create an account or return to your workspace already shares.
 							</p>
 						</div>
 						<div className="relative mt-6 flex flex-col gap-2.5 sm:flex-row sm:mt-7 lg:mt-0">
