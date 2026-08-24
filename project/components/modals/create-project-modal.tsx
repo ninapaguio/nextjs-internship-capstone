@@ -87,8 +87,9 @@ export function CreateProjectModal() {
 
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-			<Button size="sm">
-				<Plus data-icon="inline-start" /> New project
+			<Button size="sm" aria-label="New project" className="px-2.5 sm:px-3">
+				<Plus data-icon="inline-start" />
+				<span className="hidden sm:inline">New project</span>
 			</Button>
 			<Dialog className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
 				<DialogHeader className="pr-10">

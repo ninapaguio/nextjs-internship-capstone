@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 	description: "You do not have permission to access this resource.",
 };
 
-// Renders the HTTP 403 Forbidden page 
+// Renders the HTTP 403 Forbidden page
 export default function ForbiddenPage() {
 	return (
 		<div className="flex min-h-[calc(100dvh-5rem)] flex-col items-center justify-center p-6 text-center">

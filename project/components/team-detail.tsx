@@ -108,20 +108,20 @@ export function TeamDetail({ team }: TeamDetailProps) {
 	useSharedViewRefresh();
 	return (
 		<div className="space-y-6">
-			<div className="grid gap-4 sm:grid-cols-2">
+			<div className="grid grid-cols-2 gap-3 sm:gap-4">
 				<Card
 					size="sm"
 					className="rounded-2xl border border-border bg-card shadow-2xs"
 				>
-					<CardContent className="flex items-center gap-3.5 p-4">
-						<div className="rounded-xl bg-brand_teal-500/10 p-2.5 text-brand_teal-600 dark:bg-brand_teal-500/20 dark:text-brand_mint-400">
-							<UsersRound className="size-5" aria-hidden="true" />
+					<CardContent className="flex items-center gap-2.5 p-3 sm:gap-3.5 sm:p-4">
+						<div className="rounded-xl bg-brand_teal-500/10 p-2 text-brand_teal-600 dark:bg-brand_teal-500/20 dark:text-brand_mint-400 sm:p-2.5">
+							<UsersRound className="size-4 sm:size-5" aria-hidden="true" />
 						</div>
-						<div>
-							<p className="text-2xl font-bold tracking-tight text-foreground">
+						<div className="min-w-0">
+							<p className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
 								{team.members.length}
 							</p>
-							<p className="text-xs font-medium text-muted-foreground">
+							<p className="truncate text-[11px] font-medium text-muted-foreground sm:text-xs">
 								Active members
 							</p>
 						</div>
@@ -131,15 +131,15 @@ export function TeamDetail({ team }: TeamDetailProps) {
 					size="sm"
 					className="rounded-2xl border border-border bg-card shadow-2xs"
 				>
-					<CardContent className="flex items-center gap-3.5 p-4">
-						<div className="rounded-xl bg-brand_navy-500/10 p-2.5 text-brand_navy-600 dark:bg-brand_mint-500/20 dark:text-brand_mint-300">
-							<ShieldCheck className="size-5" aria-hidden="true" />
+					<CardContent className="flex items-center gap-2.5 p-3 sm:gap-3.5 sm:p-4">
+						<div className="rounded-xl bg-brand_navy-500/10 p-2 text-brand_navy-600 dark:bg-brand_mint-500/20 dark:text-brand_mint-300 sm:p-2.5">
+							<ShieldCheck className="size-4 sm:size-5" aria-hidden="true" />
 						</div>
-						<div>
-							<p className="text-2xl font-bold tracking-tight text-foreground">
+						<div className="min-w-0">
+							<p className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
 								{team.roles.length}
 							</p>
-							<p className="text-xs font-medium text-muted-foreground">
+							<p className="truncate text-[11px] font-medium text-muted-foreground sm:text-xs">
 								Custom roles
 							</p>
 						</div>
@@ -160,21 +160,28 @@ export function TeamDetail({ team }: TeamDetailProps) {
 					</p>
 				</div>
 				<div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
-					<Table aria-label="Team members">
+					<Table aria-label="Team members" className="w-full table-fixed">
 						<TableHeader className="bg-muted/50">
-							<TableHead className="px-5" isRowHeader>
+							<TableHead
+								className="w-[50%] sm:w-[45%] px-3 sm:px-5"
+								isRowHeader
+							>
 								Member
 							</TableHead>
-							<TableHead className="px-5">Assigned role</TableHead>
-							<TableHead className="w-16 px-5 text-right">Actions</TableHead>
+							<TableHead className="w-[35%] sm:w-[40%] px-2 sm:px-5">
+								Assigned role
+							</TableHead>
+							<TableHead className="w-[15%] px-2 sm:px-5 text-right">
+								Actions
+							</TableHead>
 						</TableHeader>
 						<TableBody>
 							{team.members.map((member) => {
 								return (
 									<TableRow key={member.id} id={member.id}>
-										<TableCell className="px-5 py-4">
-											<div className="flex min-w-56 items-center gap-3">
-												<Avatar className="size-10">
+										<TableCell className="px-3 py-3 sm:px-5 sm:py-4">
+											<div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+												<Avatar className="size-8 sm:size-10 shrink-0">
 													{member.imageUrl ? (
 														<AvatarImage
 															src={member.imageUrl}
@@ -185,25 +192,25 @@ export function TeamDetail({ team }: TeamDetailProps) {
 														{memberInitials(member.name)}
 													</AvatarFallback>
 												</Avatar>
-												<div className="min-w-0">
-													<p className="truncate font-semibold text-foreground text-sm">
+												<div className="min-w-0 flex-1">
+													<p className="truncate font-semibold text-foreground text-xs sm:text-sm">
 														{member.name}
 													</p>
-													<p className="truncate text-xs text-muted-foreground">
+													<p className="truncate text-[11px] sm:text-xs text-muted-foreground">
 														{member.email}
 													</p>
 												</div>
 											</div>
 										</TableCell>
-										<TableCell className="px-5 py-4">
+										<TableCell className="px-2 py-3 sm:px-5 sm:py-4">
 											<Badge
 												variant="secondary"
-												className="border-border/60 font-medium"
+												className="border-border/60 font-medium truncate max-w-full inline-block text-[10px] sm:text-xs"
 											>
 												{member.assignedRoleName || "No role assigned"}
 											</Badge>
 										</TableCell>
-										<TableCell className="px-5 py-4 text-right">
+										<TableCell className="px-2 py-3 sm:px-5 sm:py-4 text-right">
 											{(team.isOwner && member.projectRole !== "owner") ||
 											(!team.isOwner &&
 												team.canManage &&

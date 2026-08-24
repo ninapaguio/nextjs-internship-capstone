@@ -56,8 +56,9 @@ export function InviteProjectMemberModal({
 
 	return (
 		<DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
-			<Button size="sm">
-				<UserPlus data-icon="inline-start" /> Invite member
+			<Button size="sm" aria-label="Invite member" className="px-2.5 sm:px-3">
+				<UserPlus data-icon="inline-start" />
+				<span className="hidden sm:inline">Invite member</span>
 			</Button>
 			<Dialog className="sm:max-w-md">
 				<DialogHeader className="pr-10">

@@ -77,7 +77,7 @@ export default async function ProjectPage({
 	return (
 		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
 			{/* Project Header */}
-			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
+			<header className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b py-3">
 				<div className="flex min-w-0 items-center gap-3">
 					<TooltipTrigger delay={400}>
 						<Link
@@ -92,7 +92,7 @@ export default async function ProjectPage({
 					</TooltipTrigger>
 				</div>
 
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
 					{project.accessRole !== "member" ? (
 						<InviteProjectMemberModal
 							projectId={project.id}
@@ -100,9 +100,14 @@ export default async function ProjectPage({
 						/>
 					) : null}
 					{project.teamId ? (
-						<LinkButton href={`/team/${project.teamId}`} size="sm">
+						<LinkButton
+							href={`/team/${project.teamId}`}
+							size="sm"
+							aria-label="Members"
+							className="px-2.5 sm:px-3"
+						>
 							<Users data-icon="inline-start" />
-							Members
+							<span className="hidden sm:inline">Members</span>
 						</LinkButton>
 					) : null}
 				</div>
