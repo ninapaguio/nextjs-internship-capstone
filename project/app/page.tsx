@@ -1,241 +1,232 @@
-import { Show, UserButton } from "@clerk/nextjs";
-import { ArrowRight, CheckCircle, Kanban, Users } from "lucide-react";
+import { Show } from "@clerk/nextjs";
+import {
+	ArrowRight,
+	BellRing,
+	ChartNoAxesCombined,
+	GitBranch,
+	KanbanSquare,
+	MessageSquareText,
+	Users,
+} from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { Footer } from "@/components/footer";
+import { LandingHeader } from "@/components/landingheader";
+
+export const metadata: Metadata = {
+	title: "EverFlow | Projects that keep moving",
+	description:
+		"Plan projects, coordinate teams, and turn task progress into clear next steps with EverFlow.",
+	openGraph: {
+		title: "EverFlow | Projects that keep moving",
+		description:
+			"Plan projects, coordinate teams, and turn task progress into clear next steps with EverFlow.",
+	},
+};
+
+const productFeatures = [
+	{
+		title: "Boards built for momentum",
+		description:
+			"Move work through clear stages, assign owners, and keep priorities visible without losing context.",
+		icon: KanbanSquare,
+		accent: "bg-brand-primary/10 text-brand-primary dark:text-brand-cyan",
+		hoverBorder: "hover:border-brand-primary/50 hover:shadow-brand-primary/10",
+	},
+	{
+		title: "Dependencies you can trust",
+		description:
+			"Connect related tasks, prevent circular links, and notify assignees when blocked work becomes ready.",
+		icon: GitBranch,
+		accent: "bg-brand-violet/10 text-brand-violet dark:text-brand_violet-300",
+		hoverBorder: "hover:border-brand-violet/50 hover:shadow-brand-violet/10",
+	},
+	{
+		title: "Progress with meaning",
+		description:
+			"See completion trends, workload, overdue work, and project health through focused analytics.",
+		icon: ChartNoAxesCombined,
+		accent: "bg-brand-cyan/10 text-brand-cyan dark:text-brand_cyan-300",
+		hoverBorder: "hover:border-brand-cyan/50 hover:shadow-brand-cyan/10",
+	},
+] as const;
+
+const collaborationPoints = [
+	{
+		label: "Role-aware teamwork",
+		description:
+			"Owners, managers, and members see the controls meant for them.",
+		icon: Users,
+	},
+	{
+		label: "Conversations beside the work",
+		description:
+			"Comments stay connected to the task and the people assigned to it.",
+		icon: MessageSquareText,
+	},
+	{
+		label: "Timely in-app updates",
+		description:
+			"Assignments, comments, and newly unblocked tasks reach the right people.",
+		icon: BellRing,
+	},
+] as const;
 
 export default function HomePage() {
 	return (
-		<div className="min-h-screen bg-linear-to-br from-platinum-900 to-platinum-800 dark:from-outer_space-500 dark:to-paynes_gray-500">
-			{/* Header */}
-			<header className="border-b border-french_gray-300 dark:border-paynes_gray-400 bg-white/80 dark:bg-outer_space-500/80 backdrop-blur-sm">
-				<div className="container mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center h-16">
-						<div className="text-2xl font-bold text-blue_munsell-500">
-							ProjectFlow
-						</div>
-						<div className="flex items-center space-x-4">
-							<ThemeToggle />
-							<Link
-								href="/dashboard"
-								className="text-outer_space-500 dark:text-platinum-500 hover:text-blue_munsell-500"
-							>
-								Dashboard
-							</Link>
-							<Link
-								href="/projects"
-								className="text-outer_space-500 dark:text-platinum-500 hover:text-blue_munsell-500"
-							>
-								Projects
-							</Link>
+		<div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+			<div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-160 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.16),transparent_42%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.14),transparent_38%)]" />
+
+			<LandingHeader />
+
+			<main>
+				{/* Hero Section */}
+				<section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:px-8 lg:py-28">
+					<div className="max-w-2xl text-center sm:text-left mx-auto sm:mx-0">
+						<h1 className="text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-[-0.03em] leading-[1.12]">
+							<span>Turn every project into </span>
+							<span className="block text-brand-gradient">work in flows.</span>
+						</h1>
+
+						<p className="mt-4 sm:mt-6 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base sm:leading-7 lg:text-lg">
+							EverFlow brings Kanban planning, task dependencies, team
+							conversations, and progress insights together so everyone knows
+							what is moving and what needs attention.
+						</p>
+
+						<div className="mt-6 sm:mt-8 flex flex-col gap-2.5 sm:flex-row">
 							<Show when="signed-out">
 								<Link
-									href="/sign-in"
-									className="text-outer_space-500 dark:text-platinum-500 hover:text-blue_munsell-500"
+									href="/sign-up"
+									className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-brand-primary px-5 py-3 text-xs sm:text-sm font-bold text-white shadow-lg shadow-brand-primary/25 transition-all duration-200 hover:-translate-y-1 hover:bg-brand_primary-600 hover:shadow-xl hover:shadow-brand-primary/30 active:scale-[0.99]"
 								>
-									Sign In
+									<span>Create your account</span>
+									<ArrowRight className="size-3.5 sm:size-4 transition-transform group-hover:translate-x-1" />
 								</Link>
 								<Link
-									href="/sign-up"
-									className="px-4 py-2 bg-blue_munsell-500 text-white rounded-lg hover:bg-blue_munsell-600"
+									href="/sign-in"
+									className="inline-flex w-full sm:w-auto items-center justify-center rounded-xl sm:rounded-2xl border border-border bg-card/70 px-5 py-3 text-xs sm:text-sm font-bold shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted hover:border-brand-primary/40 hover:text-foreground"
 								>
-									Get Started
+									Sign in to EverFlow
+								</Link>
+							</Show>
+						</div>
+					</div>
+				</section>
+
+				<section className="border-y border-border/70 bg-muted/35">
+					<div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-18 lg:px-8">
+						<div className="mx-auto max-w-2xl text-center">
+							<p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] text-brand-primary uppercase dark:text-brand-cyan">
+								A clearer way to move work forward
+							</p>
+							<h2 className="mt-2.5 text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
+								Everything your team needs to stay aligned
+							</h2>
+						</div>
+						<div className="mt-8 sm:mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{productFeatures.map((feature) => {
+								const Icon = feature.icon;
+								return (
+									<article
+										key={feature.title}
+										className={`group rounded-2xl sm:rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-2xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg ${feature.hoverBorder}`}
+									>
+										<div
+											className={`flex size-10 sm:size-11 items-center justify-center rounded-xl sm:rounded-2xl transition-transform duration-300 group-hover:scale-110 ${feature.accent}`}
+										>
+											<Icon className="size-4.5 sm:size-5" />
+										</div>
+										<h3 className="mt-4 sm:mt-5 text-base sm:text-lg font-bold transition-colors group-hover:text-foreground">
+											{feature.title}
+										</h3>
+										<p className="mt-1.5 sm:mt-2 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+											{feature.description}
+										</p>
+									</article>
+								);
+							})}
+						</div>
+					</div>
+				</section>
+
+				<section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:gap-12 lg:px-8">
+					<div className="text-center sm:text-left">
+						<p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] text-brand-violet uppercase dark:text-brand_violet-400">
+							Designed for collaboration
+						</p>
+						<h2 className="mt-2.5 text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
+							Keep people informed without adding more noise
+						</h2>
+					</div>
+					<div className="grid gap-3">
+						{collaborationPoints.map((point) => {
+							const Icon = point.icon;
+							return (
+								<div
+									key={point.label}
+									className="group flex items-start sm:items-center gap-3.5 sm:gap-4 rounded-xl sm:rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:border-brand-violet/40 hover:shadow-md hover:shadow-brand-violet/5"
+								>
+									<div className="flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-brand-violet/10 text-brand-violet dark:text-brand_violet-400 transition-transform duration-300 group-hover:scale-110">
+										<Icon className="size-4 sm:size-5" />
+									</div>
+									<div>
+										<h3 className="text-sm sm:text-base font-bold transition-colors group-hover:text-brand-violet">
+											{point.label}
+										</h3>
+										<p className="mt-0.5 sm:mt-1 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+											{point.description}
+										</p>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</section>
+
+				<section className="px-4 pb-12 sm:px-6 sm:pb-20 lg:px-8">
+					<div className="relative mx-auto max-w-7xl overflow-hidden rounded-2xl sm:rounded-3xl lg:rounded-4xl bg-brand-dark-surface px-5 py-8 text-white shadow-2xl sm:px-8 sm:py-12 lg:flex lg:items-center lg:justify-between lg:px-14">
+						<div className="pointer-events-none absolute -top-32 right-0 size-72 sm:size-96 rounded-full bg-brand-primary/30 blur-3xl" />
+						<div className="relative max-w-2xl text-center sm:text-left">
+							<h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
+								Ready to put your work with EverFlow?
+							</h2>
+							<p className="mt-2 sm:mt-3 text-xs leading-relaxed text-slate-300 sm:text-base">
+								Create an account or return to your workspace already
+								shares.
+							</p>
+						</div>
+						<div className="relative mt-6 flex flex-col gap-2.5 sm:flex-row sm:mt-7 lg:mt-0">
+							<Show when="signed-out">
+								<Link
+									href="/sign-up"
+									className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-white px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md transition-all duration-200 hover:-translate-y-1 hover:bg-slate-100 hover:shadow-xl active:scale-[0.99]"
+								>
+									<span>Get started</span>
+									<ArrowRight className="size-3.5 sm:size-4 transition-transform group-hover:translate-x-1" />
+								</Link>
+								<Link
+									href="/sign-in"
+									className="inline-flex w-full sm:w-auto items-center justify-center rounded-xl sm:rounded-2xl border border-white/20 bg-white/8 px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/20 hover:border-white/40"
+								>
+									Sign in
 								</Link>
 							</Show>
 							<Show when="signed-in">
-								<UserButton />
+								<Link
+									href="/dashboard"
+									className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-white px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md transition-all duration-200 hover:-translate-y-1 hover:bg-slate-100 hover:shadow-xl active:scale-[0.99]"
+								>
+									<span>Continue to dashboard</span>
+									<ArrowRight className="size-3.5 sm:size-4 transition-transform group-hover:translate-x-1" />
+								</Link>
 							</Show>
 						</div>
 					</div>
-				</div>
-			</header>
+				</section>
+			</main>
 
-			{/* Hero Section */}
-			<section className="py-20 px-4 sm:px-6 lg:px-8">
-				<div className="container mx-auto text-center">
-					<h1 className="text-5xl md:text-6xl font-bold text-outer_space-500 dark:text-platinum-500 mb-6">
-						Manage Projects with
-						<span className="text-blue_munsell-500"> Kanban Boards</span>
-					</h1>
-
-					<p className="text-xl text-paynes_gray-500 dark:text-french_gray-500 mb-8 max-w-2xl mx-auto">
-						Organize tasks, collaborate with teams, and track progress with our
-						intuitive drag-and-drop project management platform.
-					</p>
-
-					<div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-						<Link
-							href="/dashboard"
-							className="inline-flex items-center px-8 py-4 bg-blue_munsell-500 text-white rounded-lg hover:bg-blue_munsell-600 text-lg font-semibold"
-						>
-							Start Managing Projects
-							<ArrowRight className="ml-2" size={20} />
-						</Link>
-						<Link
-							href="/projects"
-							className="inline-flex items-center px-8 py-4 border-2 border-blue_munsell-500 text-blue_munsell-500 rounded-lg hover:bg-blue_munsell-50 dark:hover:bg-blue_munsell-900 text-lg font-semibold"
-						>
-							View Projects
-						</Link>
-					</div>
-
-					{/* Feature highlights */}
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
-						<div className="flex items-center justify-center space-x-2 text-outer_space-500 dark:text-platinum-500">
-							<Kanban className="text-blue_munsell-500" size={20} />
-							<span>Drag & Drop Boards</span>
-						</div>
-						<div className="flex items-center justify-center space-x-2 text-outer_space-500 dark:text-platinum-500">
-							<Users className="text-blue_munsell-500" size={20} />
-							<span>Team Collaboration</span>
-						</div>
-						<div className="flex items-center justify-center space-x-2 text-outer_space-500 dark:text-platinum-500">
-							<CheckCircle className="text-blue_munsell-500" size={20} />
-							<span>Task Management</span>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			{/* Navigation Demo Section */}
-			<section className="py-16 px-4 sm:px-6 lg:px-8 bg-white/50 dark:bg-outer_space-400/50">
-				<div className="container mx-auto text-center">
-					<h2 className="text-3xl font-bold text-outer_space-500 dark:text-platinum-500 mb-8">
-						🚀 Navigate the Mock Site
-					</h2>
-					<p className="text-lg text-paynes_gray-500 dark:text-french_gray-500 mb-8">
-						All pages are accessible without authentication for development
-						purposes
-					</p>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
-						<Link
-							href="/dashboard"
-							className="p-4 bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 hover:shadow-lg transition-shadow"
-						>
-							<h3 className="font-semibold text-outer_space-500 dark:text-platinum-500 mb-2">
-								Dashboard
-							</h3>
-							<p className="text-sm text-paynes_gray-500 dark:text-french_gray-400">
-								Main dashboard view
-							</p>
-						</Link>
-
-						<Link
-							href="/projects"
-							className="p-4 bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 hover:shadow-lg transition-shadow"
-						>
-							<h3 className="font-semibold text-outer_space-500 dark:text-platinum-500 mb-2">
-								Projects
-							</h3>
-							<p className="text-sm text-paynes_gray-500 dark:text-french_gray-400">
-								Projects listing page
-							</p>
-						</Link>
-
-						<Link
-							href="/projects/1"
-							className="p-4 bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 hover:shadow-lg transition-shadow"
-						>
-							<h3 className="font-semibold text-outer_space-500 dark:text-platinum-500 mb-2">
-								Kanban Board
-							</h3>
-							<p className="text-sm text-paynes_gray-500 dark:text-french_gray-400">
-								Project board view
-							</p>
-						</Link>
-
-						<Link
-							href="/sign-in"
-							className="p-4 bg-white dark:bg-outer_space-500 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400 hover:shadow-lg transition-shadow"
-						>
-							<h3 className="font-semibold text-outer_space-500 dark:text-platinum-500 mb-2">
-								Auth Pages
-							</h3>
-							<p className="text-sm text-paynes_gray-500 dark:text-french_gray-400">
-								Sign in/up placeholders
-							</p>
-						</Link>
-					</div>
-				</div>
-			</section>
-
-			{/* Task Implementation Status */}
-			<section className="py-16 px-4 sm:px-6 lg:px-8">
-				<div className="container mx-auto">
-					<h2 className="text-3xl font-bold text-center text-outer_space-500 dark:text-platinum-500 mb-12">
-						Implementation Roadmap
-					</h2>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-						{[
-							{
-								phase: "1.0",
-								title: "Project Setup",
-								status: "pending",
-								tasks: 6,
-							},
-							{
-								phase: "2.0",
-								title: "Authentication",
-								status: "pending",
-								tasks: 6,
-							},
-							{
-								phase: "3.0",
-								title: "Database Setup",
-								status: "pending",
-								tasks: 6,
-							},
-							{
-								phase: "4.0",
-								title: "Core Features",
-								status: "pending",
-								tasks: 6,
-							},
-							{
-								phase: "5.0",
-								title: "Kanban Board",
-								status: "pending",
-								tasks: 6,
-							},
-							{
-								phase: "6.0",
-								title: "Advanced Features",
-								status: "pending",
-								tasks: 6,
-							},
-							{ phase: "7.0", title: "Testing", status: "pending", tasks: 6 },
-							{
-								phase: "8.0",
-								title: "Deployment",
-								status: "pending",
-								tasks: 6,
-							},
-						].map((item) => (
-							<div
-								key={item.phase}
-								className="bg-white dark:bg-outer_space-500 p-6 rounded-lg border border-french_gray-300 dark:border-paynes_gray-400"
-							>
-								<div className="text-sm text-blue_munsell-500 font-semibold mb-2">
-									Phase {item.phase}
-								</div>
-								<h3 className="font-semibold text-outer_space-500 dark:text-platinum-500 mb-2">
-									{item.title}
-								</h3>
-								<div className="text-sm text-paynes_gray-500 dark:text-french_gray-400 mb-3">
-									{item.tasks} tasks
-								</div>
-								<div className="flex items-center">
-									<div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
-									<span className="text-sm text-paynes_gray-500 dark:text-french_gray-400 capitalize">
-										{item.status}
-									</span>
-								</div>
-							</div>
-						))}
-					</div>
-				</div>
-			</section>
+			<Footer />
 		</div>
 	);
 }

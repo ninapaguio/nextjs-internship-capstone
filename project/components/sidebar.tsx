@@ -67,10 +67,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 										href={item.href}
 										aria-current={active ? "page" : undefined}
 										onClick={handleNavigation}
-										className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium leading-none transition-colors ${
+										className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium leading-none transition-all duration-200 ${
 											active
-												? "bg-sidebar-accent text-sidebar-accent-foreground"
-												: "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+												? "bg-sidebar-accent text-sidebar-accent-foreground shadow-2xs font-semibold"
+												: "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:scale-[1.03]"
 										}`}
 									>
 										<Icon className="size-5" strokeWidth={1.8} />

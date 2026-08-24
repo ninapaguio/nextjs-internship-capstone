@@ -1,73 +1,64 @@
 "use client";
 
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-export function Header() {
+// Gives landing-page visitors navigation that matches their current Clerk session.
+export function LandingHeader() {
 	return (
-		<header className="border-b border-french_gray-300 dark:border-paynes_gray-400 bg-white/80 dark:bg-outer_space-500/80 backdrop-blur-sm">
-			<div className="container mx-auto px-4 sm:px-6 lg:px-8">
-				<div className="flex justify-between items-center h-16">
-					<div className="flex items-center">
-						<Link href="/" className="text-2xl font-bold text-blue_munsell-500">
-							TaskFlow
-						</Link>
-					</div>
+		<header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-xl transition-all">
+			<div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:h-16 sm:px-6 lg:px-8">
+				<Link
+					href="/"
+					className="group flex items-center gap-2 transition-transform duration-200 hover:opacity-90 sm:gap-2.5"
+					aria-label="EverFlow home"
+				>
+					<Image
+						src="/ef-logo.png"
+						alt="EverFlow Logo"
+						width={36}
+						height={36}
+						className="size-8 object-contain transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3 sm:size-10"
+						priority
+					/>
+					<span className="text-lg font-black tracking-tight transition-colors group-hover:text-brand-primary sm:text-xl">
+						EverFlow
+					</span>
+				</Link>
 
-					<nav className="hidden md:flex space-x-8">
+				<nav
+					className="flex items-center gap-1.5 sm:gap-2"
+					aria-label="Primary navigation"
+				>
+					<ThemeToggle className="bg-transparent shadow-none hover:bg-muted" />
+					<Show when="signed-out">
 						<Link
-							href="#features"
-							className="text-outer_space-500 dark:text-platinum-500 hover:text-blue_munsell-500 transition-colors"
+							href="/sign-in"
+							className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground sm:text-sm"
 						>
-							Features
+							Sign in
 						</Link>
 						<Link
-							href="#pricing"
-							className="text-outer_space-500 dark:text-platinum-500 hover:text-blue_munsell-500 transition-colors"
+							href="/sign-up"
+							className="group inline-flex items-center gap-1.5 rounded-xl bg-foreground px-3 py-1.5 text-xs font-semibold text-background shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-foreground/90 hover:shadow-md sm:px-4 sm:py-2 sm:text-sm"
 						>
-							Pricing
+							<span>Get started</span>
+							<ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5 sm:size-4" />
 						</Link>
+					</Show>
+					<Show when="signed-in">
 						<Link
-							href="#about"
-							className="text-outer_space-500 dark:text-platinum-500 hover:text-blue_munsell-500 transition-colors"
+							href="/dashboard"
+							className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground sm:text-sm"
 						>
-							About
+							Dashboard
 						</Link>
-					</nav>
-
-					<div className="flex items-center space-x-4">
-						<ThemeToggle />
-
-						<Show when="signed-out">
-							<SignInButton mode="redirect">
-								<button
-									type="button"
-									className="text-outer_space-500 transition-colors hover:text-blue_munsell-500 dark:text-platinum-500"
-								>
-									Sign in
-								</button>
-							</SignInButton>
-							<SignUpButton mode="redirect">
-								<button
-									type="button"
-									className="rounded-lg bg-blue_munsell-500 px-4 py-2 text-white transition-colors hover:bg-blue_munsell-600"
-								>
-									Get started
-								</button>
-							</SignUpButton>
-						</Show>
-						<Show when="signed-in">
-							<Link
-								href="/dashboard"
-								className="text-outer_space-500 transition-colors hover:text-blue_munsell-500 dark:text-platinum-500"
-							>
-								Dashboard
-							</Link>
-							<UserButton />
-						</Show>
-					</div>
-				</div>
+						<UserButton />
+					</Show>
+				</nav>
 			</div>
 		</header>
 	);

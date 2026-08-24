@@ -60,7 +60,7 @@ export default async function ProjectsPage({
 	if (!applicationUser) {
 		return (
 			<section className="mx-auto max-w-7xl py-8">
-				<div className="rounded-4xl border bg-card p-8 text-center">
+				<div className="rounded-2xl sm:rounded-4xl border bg-card p-6 sm:p-8 text-center">
 					<h1 className="text-xl font-semibold">
 						We couldn't load your workspace
 					</h1>
@@ -86,20 +86,23 @@ export default async function ProjectsPage({
 	}));
 
 	return (
-		<section className="flex min-h-[calc(100dvh-5rem)] flex-col">
+		<section className="flex min-h-[calc(100dvh-5rem)] flex-col px-1 sm:px-0">
 			<header className="flex min-h-14 flex-col justify-center gap-3 border-b py-3 sm:flex-row sm:items-center sm:justify-between">
 				<TooltipTrigger delay={400}>
-					<h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+					<h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
 						Projects
 					</h1>
 					<Tooltip placement="bottom start">Back to dashboard</Tooltip>
 				</TooltipTrigger>
 
-				<div className="flex items-center gap-2.5">
-					<form action="/projects">
-						<InputGroup className="h-8.5 w-48 bg-card border-border shadow-2xs sm:w-56">
+				<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+					<form action="/projects" className="w-full sm:w-auto">
+						<InputGroup className="h-9 w-full sm:w-56 bg-card border-border shadow-2xs">
 							<InputGroupAddon>
-								<Search aria-hidden="true" className="text-muted-foreground" />
+								<Search
+									aria-hidden="true"
+									className="text-muted-foreground size-4"
+								/>
 							</InputGroupAddon>
 							<InputGroupInput
 								name="search"
@@ -109,11 +112,13 @@ export default async function ProjectsPage({
 							/>
 						</InputGroup>
 					</form>
-					<CreateProjectModal />
+					<div className="w-full sm:w-auto">
+						<CreateProjectModal />
+					</div>
 				</div>
 			</header>
 
-			<div className="flex-1 py-5">
+			<div className="flex-1 py-4 sm:py-5">
 				<ProjectGrid
 					applicationUserId={applicationUser.id}
 					initialData={{
@@ -129,11 +134,14 @@ export default async function ProjectsPage({
 				/>
 			</div>
 
-			<footer className="flex items-center justify-between gap-4 border-t pt-3">
-				<p className="text-xs text-muted-foreground">
+			<footer className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-3 pb-2">
+				<p className="text-xs text-muted-foreground order-2 sm:order-1">
 					{totalProjects} {totalProjects === 1 ? "Project" : "Projects"}
 				</p>
-				<Pagination aria-label="Projects pagination" className="mx-0 w-auto">
+				<Pagination
+					aria-label="Projects pagination"
+					className="mx-0 w-full sm:w-auto flex justify-center order-1 sm:order-2"
+				>
 					<PaginationContent className="gap-0 overflow-hidden rounded-lg border bg-background shadow-xs">
 						<PaginationItem>
 							<PaginationPrevious

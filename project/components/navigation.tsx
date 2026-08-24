@@ -1,6 +1,7 @@
 "use client";
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { NotificationPanel } from "@/components/notification-panel";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,15 @@ export function Header({
 					}`}
 			>
 				<Link href="/dashboard" className="flex min-w-0 flex-1 items-center">
-					<span className="flex w-18 shrink-0 items-center justify-center text-xl font-bold tracking-tight">
-						EF
+					<span className="flex w-18 shrink-0 items-center justify-center">
+						<Image
+							src="/ef-logo.png"
+							alt=""
+							width={40}
+							height={40}
+							className="size-10 object-contain"
+							priority
+						/>
 					</span>
 					<span className="truncate text-lg font-semibold tracking-tight">
 						EverFlow
