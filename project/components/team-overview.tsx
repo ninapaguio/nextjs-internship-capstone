@@ -77,6 +77,7 @@ export function TeamOverview({ teams }: TeamOverviewProps) {
 						<Search aria-hidden="true" className="text-muted-foreground" />
 					</InputGroupAddon>
 					<InputGroupInput
+						id="team-search"
 						value={search}
 						onChange={(event) => setSearch(event.target.value)}
 						placeholder="Search teams…"

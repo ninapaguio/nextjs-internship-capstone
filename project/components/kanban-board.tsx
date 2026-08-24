@@ -538,6 +538,7 @@ export function KanbanBoard({
 						<Search aria-hidden="true" className="text-muted-foreground" />
 					</InputGroupAddon>
 					<InputGroupInput
+						id="task-search"
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
 						placeholder="Search tasks…"
@@ -580,6 +581,8 @@ export function KanbanBoard({
 									Priority
 								</p>
 								<Select
+									id="task-priority-filter"
+									name="taskPriorityFilter"
 									aria-label="Filter by priority"
 									value={priorityFilter}
 									onChange={(value) =>
@@ -602,6 +605,8 @@ export function KanbanBoard({
 									Assignee
 								</p>
 								<Select
+									id="task-assignee-filter"
+									name="taskAssigneeFilter"
 									aria-label="Filter by assignee"
 									value={assigneeFilter}
 									onChange={(value) => setAssigneeFilter(String(value))}
@@ -625,6 +630,8 @@ export function KanbanBoard({
 									Label
 								</p>
 								<Select
+									id="task-label-filter"
+									name="taskLabelFilter"
 									aria-label="Filter by label"
 									value={labelFilter}
 									onChange={(value) => setLabelFilter(String(value))}
@@ -648,6 +655,8 @@ export function KanbanBoard({
 									Due date
 								</p>
 								<Select
+									id="task-due-date-filter"
+									name="taskDueDateFilter"
 									aria-label="Filter by due date"
 									value={dueDateFilter}
 									onChange={(value) => setDueDateFilter(String(value))}
@@ -669,6 +678,8 @@ export function KanbanBoard({
 									Status
 								</p>
 								<Select
+									id="task-status-filter"
+									name="taskStatusFilter"
 									aria-label="Filter by task status"
 									value={statusFilter}
 									onChange={(value) =>
