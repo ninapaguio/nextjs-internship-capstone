@@ -52,6 +52,13 @@ export type {
 	UpcomingDeadlineItem,
 } from "./calendar";
 export type {
+	DashboardActivityItem,
+	DashboardData,
+	DashboardProjectItem,
+	DashboardSummaryMetrics,
+	DashboardTaskItem,
+} from "./dashboard";
+export type {
 	Comment,
 	Label,
 	List,

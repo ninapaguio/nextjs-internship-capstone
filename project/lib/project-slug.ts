@@ -50,6 +50,15 @@ export function createProjectHref(projectId: string, title: string) {
 	return `/projects/${createProjectCompositeSlug(projectId, title)}`;
 }
 
+// Creates the client-ready route for a specific task inside a project board.
+export function createProjectTaskHref(
+	projectId: string,
+	title: string,
+	taskId: string,
+) {
+	return `/projects/${createProjectCompositeSlug(projectId, title)}?task=${taskId}`;
+}
+
 // Extracts the UUID while keeping previous full-UUID project links valid.
 export function extractProjectIdFromSlug(compositeSlug: string) {
 	const legacyProjectId = compositeSlug.slice(0, 36);
