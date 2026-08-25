@@ -169,12 +169,20 @@ export function TaskLabelSelect({
 							<SelectItem
 								key={label.id}
 								id={label.id}
+								textValue={label.name}
 								isDisabled={
 									value.length >= MAXIMUM_TASK_LABELS &&
 									!value.includes(label.id)
 								}
 							>
-								{label.name}
+								<div className="flex items-center gap-2">
+									<span
+										className="size-2 rounded-full shrink-0"
+										style={{ backgroundColor: label.color }}
+										aria-hidden="true"
+									/>
+									<span>{label.name}</span>
+								</div>
 							</SelectItem>
 						))}
 					</SelectContent>

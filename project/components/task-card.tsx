@@ -40,45 +40,6 @@ interface TaskCardProps {
 	onOpen: (taskId: string) => void;
 }
 
-// TODO: Task 5.6 - Create task detail modals and editing interfaces
-
-/*
-TODO: Implementation Notes for Interns:
-
-This component should display:
-- Task title and description
-- Priority indicator
-- Assignee avatar
-- Due date
-- Labels/tags
-- Comments count
-- Drag handle for reordering
-
-Props interface:
-interface TaskCardProps {
-  task: {
-    id: string
-    title: string
-    description?: string
-    priority: 'low' | 'medium' | 'high'
-    assignee?: User
-    dueDate?: Date
-    labels: string[]
-    commentsCount: number
-  }
-  isDragging?: boolean
-  onEdit?: (id: string) => void
-  onDelete?: (id: string) => void
-}
-
-Features to implement:
-- Drag and drop support
-- Click to open task modal
-- Priority color coding
-- Overdue indicators
-- Responsive design
-*/
-
 const priorityStyles: Record<BoardTask["priority"]["key"], string> = {
 	low: "priority-badge-low",
 	medium: "priority-badge-medium",
@@ -170,12 +131,12 @@ function TaskCardComponent({
 			className={cn(
 				"relative isolate flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card p-3.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-primary/50 hover:shadow-md dark:hover:border-brand-cyan/40",
 				overdue &&
-					"border-rose-300 bg-rose-50/60 shadow-rose-100 dark:border-rose-900 dark:bg-rose-950/20 dark:shadow-none",
+				"border-rose-300 bg-rose-50/60 shadow-rose-100 dark:border-rose-900 dark:bg-rose-950/20 dark:shadow-none",
 				isGroupDragging && "scale-[0.98] opacity-35 shadow-none",
 				isDragSource && "opacity-25",
 				isDropTarget && "ring-2 ring-brand-cyan/60 ring-offset-2",
 				isSelected &&
-					"ring-2 ring-brand-primary dark:ring-brand-cyan ring-inset",
+				"ring-2 ring-brand-primary dark:ring-brand-cyan ring-inset",
 			)}
 		>
 			<Button
@@ -310,7 +271,7 @@ function TaskCardComponent({
 						{task.labels.slice(0, 3).map((label) => (
 							<Badge
 								key={label.id}
-								variant="secondary"
+								style={{ backgroundColor: label.color }}
 								className="max-w-full text-[10px] border-border/50"
 							>
 								<span className="truncate">{label.name}</span>

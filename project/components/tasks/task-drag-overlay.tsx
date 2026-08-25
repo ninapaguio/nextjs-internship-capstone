@@ -82,7 +82,19 @@ export function TaskDragOverlay({ tasks }: TaskDragOverlayProps) {
 				{task.labels.length > 0 ? (
 					<div className="mt-3 flex flex-wrap gap-1">
 						{task.labels.slice(0, 3).map((label) => (
-							<Badge key={label.id} variant="secondary" className="max-w-full">
+							<Badge
+								key={label.id}
+								style={{
+									backgroundColor: `${label.color}15`,
+									borderColor: `${label.color}35`,
+								}}
+								className="max-w-full text-[10px] gap-1.5 font-medium"
+							>
+								<span
+									className="size-1.5 rounded-full shrink-0"
+									style={{ backgroundColor: label.color }}
+									aria-hidden="true"
+								/>
 								<span className="truncate">{label.name}</span>
 							</Badge>
 						))}
