@@ -116,7 +116,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 								className={cn(
 									"h-5 px-2 text-[10px] font-medium border-border/50 capitalize",
 									project.status === "completed" &&
-										"bg-brand_teal-500 text-white dark:bg-brand_mint-500 dark:text-brand_navy-950 font-semibold",
+									"bg-brand_teal-500 text-white dark:bg-brand_mint-500 dark:text-brand_navy-950 font-semibold",
 								)}
 							>
 								{statusLabels[project.status]}
@@ -167,12 +167,3 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 		</div>
 	);
 }
-
-/*
-Features to implement:
-- Hover effects
-- Click to navigate to project board
-- Responsive design
-- Loading states
-- Error states
-*/

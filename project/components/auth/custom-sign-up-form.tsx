@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { getClerkErrorMessage } from "@/components/auth/clerk-error-message";
+import { getClerkErrorMessage } from "@/lib/clerk-error-message";
 import { buildAuthRoute, getSafeAuthRedirect } from "@/lib/auth/auth-redirect";
 
 interface CustomSignUpFormProps {

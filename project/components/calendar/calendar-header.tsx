@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { CreateCalendarTaskModal } from "@/components/calendar/create-calendar-task-modal";
+import { CreateCalendarTaskModal } from "@/components/modals/create-calendar-task-modal";
 import { Button } from "@/components/ui/button";
 import { formatMonthYear, formatWeekRange, getWeekDays } from "@/lib/calendar";
 import { cn } from "@/lib/utils";

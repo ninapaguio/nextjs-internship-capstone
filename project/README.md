@@ -19,17 +19,21 @@ EverFlow is a collaborative project-management application built with Next.js. I
 
 Project membership is the authorization source. Clerk authenticates the user, while the local `project_members` record determines what the user can do.
 
-| Capability | Owner | Manager | Member |
-|---|:---:|:---:|:---:|
-| View accessible projects | Yes | Yes | Yes |
-| Edit tasks in an active project | Yes | Yes | Yes |
-| Edit tasks in an inactive project | Yes | Yes | No |
-| Manage board columns | Yes | Yes | No |
-| Edit project details and status | Yes | Yes | No |
-| Manage ordinary members | Yes | Yes | No |
-| Promote or demote managers | Yes | No | No |
-| Archive or delete a project | Yes | No | No |
-| Edit a completed project board | No | No | No |
+  | Operation | Owner | Manager | Member |
+  |---|:---:|:---:|:---:|
+  | View active accessible project/team | Yes | Yes | Yes |
+  | Edit planned tasks | Yes | Yes | No |
+  | Edit active tasks/comments/labels | Yes | Yes | Yes |
+  | Edit completed board | No | No | No |
+  | Manage columns | Yes | Yes | No |
+  | Edit project details/status | Yes | Yes | No |
+  | Archive/delete project | Yes | No | No |
+  | Invite/cancel invitations | Yes | Yes | No |
+  | Manage/assign descriptive team roles | Yes | Yes | No |
+  | Promote/demote managers | Yes | No | No |
+  | Remove regular member | Yes | Yes | No |
+  | Remove manager | Yes | No | No |
+  | Remove owner | No | No | No |
 
 Authorization is checked by Server Actions and authenticated route handlers. Client state is never treated as permission evidence.
 
@@ -69,7 +73,8 @@ project/
 │   ├── projects/               # Project interface
 │   ├── settings/               # Settings interface
 │   ├── tasks/                  # Task interface
-│   └── ui/                     # Shared UI primitives
+│   ├── ui/                     # Shared UI primitives
+│   └── *others                 #     
 ├── drizzle/
 │   └── meta/                   # Migration snapshots and journal
 ├── e2e/                        # Playwright tests and Clerk setup
@@ -90,13 +95,15 @@ The tree intentionally focuses on parent folders and their immediate subfolders.
 
 - Node.js 20.9 or newer
 - pnpm 10.10.0
-- A Clerk development application
-- A Neon or PostgreSQL database
-- A Pusher Channels application for real-time synchronization
+- A Clerk development application - authentication, session and user synchronization
+- A Neon - for database
+- A Pusher Channels application - for real-time synchronization and notifications
 
 ## Local setup
 
 Run these commands from the `project/` directory.
+
+After the setup the Prerequisites to their respective dashboards
 
 1. Install dependencies:
 
@@ -137,16 +144,13 @@ Run these commands from the `project/` directory.
    PUSHER_CLUSTER=...
    ```
 
-4. Apply the committed database migrations:
+4. Delete the drizzle folder ( It will be generated again once you run 'pnpm drizzle-kit generate')
+
+5. Apply the committed database migrations:
 
    ```bash
-   pnpm exec drizzle-kit migrate
-   ```
-
-5. Seed the priority reference data:
-
-   ```bash
-   pnpm exec tsx scripts/seed.ts
+   pnpm drizzle-kit generate
+   pnpm drizzle-kit migrate
    ```
 
 6. Start the application:
@@ -194,14 +198,7 @@ Revalidation, cache refresh, or optimistic reconciliation
 
 Neon is authoritative. React Query and Zustand provide cached or optimistic UI state only. An optimistic board change is committed after the Server Action succeeds and rolled back when it fails.
 
-## The main table groups are:
-
-- Identity: `users`, `webhook_events`
-- Projects and access: `projects`, `project_members`, `project_invitations`
-- Generated teams: `teams`, `team_roles`
-- Kanban work: `lists`, `tasks`, `priority_options`, `labels`
-- Task relationships: `task_assignees`, `task_labels`, `task_dependencies`
-- Collaboration: `comments`, `task_activities`, `notifications`
+### For other information and Data management read /docs/CODEBASE.md
 
 ## Deployment Link
 everflow-workspace.vercel.app

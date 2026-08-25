@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
-import { TeamOverview } from "@/components/team-overview";
+import { TeamOverview } from "@/components/team/team-overview";
 import { ensureApplicationUser } from "@/lib/auth/ensure-application-user";
 import { getTeamListForUser } from "@/lib/db/queries/teams";
 

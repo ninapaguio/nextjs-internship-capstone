@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarHeader } from "@/components/calendar/calendar-header";
 import { MonthView } from "@/components/calendar/month-view";
-import { DEADLINE_TYPE_CONFIG } from "@/components/calendar/task-styles";
+import { DEADLINE_TYPE_CONFIG } from "@/lib/task-styles";
 import { WeekView } from "@/components/calendar/week-view";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -155,7 +155,7 @@ export function CalendarViewComponent({
 					containerClassName={cn(
 						"rounded-xl border border-border",
 						calendarData.upcomingDeadlines.length > 10 &&
-							"max-h-130 scrollbar-thin",
+						"max-h-130 scrollbar-thin",
 					)}
 				>
 					<TableHeader>
@@ -207,7 +207,7 @@ export function CalendarViewComponent({
 											className={cn(
 												"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold tracking-wide capitalize shrink-0",
 												DEADLINE_TYPE_CONFIG[deadline.type]?.className ??
-													"bg-muted text-muted-foreground",
+												"bg-muted text-muted-foreground",
 											)}
 										>
 											{DEADLINE_TYPE_CONFIG[deadline.type]?.label ??

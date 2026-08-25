@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import {
 	getTaskColorClass,
 	PRIORITY_BADGES,
-} from "@/components/calendar/task-styles";
+} from "@/lib/task-styles";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -122,7 +122,7 @@ export function MonthView({
 																	"block truncate rounded px-1.5 py-0.5 text-[10px] sm:text-xs font-medium leading-tight shadow-2xs transition-opacity hover:opacity-90",
 																	colorClass,
 																	task.id === highlightedTaskId &&
-																		"ring-2 ring-brand_teal-500 ring-offset-1",
+																	"ring-2 ring-brand_teal-500 ring-offset-1",
 																	task.isCompleted && "line-through opacity-70",
 																)}
 																title={
@@ -193,7 +193,7 @@ export function MonthView({
 																			"rounded-lg border border-border/80 p-2.5 shadow-2xs transition-all hover:shadow-xs",
 																			colorClass,
 																			task.isCompleted &&
-																				"opacity-70 line-through",
+																			"opacity-70 line-through",
 																		)}
 																	>
 																		<div className="flex items-center justify-between gap-2">
