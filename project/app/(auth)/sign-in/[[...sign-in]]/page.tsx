@@ -1,7 +1,9 @@
 import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AuthHero } from "@/components/auth/auth-hero";
 import { CustomSignInForm } from "@/components/auth/custom-sign-in-form";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -42,6 +44,11 @@ export default async function SignInPage({
 				<AuthenticateWithRedirectCallback />
 			</main>
 		);
+	}
+
+	const { userId } = await auth();
+	if (userId) {
+		redirect(redirectUrl && redirectUrl.startsWith("/") ? redirectUrl : "/dashboard");
 	}
 
 	return (
