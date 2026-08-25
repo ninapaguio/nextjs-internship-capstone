@@ -33,7 +33,7 @@ const PROJECT_INVITATION_EXPIRY_DAYS = 7;
 
 // Creates URL for the invitee to join the Project after signing in or signing up with Clerk.
 function projectInvitationRedirectUrl(invitationId: string) {
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+	const appUrl = process.env.NEXT_CONFIG_APP_URL;
 	if (!appUrl) return null;
 
 	try {
@@ -107,7 +107,7 @@ export async function inviteProjectMember(
 		await revokeProjectInvitation(invitation.id);
 		return {
 			status: "error",
-			message: "Configure NEXT_PUBLIC_APP_URL before sending invitations.",
+			message: "Configure NEXT_CONFIG_APP_URL before sending invitations.",
 		};
 	}
 
