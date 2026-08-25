@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
 	getTaskColorClass,
 	PRIORITY_BADGES,
-} from "@/components/calendar/task-styles";
+} from "@/lib/task-styles";
 import {
 	DAYS_OF_WEEK,
 	formatDateKey,
@@ -100,7 +100,7 @@ export function WeekView({
 														"group relative rounded-lg border border-border/80 p-2.5 shadow-2xs transition-all hover:shadow-xs hover:border-foreground/20",
 														colorClass,
 														task.id === highlightedTaskId &&
-															"ring-2 ring-brand_teal-500 ring-offset-1",
+														"ring-2 ring-brand_teal-500 ring-offset-1",
 														task.isCompleted && "opacity-60",
 													)}
 												>
