@@ -202,3 +202,6 @@ Neon is authoritative. React Query and Zustand provide cached or optimistic UI s
 - Kanban work: `lists`, `tasks`, `priority_options`, `labels`
 - Task relationships: `task_assignees`, `task_labels`, `task_dependencies`
 - Collaboration: `comments`, `task_activities`, `notifications`
+
+## Deployment Link
+everflow-workspace.vercel.app
