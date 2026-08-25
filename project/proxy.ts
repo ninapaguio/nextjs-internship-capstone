@@ -1,6 +1,6 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+const appUrl = process.env.NEXT_CONFIG_APP_URL;
 
 export default clerkMiddleware({
 	authorizedParties: appUrl ? [appUrl] : undefined,
