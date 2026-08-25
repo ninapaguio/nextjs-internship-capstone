@@ -147,7 +147,12 @@ async function addProjectMember(
 					.select({
 						projectId: projects.id,
 						userId: sql<string>`${userId}`.as("user_id"),
+						accessRole: sql<"member">`'member'`.as("access_role"),
+						assignedRoleId:
+							sql<string | null>`null::uuid`.as("assigned_role_id"),
 						addedById: sql<string>`${addedById}`.as("added_by_id"),
+						createdAt: sql<Date>`now()`.as("created_at"),
+						updatedAt: sql<Date>`now()`.as("updated_at"),
 					})
 					.from(projects)
 					.where(
@@ -169,7 +174,21 @@ async function addProjectMember(
 			.insert(teams)
 			.select(
 				db
-					.select({ projectId: projects.id })
+					.select({
+						id: sql<string>`gen_random_uuid()`.as("id"),
+						projectId: projects.id,
+						status: sql<"active">`'active'`.as("status"),
+						createdAt: sql<Date>`now()`.as("created_at"),
+						updatedAt: sql<Date>`now()`.as("updated_at"),
+						archivedAt:
+							sql<Date | null>`null::timestamp with time zone`.as(
+								"archived_at",
+							),
+						deletedAt:
+							sql<Date | null>`null::timestamp with time zone`.as(
+								"deleted_at",
+							),
+					})
 					.from(projects)
 					.where(
 						and(
